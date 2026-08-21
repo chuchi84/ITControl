@@ -5,7 +5,7 @@
 // - Recursos estáticos (íconos, librerías CDN) → CACHE-FIRST: son inmutables,
 //   ahorra red y funciona offline.
 // - Nunca cachea Google Apps Script ni Google OAuth (respuestas dinámicas).
-const CACHE = 'itcontrol-v37';
+const CACHE = 'itcontrol-v51';
 const ASSETS_PRECARGA = [
   '/ITControl/',
   '/ITControl/index.html',
@@ -14,6 +14,7 @@ const ASSETS_PRECARGA = [
   '/ITControl/icon-512.png',
   '/ITControl/apple-touch-icon.png',
   'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js',
 ];
 
 self.addEventListener('install', e => {

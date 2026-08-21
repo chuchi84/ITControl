@@ -7,7 +7,8 @@
 
 <!-- PWA / Instalable -->
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0f1117">
+<meta name="theme-color" content="#0f1117" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
@@ -15,9 +16,13 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="ITControl">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<!-- Sortable.js: drag&drop con soporte táctil nativo (móvil/tablet).
+     El API HTML5 draggable no funciona con dedo, esta librería sí. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 :root {
+  /* ═══ DARK MODE (default) ═══ */
   --bg:#0f1117; --s1:#171b26; --s2:#1e2333; --s3:#252b3b; --s4:#2d3448;
   --border:#2a3042; --border2:#3a4258;
   --accent:#4f8ef7; --accent2:#3d7ae8; --accent-dim:rgba(79,142,247,.12);
@@ -30,6 +35,24 @@
   --font:'DM Sans',sans-serif; --mono:'DM Mono',monospace;
   --shadow:0 4px 24px rgba(0,0,0,.4);
 }
+/* ═══ LIGHT MODE — se activa si el sistema del usuario está en modo claro ═══
+   Todo el diseño se mantiene igual. Solo cambiamos las variables de color.
+   La app funciona en cualquiera de los dos sin cambios en el HTML. */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg:#f8fafc; --s1:#ffffff; --s2:#f1f5f9; --s3:#e2e8f0; --s4:#cbd5e1;
+    --border:#e2e8f0; --border2:#cbd5e1;
+    --accent:#3b82f6; --accent2:#2563eb; --accent-dim:rgba(59,130,246,.08);
+    --green:#059669; --green-dim:rgba(5,150,105,.08);
+    --yellow:#d97706; --yellow-dim:rgba(217,119,6,.08);
+    --red:#dc2626; --red-dim:rgba(220,38,38,.08);
+    --orange:#ea580c; --purple:#7c3aed; --purple-dim:rgba(124,58,237,.08);
+    --text:#0f172a; --text2:#475569; --text3:#94a3b8;
+    --shadow:0 2px 12px rgba(0,0,0,.08);
+  }
+}
+/* Aliases que usa el código (t/t2/t3 = text/text2/text3) */
+:root { --t:var(--text); --t2:var(--text2); --t3:var(--text3); --adim:var(--accent-dim); }
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex;overflow:hidden;font-size:14px;line-height:1.5}
 
@@ -283,51 +306,133 @@ select option{background:var(--s2)}
 .content{padding-left:calc(20px + env(safe-area-inset-left));padding-right:calc(20px + env(safe-area-inset-right));padding-bottom:calc(20px + env(safe-area-inset-bottom))}
 
 /* ══ TABLET (≤900px): grillas más compactas ══ */
-@media(max-width:900px){
-  .g4{grid-template-columns:1fr 1fr}
-  .kanban{grid-template-columns:1fr 1fr}
+/* ══════════════════════════════════════════════════════════════
+   VISTAS POR ROL — controladas con clase en <body>
+   • body.rol-basico → oculta menú lateral (solo dashboard + QR)
+   ══════════════════════════════════════════════════════════════ */
+body.rol-basico .sb .nav-item:not([data-m="dashboard"]) { display: none; }
+body.rol-basico .sb .nav-sec { display: none; }
+body.rol-basico #addBtn { display: none !important; }
+body.rol-basico #expBtns { display: none !important; }
+/* En rol básico el dashboard es solo un mensaje de bienvenida — sin dashboard financiero */
+body.rol-basico .fin-card { display: none; }
+
+/* ══════════════════════════════════════════════════════════════
+   RESPONSIVIDAD — 3 dispositivos claros
+   • PC/desktop     (≥1200px)  → layout completo (default arriba)
+   • Tablet 11"     (900-1199) → mismo layout, todo más grande y táctil
+   • Tablet chica   (768-899)  → sidebar cerrada por hamburguesa, tamaños tablet
+   • Celular        (≤767)     → un solo columna, tarjetas, bottom sheets
+   ══════════════════════════════════════════════════════════════ */
+
+/* ═══ TABLET 11" (Lenovo Tab, iPad-like): sidebar visible, todo más grande ═══ */
+@media(min-width:900px) and (max-width:1199px){
+  /* Fuentes base más grandes para lectura cómoda a 30-40cm de distancia */
+  html { font-size: 15.5px; }
+  .page-title { font-size: 17px; }
+  /* Botones táctiles: mínimo 44px de alto (Apple/Google HIG) */
+  .btn { padding: 11px 18px; font-size: 13.5px; min-height: 42px; }
+  .btn-sm { padding: 9px 14px; font-size: 12.5px; min-height: 38px; }
+  .btn-xs { padding: 6px 10px; font-size: 11.5px; min-height: 32px; }
+  .btn-icon { width: 40px; height: 40px; }
+  /* Nav más cómodo al dedo */
+  .nav-item { padding: 13px 14px; font-size: 13.5px; }
+  .nav-icon { font-size: 16px; }
+  /* Inputs y selects grandes */
+  input, select, textarea { font-size: 14.5px; padding: 10px 12px; min-height: 42px; }
+  /* Cards con más aire para no verse apretadas */
+  .card { padding: 18px; }
+  /* Tablas: filas más altas */
+  table th, table td { padding: 11px 12px; font-size: 13px; }
+  /* Kanban con 3 columnas todavía cabe cómodo */
+  .kanban, .ta-kanban, .sop-kanban { gap: 14px; }
+  /* Grid financiero: 2×2 para más aire */
+  .g4 { grid-template-columns: 1fr 1fr; }
 }
 
-/* ══ MÓVIL (≤768px) ══ */
+/* ═══ TABLET CHICA / desktop reducido (768-899px) ═══ */
+@media(min-width:768px) and (max-width:899px){
+  html { font-size: 15px; }
+  .g4 { grid-template-columns: 1fr 1fr; }
+  .kanban, .ta-kanban, .sop-kanban { grid-template-columns: 1fr 1fr; }
+  .btn { min-height: 40px; }
+  .nav-item { padding: 12px 14px; }
+}
+
+/* ═══ MÓVIL (≤768px) — celular en portrait ═══ */
 @media(max-width:768px){
-  .sb{transform:translateX(-100%);width:270px;min-width:270px}
-  .sb.open{transform:none}
-  .main{margin-left:0}
-  .hbg{display:block}
-  .g2,.g3,.g4{grid-template-columns:1fr}
-  .gA{grid-template-columns:1fr 1fr}
-  .content{padding:14px;padding-left:calc(14px + env(safe-area-inset-left));padding-right:calc(14px + env(safe-area-inset-right));padding-bottom:calc(24px + env(safe-area-inset-bottom))}
-  .kanban{grid-template-columns:1fr}
-  .vsw{display:none}
-  .f2,.f3,.f4{grid-template-columns:1fr}
-  /* Barra superior: compacta, sin desbordar */
-  .topbar{padding-left:12px;padding-right:12px;gap:6px}
-  .page-title{font-size:15px}
-  .tb-right{gap:4px}
-  #btnInstalar{font-size:11px;padding:5px 8px}
-  /* Modales tipo hoja inferior: ocupan todo el ancho y suben desde abajo */
-  .mo-ov{padding:0;align-items:flex-end}
-  .mo,.mo.lg,.mo.xl{max-width:100%;width:100%;max-height:92vh;border-radius:var(--r3) var(--r3) 0 0;border-left:none;border-right:none;border-bottom:none;animation:moUp .22s cubic-bezier(.4,0,.2,1)}
-  .mo-head{padding:16px 18px 12px}
-  .mo-body{padding:16px 18px calc(16px + env(safe-area-inset-bottom))}
-  .mo-foot{padding:12px 18px calc(12px + env(safe-area-inset-bottom));position:sticky;bottom:0;background:var(--s1)}
+  html { font-size: 15px; }
+  /* Sidebar cerrada por hamburguesa */
+  .sb { transform: translateX(-100%); width: 280px; min-width: 280px; }
+  .sb.open { transform: none; }
+  .main { margin-left: 0; }
+  .hbg { display: block; }
+  /* Grillas colapsan */
+  .g2, .g3, .g4 { grid-template-columns: 1fr; }
+  .gA { grid-template-columns: 1fr 1fr; }
+  .content {
+    padding: 14px;
+    padding-left: calc(14px + env(safe-area-inset-left));
+    padding-right: calc(14px + env(safe-area-inset-right));
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+  .kanban, .ta-kanban, .sop-kanban { grid-template-columns: 1fr; gap: 10px; }
+  .vsw { display: none; }
+  .f2, .f3, .f4 { grid-template-columns: 1fr; }
+  /* Topbar compacta */
+  .topbar { padding-left: 12px; padding-right: 12px; gap: 6px; }
+  .page-title { font-size: 15px; }
+  .tb-right { gap: 4px; }
+  #btnInstalar { font-size: 11px; padding: 5px 8px; }
+  /* Modales como bottom sheet nativo */
+  .mo-ov { padding: 0; align-items: flex-end; }
+  .mo, .mo.lg, .mo.xl {
+    max-width: 100%; width: 100%; max-height: 92vh;
+    border-radius: var(--r3) var(--r3) 0 0;
+    border-left: none; border-right: none; border-bottom: none;
+    animation: moUp .22s cubic-bezier(.4,0,.2,1);
+  }
+  .mo-head { padding: 16px 18px 12px; }
+  .mo-body { padding: 16px 18px calc(16px + env(safe-area-inset-bottom)); }
+  .mo-foot {
+    padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
+    position: sticky; bottom: 0; background: var(--s1);
+  }
+  /* Grids de 2 columnas dentro del modal (ticket/tarea estilo Jira)
+     colapsan a 1 columna en móvil: primero contenido, luego sidebar debajo */
+  .ticket-detail, .tarea-detail { grid-template-columns: 1fr !important; }
   /* Anti-zoom iOS: inputs a 16px al enfocar */
-  input,select,textarea{font-size:16px;padding:10px 12px}
-  /* Objetivos táctiles más grandes */
-  .nav-item{padding:12px 14px}
-  .btn{padding:9px 14px}
-  .btn-sm{padding:7px 11px}
-  table th,table td{white-space:nowrap}
+  input, select, textarea { font-size: 16px; padding: 12px 14px; min-height: 44px; }
+  /* Objetivos táctiles: 44px mínimo */
+  .nav-item { padding: 13px 16px; font-size: 14px; min-height: 44px; }
+  .btn { padding: 11px 18px; font-size: 14px; min-height: 44px; }
+  .btn-sm { padding: 9px 14px; font-size: 13px; min-height: 40px; }
+  .btn-xs { padding: 7px 12px; font-size: 12px; min-height: 34px; }
+  .btn-icon { width: 44px; height: 44px; }
+  /* Cards más aire */
+  .card { padding: 15px; }
+  /* Tablas: filas altas para dedo */
+  table th, table td { white-space: nowrap; padding: 11px 12px; font-size: 13px; }
+  /* Scroll horizontal más visible cuando hay tabla ancha */
+  .tw { -webkit-overflow-scrolling: touch; }
+  .tw::after {
+    content: '⟶ desliza';
+    position: sticky; right: 0;
+    font-size: 10px; color: var(--t3);
+    padding: 4px 8px; background: var(--s2);
+    border-radius: 0 0 0 8px;
+  }
 }
 
-/* ══ MÓVIL CHICO (≤480px) ══ */
+/* ═══ MÓVIL CHICO (≤480px) ═══ */
 @media(max-width:480px){
-  .gA{grid-template-columns:1fr}
-  .g4{grid-template-columns:1fr}
-  .content{padding:12px;padding-bottom:calc(24px + env(safe-area-inset-bottom))}
-  /* En pantallas muy angostas, ocultar el texto del botón instalar deja solo espacio esencial */
-  .page-title{font-size:14px}
-  .card{padding:14px}
+  .gA { grid-template-columns: 1fr; }
+  .g4 { grid-template-columns: 1fr; }
+  .content { padding: 12px; padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+  .page-title { font-size: 14px; }
+  .card { padding: 14px; }
+  /* En cel pequeño (bajo 380px), badges y texto secundario aún más chico */
+  .badge { font-size: 10px; padding: 2px 6px; }
 }
 @keyframes moUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 
@@ -387,6 +492,19 @@ select option{background:var(--s2)}
       <div class="av">CR</div>
       <div><div class="u-name">Cristobal R.</div><div class="u-role">Super Admin</div></div>
     </div>
+    <div style="display:flex;gap:6px;margin-top:10px">
+      <button onclick="exportarBackup()" title="Descargar respaldo completo en JSON"
+        style="flex:1;padding:8px;font-size:11.5px;font-weight:600;
+        background:transparent;border:1px solid var(--border);color:var(--text);border-radius:var(--r);cursor:pointer">
+        &#128190; Respaldar
+      </button>
+      <button onclick="importarBackupBtn()" title="Restaurar desde un archivo de respaldo"
+        style="flex:1;padding:8px;font-size:11.5px;font-weight:600;
+        background:transparent;border:1px solid var(--border);color:var(--text);border-radius:var(--r);cursor:pointer">
+        &#128228; Restaurar
+      </button>
+    </div>
+    <input type="file" id="importBackupFile" accept=".json,application/json" style="display:none" onchange="onImportBackupFile(this.files[0])">
     <button id="btnResetPrueba" onclick="resetDatosPrueba()"
       style="display:none;width:100%;margin-top:10px;padding:8px;font-size:12px;font-weight:600;
       background:transparent;border:1px solid var(--red);color:var(--red);border-radius:var(--r);cursor:pointer">
@@ -445,6 +563,7 @@ const DB = {
   sesiones_inventario: [],
   accesorios: [],
   personas: [],
+  usuarios: [],
   log: [],
 };
 
@@ -479,6 +598,45 @@ const co = () => DB.companies[DB.co] || _CO_VACIA;
 // ¿Hay una empresa real seleccionada?
 const hayEmpresa = () => !!DB.companies[DB.co];
 
+// Tipos de equipo. Los predefinidos son la "base"; se combinan con los tipos
+// que el usuario ya haya usado en la empresa activa. Al elegir "Otro (escribir)"
+// aparece un input libre. Este helper devuelve la lista consolidada de tipos.
+const TIPOS_EQUIPO_BASE = ['Notebook','Desktop','Monitor','All-in-One','Servidor','Impresora','Red','Tablet','Camara','Proyector','Otro'];
+function tiposDisponibles() {
+  const usados = new Set(coEq().map(e => e.tipo).filter(Boolean));
+  const set = new Set([...TIPOS_EQUIPO_BASE, ...usados]);
+  return Array.from(set).sort((a,b) => {
+    // "Otro" al final
+    if (a === 'Otro') return 1;
+    if (b === 'Otro') return -1;
+    return a.localeCompare(b);
+  });
+}
+// Cuando el usuario elige "+ Escribir otro tipo…" mostramos un input libre.
+function onTipoSelectChange(selectId, inputId) {
+  const sel = document.getElementById(selectId);
+  const inp = document.getElementById(inputId);
+  if (!sel || !inp) return;
+  if (sel.value === '__custom__') { inp.style.display=''; setTimeout(()=>inp.focus(),50); }
+  else { inp.style.display='none'; inp.value=''; }
+}
+// Handler para el selector de área en el editor de equipo. Cuando el usuario
+// elige "+ Otra área…" mostramos un input libre; en otro caso lo escondemos.
+function onAreaEqChange(sel){
+  const inp = document.getElementById('eeAreaCustom');
+  if (!sel || !inp) return;
+  if (sel.value === '__custom__') { inp.style.display='block'; setTimeout(()=>inp.focus(),50); }
+  else { inp.style.display='none'; inp.value=''; }
+}
+// Lee el tipo elegido — si eligió "custom" toma el input libre.
+function leerTipoFromSelect(selectId, inputId) {
+  const sel = document.getElementById(selectId);
+  const inp = document.getElementById(inputId);
+  if (!sel) return '';
+  if (sel.value === '__custom__') return (inp?.value || '').trim();
+  return sel.value;
+}
+
 // ══════════════════════════════════════════════════════════════
 // PERMISOS POR ROL — matriz central
 // ══════════════════════════════════════════════════════════════
@@ -490,6 +648,12 @@ function _esTitularOSuper(){ return !cloudMode || !!currentUser?.scopeAll || _ro
 function _esAdminEmpresa(){ return _esTitularOSuper() || _rol()==='admin_empresa'; }
 function _esTecnicoOSup(){ return _esAdminEmpresa() || _rol()==='tecnico'; }
 function _esLectura(){ return _rol()==='lectura_empresa'; }
+// Rol "básico": lectura personalizada aún más limitada. Solo puede escanear
+// QRs para ver una vista pública simplificada de los equipos. No puede editar
+// nada, no ve montos, no accede a módulos internos (empresas, usuarios,
+// auditoría, importar, etc.). Es el rol para usuarios ocasionales.
+function _esBasico(){ return _rol()==='basico'; }
+function _esSoloConsulta(){ return _esBasico() || _esLectura(); }
 
 const perms = {
   // ── Datos visibles en la ficha del equipo ─────────────────
@@ -901,6 +1065,12 @@ const ADD_FNS = {
 };
 
 function go(mod) {
+  // Rol "básico": solo puede ver dashboard (bienvenida) y fichas de equipos por QR.
+  // Cualquier intento de ir a otro módulo se redirige a dashboard con mensaje.
+  if (_esBasico() && mod !== 'dashboard') {
+    toast('Tu perfil solo permite consultar equipos por QR', 'warn');
+    mod = 'dashboard';
+  }
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('on',el.dataset.m===mod));
   $('pgTitle').textContent=MOD_LABELS[mod]||mod;
   const ab=$('addBtn');
@@ -930,6 +1100,11 @@ function go(mod) {
     auditoria:renderAuditoria,qr:renderQR,alertas:renderAlertas,
   };
   $('mc').innerHTML=(renders[mod]||renderTodo)();
+  // Post-render: inicializar drag&drop en módulos con kanban.
+  // Sortable soporta touch y mouse a la vez; se re-monta cada vez que
+  // el render vuelve a dibujar el DOM (que borra las instancias anteriores).
+  if (mod === 'soporte' && typeof _initSortableSoporte === 'function') _initSortableSoporte();
+  if (mod === 'tareas'  && typeof _initSortableTareas   === 'function') _initSortableTareas();
   if(VIEWS[mod]) renderVSW(mod);
   closeSb();
 }
@@ -995,12 +1170,56 @@ function renderBienvenida(){
   '</div>';
 }
 
+// Pantalla informativa para el rol básico cuando entra sin haber escaneado un
+// QR (por ejemplo, abrió la app desde un acceso directo o el navegador).
+// Le explica cómo debe usar la app y muestra un input para digitar el ID
+// manualmente si el QR está dañado o no lo puede escanear.
+function renderBienvenidaBasico(){
+  return '<div style="max-width:480px;margin:40px auto;text-align:center;padding:20px">'+
+    '<div style="font-size:64px;margin-bottom:16px">&#128377;</div>'+
+    '<h1 style="font-size:22px;font-weight:700;margin-bottom:10px">Hola'+(currentUser?.nombre?', '+escHtml(currentUser.nombre.split(' ')[0]):'')+'</h1>'+
+    '<p style="color:var(--t2);font-size:14px;line-height:1.6;margin-bottom:24px">'+
+      'Para consultar un equipo, <b>escanea el código QR</b> pegado en su etiqueta con la cámara de tu celular.'+
+    '</p>'+
+
+    // Alternativa: ingresar código manualmente
+    '<div class="card" style="padding:20px;text-align:left">'+
+      '<div style="font-size:13px;font-weight:600;margin-bottom:12px">¿No puedes escanear el QR?</div>'+
+      '<div style="font-size:12px;color:var(--t2);margin-bottom:10px">Escribe el código del equipo (ej: <span class="mono" style="color:var(--accent)">EMP-001</span>) que aparece en la etiqueta:</div>'+
+      '<div style="display:flex;gap:8px">'+
+        '<input type="text" id="basicoEqInput" placeholder="Código del equipo" style="flex:1;text-transform:uppercase" onkeydown="if(event.key===\'Enter\')_basicoConsultarEq()">'+
+        '<button class="btn btn-primary" onclick="_basicoConsultarEq()">Consultar</button>'+
+      '</div>'+
+    '</div>'+
+
+    '<div style="margin-top:28px;padding-top:20px;border-top:1px solid var(--border);font-size:11.5px;color:var(--t3)">'+
+      'Tu perfil solo permite consultar información de equipos.'+
+    '</div>'+
+  '</div>';
+}
+// Consultar equipo digitando el ID (para rol básico sin QR).
+function _basicoConsultarEq(){
+  const inp = document.getElementById('basicoEqInput');
+  const id = (inp?.value || '').trim().toUpperCase();
+  if (!id) { toast('Escribe el código del equipo','err'); return; }
+  mostrarFichaPublicaQR(id);
+}
+
 function renderDashboard() {
   // Primera vez: sin empresas creadas. Muestra bienvenida con acción directa.
   if (Object.keys(DB.companies||{}).length === 0) {
     return renderBienvenida();
   }
-  if(typeof renderDashboardEmpresas!=='undefined'&&typeof _dashEmpresa!=='undefined'&&_dashEmpresa) {
+  // Rol básico: si llegó sin QR (dashboard directo), mostrar pantalla instructiva
+  // — su único uso legítimo es escanear el QR del equipo, no navegar por la app.
+  if (_esBasico()) {
+    return renderBienvenidaBasico();
+  }
+  // Vista "Dashboard por empresa" solo tiene sentido con múltiples. Si hay solo
+  // una empresa se salta este render y va directo al resumen normal.
+  if(Object.keys(DB.companies||{}).length > 1 &&
+     typeof renderDashboardEmpresas!=='undefined' &&
+     typeof _dashEmpresa!=='undefined' && _dashEmpresa) {
     return renderDashboardEmpresas();
   }
   const eq=coEq(),cp=coComp(),ta=coTa(),al=getAlerts();
@@ -1033,7 +1252,7 @@ function renderDashboard() {
 
   // Financial summary — THE KEY SECTION
   '<div style="margin-bottom:20px">'+
-  '<div class="sh"><div><div class="sh-title">&#128176; Resumen Financiero</div><div style="font-size:11.5px;color:var(--text2)">Todas las empresas</div></div></div>'+
+  '<div class="sh"><div><div class="sh-title">&#128176; Resumen Financiero</div><div style="font-size:11.5px;color:var(--text2)">'+escHtml(co()?.name||'')+'</div></div></div>'+
   '<div class="g4" style="margin-bottom:14px">'+
     '<div class="fin-card"><div class="fin-icon green">&#8593;</div><div><div class="fin-amount" style="color:var(--green)">'+fCLP(fin.meDeben)+'</div><div class="fin-label">Me deben</div><div class="fin-detail">'+fin.meDebenN+' rendicion'+(fin.meDebenN!==1?'es':'')+' pendiente'+(fin.meDebenN!==1?'s':'')+'</div></div></div>'+
     '<div class="fin-card"><div class="fin-icon red">&#8595;</div><div><div class="fin-amount" style="color:var(--red)">'+fCLP(fin.meDebo)+'</div><div class="fin-label">Debo a proveedores</div><div class="fin-detail">Pagos pendientes</div></div></div>'+
@@ -1337,20 +1556,22 @@ function renderEquipos() {
       '<option value="">Todos los tipos</option>'+
       tipos.map(t=>'<option value="'+t+'"'+(f.tipo===t?' selected':'')+'>'+t+'</option>').join('')+
     '</select>'+
-    '<select id="eqFiltAsignacion" style="width:auto" onchange="filtrarEquipos()">'+
+    '<select id="eqFiltAsignacion" style="width:auto" onchange="filtrarEquipos()" title="Filtrar por estado de asignación">'+
       '<option value="">Asignación: todas</option>'+
       '<option value="asignados"'+(f.asignacion==='asignados'?' selected':'')+'>Asignados</option>'+
-      '<option value="sin_asignar"'+(f.asignacion==='sin_asignar'?' selected':'')+'>Sin asignar</option>'+
-      '<option value="pendiente"'+(f.asignacion==='pendiente'?' selected':'')+'>Pendiente de recepción</option>'+
+      '<option value="sin_asignar"'+(f.asignacion==='sin_asignar'?' selected':'')+'>Pendientes de asignación</option>'+
+      '<option value="pendiente"'+(f.asignacion==='pendiente'?' selected':'')+'>Pendientes de recepción</option>'+
     '</select>'+
   '</div>'+
 
-  // Filtros fila 2 — empresa, sede, área
+  // Filtros fila 2 — sede, área (empresa se oculta si solo hay una)
   '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">'+
-    '<select id="eqFiltEmpresa" style="width:auto;min-width:140px" onchange="actualizarSedesEquipos()">'+
-      '<option value="">Todas las empresas</option>'+
-      empresas.map(e=>'<option value="'+escHtml(e.id)+'"'+(f.empresa===e.id?' selected':'')+'>'+escHtml(e.name)+'</option>').join('')+
-    '</select>'+
+    (empresas.length > 1
+      ? '<select id="eqFiltEmpresa" style="width:auto;min-width:140px" onchange="actualizarSedesEquipos()">'+
+          '<option value="">Todas las empresas</option>'+
+          empresas.map(e=>'<option value="'+escHtml(e.id)+'"'+(f.empresa===e.id?' selected':'')+'>'+escHtml(e.name)+'</option>').join('')+
+        '</select>'
+      : '')+
     '<select id="eqFiltSede" style="width:auto;min-width:130px" onchange="actualizarAreasEquipos()">'+
       '<option value="">Todas las sedes</option>'+
       sedesOpts.map(s=>'<option value="'+escHtml(s.id)+'"'+(f.sede===s.id?' selected':'')+'>'+escHtml(s.nombre)+'</option>').join('')+
@@ -1381,8 +1602,8 @@ function renderEquipos() {
     '<th>Serie</th>'+
     '<th onclick="setEqSort(\'estado\')" style="cursor:pointer">Estado '+sortIcon('estado')+'</th>'+
     '<th style="cursor:pointer;white-space:nowrap" onclick="setEqSort(\'garantia\')">Garantía '+sortIcon('garantia')+'</th>'+
-    '<th onclick="setEqSort(\'co\')" style="cursor:pointer">Empresa '+sortIcon('co')+'</th>'+
-    '<th onclick="setEqSort(\'local_id\')" style="cursor:pointer">Sede / Área '+sortIcon('local_id')+'</th>'+
+    '<th onclick="setEqSort(\'local_id\')" style="cursor:pointer">Sede '+sortIcon('local_id')+'</th>'+
+    '<th onclick="setEqSort(\'area\')" style="cursor:pointer">Área '+sortIcon('area')+'</th>'+
     '<th>Asignado a</th>'+
     '<th style="width:28px"><input type="checkbox" title="Seleccionar todos" onchange="selTodosEq(this.checked)" style="accent-color:var(--accent);width:auto"></th>'+
     '<th></th>'+
@@ -1404,8 +1625,8 @@ function renderEquipos() {
         '<td class="td-muted mono">'+e.serie+'</td>'+
         '<td><div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">'+estadoBadge(e.estado)+asigBadge(e)+'</div></td>'+
         '<td>'+garantiaBadge(e)+'</td>'+
-        '<td class="td-muted">'+(emp?emp.name:'—')+'</td>'+
-        '<td class="td-muted">'+(sede?sede.nombre:'—')+(e.area?' <span style="color:var(--t3)">/ '+e.area+'</span>':'')+'</td>'+
+        '<td class="td-muted">'+(sede?escHtml(sede.nombre):'<span style="color:var(--t3)">—</span>')+'</td>'+
+        '<td class="td-muted">'+(e.area?escHtml(e.area):'<span style="color:var(--t3)">—</span>')+'</td>'+
         '<td class="td-muted">'+(a&&a.persona?a.persona:'<span style="color:var(--t3)">—</span>')+'</td>'+
         '<td onclick="event.stopPropagation()" style="width:28px">'+
           '<input type="checkbox" data-eqid="'+e.id+'" style="accent-color:var(--accent);width:auto" onchange="toggleSelEq(\''+e.id+'\',this.checked)">'+
@@ -1432,7 +1653,7 @@ function viewEquipo(id){
   const compra=getComp(e.compra_id);
   const sedeAct=aAct?getSede(aAct.sede_id):null;
 
-  openMo(e.marca+' '+e.modelo+' - '+e.id,
+  openMo(escHtml((e.marca||'')+' '+(e.modelo||''))+' - '+escHtml(e.id),
     '<div class="tabs">'+
       '<div class="tab on" onclick="swTab(this,\'t-info\')">&#128203; Ficha</div>'+
       '<div class="tab" onclick="swTab(this,\'t-asig\')">&#128205; Asignacion</div>'+
@@ -1445,13 +1666,46 @@ function viewEquipo(id){
       '<div class="fgrid f2" style="gap:4px">'+
         '<div class="dr"><span class="dl">ID Equipo</span><span class="dv mono" style="color:var(--accent)">'+e.id+'</span></div>'+
         '<div class="dr"><span class="dl">Estado</span><span class="dv" style="display:flex;gap:6px;align-items:center">'+estadoBadge(e.estado)+asigBadge(e)+(perms.cambiarEstado()?' <button class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:10px" onclick="cambiarEstadoEquipo(\''+e.id+'\')">Cambiar</button>':'')+'</span></div>'+
-        '<div class="dr"><span class="dl">Tipo</span><span class="dv">'+e.tipo+'</span></div>'+
-        '<div class="dr"><span class="dl">Marca</span><span class="dv">'+e.marca+'</span></div>'+
-        '<div class="dr"><span class="dl">Modelo</span><span class="dv">'+e.modelo+'</span></div>'+
-        '<div class="dr"><span class="dl">N Serie</span><span class="dv mono">'+e.serie+'</span></div>'+
-        Object.entries(e.specs||{}).map(([k,v])=>'<div class="dr"><span class="dl">'+k.charAt(0).toUpperCase()+k.slice(1)+'</span><span class="dv">'+v+'</span></div>').join('')+
-        (compra?'<div class="dr"><span class="dl">Compra origen</span><span class="dv mono" style="cursor:pointer;color:var(--accent)" onclick="closeMo();viewCompra(\''+e.compra_id+'\')">'+e.compra_id+'</span></div>':'')+''+
-        (compra?'<div class="dr"><span class="dl">Proveedor</span><span class="dv">'+compra.proveedor+'</span></div>':'')+
+        '<div class="dr"><span class="dl">Tipo</span><span class="dv">'+escHtml(e.tipo||'')+'</span></div>'+
+        '<div class="dr"><span class="dl">Marca</span><span class="dv">'+escHtml(e.marca||'')+'</span></div>'+
+        '<div class="dr"><span class="dl">Modelo</span><span class="dv">'+escHtml(e.modelo||'')+'</span></div>'+
+        '<div class="dr"><span class="dl">N Serie</span><span class="dv mono">'+escHtml(e.serie||'—')+'</span></div>'+
+        // Ubicación: se lee DIRECTAMENTE del equipo (e.local_id / e.area).
+        // Antes solo aparecía si tenía asignación activa, por lo que un equipo
+        // con sede/área guardadas pero sin asignar mostraba nada — este era
+        // exactamente el bug que el usuario reportaba.
+        (function(){
+          const s = getLocal(e.local_id);
+          const nomSede = s?.nombre;
+          if (!nomSede && !e.area) return ''; // sin datos, no ensuciamos la ficha
+          return '<div class="dr"><span class="dl">Sede</span>'+
+                   '<span class="dv">'+(nomSede?escHtml(nomSede):'<span style="color:var(--t3)">—</span>')+'</span></div>'+
+                 '<div class="dr"><span class="dl">Área</span>'+
+                   '<span class="dv">'+(e.area?escHtml(e.area):'<span style="color:var(--t3)">—</span>')+'</span></div>';
+        })()+
+        // Specs técnicos: labels amigables + escapado. Solo muestra los que tienen valor.
+        (function(){
+          const SPEC_LABELS = {
+            procesador:'Procesador', ram:'Memoria RAM', disco:'Disco duro',
+            pantalla:'Pantalla', so:'Sistema Operativo', red:'Dispositivos de red',
+            mac_wifi:'MAC Wi-Fi', mac_ethernet:'MAC Ethernet',
+          };
+          const specs = e.specs || {};
+          // Orden fijo primero, luego cualquier spec extra que no esté en el mapa.
+          const orden = ['procesador','ram','disco','pantalla','so','red','mac_wifi','mac_ethernet'];
+          const conocidas = orden.filter(k => specs[k]);
+          const extras = Object.keys(specs).filter(k => !orden.includes(k) && specs[k]);
+          return conocidas.concat(extras).map(k => {
+            const label = SPEC_LABELS[k] || (k.charAt(0).toUpperCase()+k.slice(1));
+            const val = specs[k];
+            // MAC en fuente monoespaciada para leerse mejor
+            const esMono = k.startsWith('mac_') || k==='disco';
+            return '<div class="dr"><span class="dl">'+escHtml(label)+'</span>'+
+                   '<span class="dv'+(esMono?' mono':'')+'">'+escHtml(String(val))+'</span></div>';
+          }).join('');
+        })()+
+        (compra?'<div class="dr"><span class="dl">Compra origen</span><span class="dv mono" style="cursor:pointer;color:var(--accent)" onclick="closeMo();viewCompra(\''+e.compra_id+'\')">'+escHtml(e.compra_id)+'</span></div>':'')+''+
+        (compra?'<div class="dr"><span class="dl">Proveedor</span><span class="dv">'+escHtml(compra.proveedor||'')+'</span></div>':'')+
         (compra?.fecha?'<div class="dr"><span class="dl">Fecha compra</span><span class="dv">'+fDate(compra.fecha)+'</span></div>':'')+
         (e.fecha_recepcion?'<div class="dr"><span class="dl">Fecha recepción</span><span class="dv">'+fDate(e.fecha_recepcion)+'</span></div>':(e.estado==='Pedido'?'<div class="dr"><span class="dl">Fecha recepción</span><span class="dv" style="color:var(--t3)">Pendiente</span></div>':''))+
       '</div>'+
@@ -1553,15 +1807,51 @@ function addEquipo(){
     '<div class="abar blue" style="margin-bottom:16px">&#128161; Los equipos se crean automaticamente al registrar una compra. Puedes agregar uno manualmente aqui.</div>'+
     '<div class="fgrid f2">'+
       '<div class="fg"><label>Compra origen</label><select id="neC"><option value="">Sin compra</option>'+cp.map(c=>'<option value="'+escHtml(c.id)+'">'+escHtml(c.id)+' - '+escHtml(c.proveedor||'')+'</option>').join('')+'</select></div>'+
-      '<div class="fg"><label>Tipo <span class="req">*</span></label><select id="neT"><option>Notebook</option><option>Desktop</option><option>Monitor</option><option>All-in-One</option><option>Servidor</option><option>Impresora</option><option>Red</option><option>Tablet</option><option>Otro</option></select></div>'+
+      '<div class="fg"><label>Tipo <span class="req">*</span></label>'+
+        '<select id="neT" onchange="onTipoSelectChange(\'neT\',\'neTCustom\')">'+
+          tiposDisponibles().map(t => '<option>'+escHtml(t)+'</option>').join('')+
+          '<option value="__custom__">+ Escribir otro tipo…</option>'+
+        '</select>'+
+        '<input type="text" id="neTCustom" placeholder="Escribe el tipo (ej: Escáner, Kit Solar)" style="margin-top:6px;display:none">'+
+      '</div>'+
       '<div class="fg"><label>Marca <span class="req">*</span></label><input type="text" id="neMa" placeholder="Dell, HP..."></div>'+
       '<div class="fg"><label>Modelo <span class="req">*</span></label><input type="text" id="neMo" placeholder="Latitude 5520"></div>'+
       '<div class="fg"><label>N Serie</label><input type="text" id="neS" placeholder="Sin serie si no tiene"></div>'+
       '<div class="fg"><label>Estado</label><select id="neE"><option>Disponible</option><option>En mantención</option><option>En reparación</option><option>Extraviado</option></select></div>'+
-      '<div class="fg"><label>Procesador</label><input type="text" id="neP" placeholder="Intel Core i7..."></div>'+
+      // Sede y Área: sin estos campos el equipo se creaba "huérfano" y los
+      // filtros por sede/área no lo encontraban. El área se carga dinámicamente
+      // según la sede elegida (onSedeNuevoEq).
+      '<div class="fg"><label>Sede</label>'+
+        '<select id="neSede" onchange="onSedeNuevoEq(this.value)">'+
+          '<option value="">— Sin sede asignada —</option>'+
+          ((co()?.sedes)||[]).map(s => '<option value="'+escHtml(s.id)+'">'+escHtml(s.nombre)+'</option>').join('')+
+        '</select>'+
+      '</div>'+
+      '<div class="fg"><label>Área / Ubicación</label>'+
+        '<select id="neArea">'+
+          '<option value="">— Sin área asignada —</option>'+
+        '</select>'+
+        '<div style="font-size:11px;color:var(--t3);margin-top:4px">Primero elige la sede para ver sus áreas.</div>'+
+      '</div>'+
+      '<div class="fg"><label>Procesador</label><input type="text" id="neP" placeholder="Intel Core i7-1165G7"></div>'+
       '<div class="fg"><label>RAM</label><input type="text" id="neR" placeholder="16GB DDR4"></div>'+
-      '<div class="fg"><label>Disco</label><input type="text" id="neDi" placeholder="512GB SSD"></div>'+
+      '<div class="fg"><label>Disco</label><input type="text" id="neDi" placeholder="512GB SSD NVMe"></div>'+
       '<div class="fg"><label>Pantalla</label><input type="text" id="nePa" placeholder="15.6 FHD"></div>'+
+      '<div class="fg"><label>Sistema Operativo</label>'+
+        '<select id="neSo">'+
+          ['','Windows 11 Pro','Windows 11 Home','Windows 10 Pro','Windows 10 Home','macOS Sonoma','macOS Ventura','Ubuntu 24.04','Ubuntu 22.04','Debian 12','Chrome OS','Android','iOS','Otro']
+            .map(o => '<option>'+escHtml(o)+'</option>').join('')+
+        '</select>'+
+      '</div>'+
+      '<div class="fg"><label>Dispositivos de red</label>'+
+        '<input type="text" id="neRed" placeholder="Wi-Fi 6 + Ethernet Gb">'+
+      '</div>'+
+      '<div class="fg"><label>MAC Wi-Fi</label>'+
+        '<input type="text" id="neMacW" placeholder="XX:XX:XX:XX:XX:XX" style="font-family:var(--mono);text-transform:uppercase" maxlength="17">'+
+      '</div>'+
+      '<div class="fg"><label>MAC Ethernet</label>'+
+        '<input type="text" id="neMacE" placeholder="XX:XX:XX:XX:XX:XX" style="font-family:var(--mono);text-transform:uppercase" maxlength="17">'+
+      '</div>'+
       '<div class="fg" style="grid-column:1/-1"><label>Comentarios</label><textarea id="neCo" placeholder="Notas del equipo..."></textarea></div>'+
     '</div>',
     '<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button>'+
@@ -1572,16 +1862,61 @@ function addEquipo(){
 function saveEquipo(){
   const id=genEqId();
   const specs={};
-  if($('neP')?.value) specs.procesador=$('neP').value;
-  if($('neR')?.value) specs.ram=$('neR').value;
-  if($('neDi')?.value) specs.disco=$('neDi').value;
-  if($('nePa')?.value) specs.pantalla=$('nePa').value;
-  const nuevo={id,co:DB.co,compra_id:$('neC')?.value||null,tipo:$('neT')?.value,marca:$('neMa')?.value||'Sin marca',modelo:$('neMo')?.value||'Sin modelo',serie:$('neS')?.value||'Sin serie',estado:$('neE')?.value,specs,comentarios:$('neCo')?.value||'',software:[]};
+  if($('neP')?.value)   specs.procesador = $('neP').value;
+  if($('neR')?.value)   specs.ram        = $('neR').value;
+  if($('neDi')?.value)  specs.disco      = $('neDi').value;
+  if($('nePa')?.value)  specs.pantalla   = $('nePa').value;
+  if($('neSo')?.value)  specs.so         = $('neSo').value;
+  if($('neRed')?.value) specs.red        = $('neRed').value;
+  // MAC en mayúsculas por convención
+  if($('neMacW')?.value) specs.mac_wifi     = $('neMacW').value.toUpperCase();
+  if($('neMacE')?.value) specs.mac_ethernet = $('neMacE').value.toUpperCase();
+  const nuevo={
+    id, co: DB.co,
+    compra_id: $('neC')?.value || null,
+    tipo:   leerTipoFromSelect('neT','neTCustom') || 'Otro',
+    marca:  $('neMa')?.value || 'Sin marca',
+    modelo: $('neMo')?.value || 'Sin modelo',
+    serie:  $('neS')?.value  || 'Sin serie',
+    estado: $('neE')?.value,
+    // Sede y área ahora se guardan al crear el equipo (antes era imposible
+    // hacerlo, causando que los filtros por sede/área no encontraran nada).
+    local_id: $('neSede')?.value || null,
+    area:     $('neArea')?.value || '',
+    specs,
+    comentarios: $('neCo')?.value || '',
+    software: [],
+  };
   DB.equipos.push(nuevo);
   if (typeof syncEquipo==='function') syncEquipo(nuevo, true);
   if($('neC')?.value){const c=DB.compras.find(x=>x.id===$('neC').value);if(c){c.equipos_ids=c.equipos_ids||[];c.equipos_ids.push(id);if(typeof syncCompra==='function')syncCompra(c,false);}}
   addLog('Creo equipo','equipos',id+' - '+$('neMa')?.value+' '+$('neMo')?.value);
   closeMo();toast('Equipo '+id+' registrado');go('equipos');
+}
+// Cuando el usuario elige sede en el form de nuevo equipo, poblamos el
+// select de área con las ubicaciones de esa sede. Coincidencia por ID
+// garantiza que el filtro por sede/área encuentre el equipo después.
+function onSedeNuevoEq(sedeId){
+  const sel = document.getElementById('neArea');
+  if (!sel) return;
+  const sede = (co()?.sedes||[]).find(s => s.id === sedeId);
+  const areas = sede?.ubicaciones || [];
+  sel.innerHTML = '<option value="">— Sin área asignada —</option>' +
+    areas.map(a => '<option value="'+escHtml(a)+'">'+escHtml(a)+'</option>').join('');
+}
+// Cambio de sede en el editor de equipo: recarga las áreas del select en
+// función de las ubicaciones de la nueva sede. Si el área actual ya no
+// existe en la nueva sede, queda vacía y el usuario debe re-elegirla.
+function onSedeEditEq(sedeId){
+  const sel = document.getElementById('eeArea');
+  const inp = document.getElementById('eeAreaCustom');
+  if (!sel) return;
+  const sede = (co()?.sedes||[]).find(s => s.id === sedeId);
+  const areas = sede?.ubicaciones || [];
+  sel.innerHTML = '<option value="">— Sin área asignada —</option>' +
+    areas.map(a => '<option value="'+escHtml(a)+'">'+escHtml(a)+'</option>').join('') +
+    '<option value="__custom__">+ Otra área…</option>';
+  if (inp) { inp.style.display = 'none'; inp.value = ''; }
 }
 function editEquipo(id) {
   if(!perms.editarEquipo()){toast('No tienes permiso para editar equipos','err');return;}
@@ -1635,8 +1970,35 @@ function editEquipo(id) {
         ['Asignado','Disponible','En mantencion','En reparacion','De baja','Extraviado']
           .map(s=>'<option '+(e.estado===s?'selected':'')+'>'+s+'</option>').join('')+
       '</select></div>'+
+      // Sede: selector con las sedes de la empresa activa. Cambiarla dispara
+      // onSedeEditEq() que recarga las áreas disponibles.
+      '<div class="fg"><label>Sede</label>'+
+        '<select id="eeSede" onchange="onSedeEditEq(this.value)">'+
+          '<option value="">— Sin sede asignada —</option>'+
+          ((co()?.sedes)||[]).map(s => '<option value="'+escHtml(s.id)+'"'+(e.local_id===s.id?' selected':'')+'>'+escHtml(s.nombre)+'</option>').join('')+
+        '</select>'+
+      '</div>'+
       '<div class="fg"><label>Área / Ubicación</label>'+
-        '<input type="text" id="eeArea" value="'+escHtml(e.area||'')+'" placeholder="Sala 4, Oficina RRHH...">'+
+        (function(){
+          // Elegir área desde la lista de la sede actual del equipo (o de todas
+          // las sedes de la empresa si no hay sede). Con opción "+ Otra" para
+          // escribir una nueva. Esto garantiza que el nombre coincida con el
+          // que usa el mapa para pintar los equipos por área.
+          const sede = getSede(e.local_id);
+          const ubis = sede?.ubicaciones || [];
+          const valActual = e.area || '';
+          const enLista = ubis.includes(valActual);
+          const opts = ubis.map(u => '<option value="'+escHtml(u)+'"'+(u===valActual?' selected':'')+'>'+escHtml(u)+'</option>').join('');
+          return '<select id="eeArea" onchange="onAreaEqChange(this)">'+
+            '<option value="">— Sin área asignada —</option>'+
+            opts+
+            '<option value="__custom__"'+(valActual && !enLista?' selected':'')+'>+ Otra área…</option>'+
+          '</select>'+
+          '<input type="text" id="eeAreaCustom" placeholder="Nombre de la nueva área" '+
+            'style="margin-top:6px;display:'+(valActual && !enLista?'block':'none')+'" '+
+            'value="'+escHtml(!enLista?valActual:'')+'">'+
+          (ubis.length===0 ? '<div style="font-size:11px;color:var(--t3);margin-top:4px">Esta sede aún no tiene áreas definidas. Puedes escribir una libre o agregarlas en <b>Mi empresa</b>.</div>' : '');
+        })()+
       '</div>'+
       '<div class="fg"><label>Fin de garantía</label>'+
         '<input type="date" id="eeGarantia" value="'+(e.garantia||'')+'">'+
@@ -1647,27 +2009,67 @@ function editEquipo(id) {
       // Vinculación a compra: útil cuando el equipo se importó sin factura
       // o cuando la información de la compra llega después del ingreso.
       '<div class="fg" style="grid-column:1/-1"><label>Compra origen</label>'+
-        '<select id="eeCompra">'+
-          '<option value=""'+(!e.compra_id?' selected':'')+'>Sin información de compra</option>'+
-          coComp().map(c => '<option value="'+c.id+'"'+(e.compra_id===c.id?' selected':'')+'>'+
-            escHtml(c.id)+' — '+escHtml(c.proveedor||'—')+
-            (c.fecha?' · '+new Date(c.fecha).getFullYear():'')+
-          '</option>').join('')+
-        '</select>'+
-        '<div style="font-size:11px;color:var(--t3);margin-top:4px">Elige una compra existente. Si el equipo fue del levantamiento y luego apareció su factura, ingrésala primero en <span style="color:var(--accent);cursor:pointer" onclick="closeMo();go(\'compras\')">Compras</span> y vuelve aquí.</div>'+
+        '<div style="display:flex;gap:6px">'+
+          '<select id="eeCompra" style="flex:1">'+
+            '<option value=""'+(!e.compra_id?' selected':'')+'>Sin información de compra</option>'+
+            coComp().map(c => '<option value="'+escHtml(c.id)+'"'+(e.compra_id===c.id?' selected':'')+'>'+
+              escHtml(c.id)+' — '+escHtml(c.proveedor||'—')+
+              (c.fecha?' · '+new Date(c.fecha).getFullYear():'')+
+            '</option>').join('')+
+          '</select>'+
+          '<button class="btn btn-secondary btn-sm" onclick="crearCompraRapida(\''+e.id+'\')" title="Crear una compra nueva y vincularla a este equipo">+ Nueva</button>'+
+        '</div>'+
+        '<div style="font-size:11px;color:var(--t3);margin-top:4px">Elige una existente o crea una nueva con el botón <b>+ Nueva</b>.</div>'+
       '</div>'+
     '</div>'+
 
     // Tabs
     '<div class="tabs" style="margin-bottom:12px">'+
-      '<div class="tab on" onclick="swTab(this,\'eet-sw\')">&#128187; Software</div>'+
+      '<div class="tab on" onclick="swTab(this,\'eet-hw\')">&#128421; Hardware</div>'+
+      '<div class="tab" onclick="swTab(this,\'eet-sw\')">&#128187; Software</div>'+
       '<div class="tab" onclick="swTab(this,\'eet-cfg\')">&#9881; Config</div>'+
       '<div class="tab" onclick="swTab(this,\'eet-com\')">&#128172; Comentarios</div>'+
       '<div class="tab" onclick="swTab(this,\'eet-acc\')">&#128230; Accesorios</div>'+
     '</div>'+
 
+    // Tab Hardware — specs técnicos del equipo (procesador, RAM, MAC, etc.)
+    '<div id="eet-hw">'+
+      '<div class="fgrid f2" style="gap:10px">'+
+        '<div class="fg"><label>Procesador</label>'+
+          '<input type="text" id="hwP" value="'+escHtml(e.specs?.procesador||'')+'" placeholder="Intel Core i7-1165G7 / Ryzen 5 5600U">'+
+        '</div>'+
+        '<div class="fg"><label>Memoria RAM</label>'+
+          '<input type="text" id="hwR" value="'+escHtml(e.specs?.ram||'')+'" placeholder="16GB DDR4 3200MHz">'+
+        '</div>'+
+        '<div class="fg"><label>Disco duro</label>'+
+          '<input type="text" id="hwDi" value="'+escHtml(e.specs?.disco||'')+'" placeholder="512GB SSD NVMe">'+
+        '</div>'+
+        '<div class="fg"><label>Pantalla</label>'+
+          '<input type="text" id="hwPa" value="'+escHtml(e.specs?.pantalla||'')+'" placeholder="15.6 FHD 1920x1080">'+
+        '</div>'+
+        '<div class="fg" style="grid-column:1/-1"><label>Sistema Operativo</label>'+
+          '<select id="hwSo">'+
+            ['','Windows 11 Pro','Windows 11 Home','Windows 10 Pro','Windows 10 Home','macOS Sonoma','macOS Ventura','macOS Sequoia','Ubuntu 24.04','Ubuntu 22.04','Debian 12','Chrome OS','Android','iOS','iPadOS','Otro']
+              .map(o => '<option'+((e.specs?.so||'')===o?' selected':'')+'>'+escHtml(o)+'</option>').join('')+
+          '</select>'+
+        '</div>'+
+        '<div class="fg" style="grid-column:1/-1"><label>Dispositivos de red</label>'+
+          '<input type="text" id="hwRed" value="'+escHtml(e.specs?.red||'')+'" placeholder="Wi-Fi 6 + Ethernet Gigabit">'+
+        '</div>'+
+        '<div class="fg"><label>MAC Wi-Fi</label>'+
+          '<input type="text" id="hwMacW" value="'+escHtml(e.specs?.mac_wifi||'')+'" placeholder="XX:XX:XX:XX:XX:XX" maxlength="17" style="font-family:var(--mono);text-transform:uppercase">'+
+        '</div>'+
+        '<div class="fg"><label>MAC Ethernet</label>'+
+          '<input type="text" id="hwMacE" value="'+escHtml(e.specs?.mac_ethernet||'')+'" placeholder="XX:XX:XX:XX:XX:XX" maxlength="17" style="font-family:var(--mono);text-transform:uppercase">'+
+        '</div>'+
+      '</div>'+
+      '<div style="font-size:11px;color:var(--t3);margin-top:10px;padding:8px 10px;background:var(--s2);border-radius:var(--r)">'+
+        '&#128161; Los datos técnicos ayudan al soporte remoto y al inventario de red. Deja en blanco los que no apliquen (ej: impresoras no tienen procesador ni RAM).'+
+      '</div>'+
+    '</div>'+
+
     // Tab Software
-    '<div id="eet-sw">'+
+    '<div id="eet-sw" class="hide">'+
       '<div id="eqSwList">'+renderSoftware(window._eqEditSw)+'</div>'+
       '<button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="eqSwAdd()">+ Agregar software</button>'+
     '</div>'+
@@ -1747,6 +2149,78 @@ function eqSwVersion(i,v)  { if(window._eqEditSw[i]) window._eqEditSw[i].version
 function eqSwNotas(i,v)    { if(window._eqEditSw[i]) window._eqEditSw[i].notas=v; }
 function eqSwRemove(i)     { window._eqEditSw.splice(i,1); _refreshSw(); }
 function eqSwAdd()         { window._eqEditSw.push({nombre:'',version:'',notas:''}); _refreshSw(); }
+// Compra rápida creada desde la edición de un equipo. Es una alternativa al
+// wizard completo cuando el usuario solo quiere anotar la información básica
+// (proveedor + monto + fecha + documento) para vincular al equipo.
+function crearCompraRapida(eqId) {
+  if (!hayEmpresa()) { avisarSinEmpresa(); return; }
+  const hoy = new Date().toISOString().slice(0,10);
+  openMo('Nueva compra rápida',
+    '<div style="font-size:12px;color:var(--t2);margin-bottom:12px">'+
+      'Solo los datos esenciales. Después puedes editar la compra completa desde el módulo <b>Compras</b>.'+
+    '</div>'+
+    '<div class="fgrid f2">'+
+      '<div class="fg" style="grid-column:1/-1"><label>Proveedor <span class="req">*</span></label>'+
+        '<input type="text" id="crProv" placeholder="Nombre del proveedor">'+
+      '</div>'+
+      '<div class="fg"><label>Tipo documento</label>'+
+        '<select id="crTDoc">'+
+          '<option>Factura</option><option>Boleta</option>'+
+          '<option>Sin documento</option><option>Nota de venta</option>'+
+        '</select>'+
+      '</div>'+
+      '<div class="fg"><label>N° Documento</label>'+
+        '<input type="text" id="crNDoc" placeholder="F-12345">'+
+      '</div>'+
+      '<div class="fg"><label>Fecha</label>'+
+        '<input type="date" id="crFecha" value="'+hoy+'">'+
+      '</div>'+
+      '<div class="fg"><label>Monto (CLP)</label>'+
+        '<input type="number" id="crMonto" placeholder="0">'+
+      '</div>'+
+    '</div>',
+    '<button class="btn btn-secondary" onclick="volverAEditEq(\''+eqId+'\')">Cancelar</button>'+
+    '<button class="btn btn-primary" onclick="guardarCompraRapida(\''+eqId+'\')">Crear y vincular</button>'
+  );
+  setTimeout(()=>$('crProv')?.focus(), 60);
+}
+
+// Guarda la compra rápida creada desde el equipo, y reabre el edit del equipo
+// con la compra ya seleccionada.
+function guardarCompraRapida(eqId) {
+  const prov = $('crProv')?.value?.trim();
+  if (!prov) { toast('El proveedor es obligatorio','err'); return; }
+  const id = genCompraId();
+  const compra = {
+    id, co: DB.co,
+    proveedor: prov,
+    rut_prov: '',
+    tipo_doc: $('crTDoc')?.value || 'Sin documento',
+    num_doc:  $('crNDoc')?.value || '',
+    fecha:    $('crFecha')?.value || new Date().toISOString().slice(0,10),
+    monto:    parseInt($('crMonto')?.value) || 0,
+    financiador:'yo', quien_pago:'yo',
+    forma_pago:'Transferencia',
+    estado_pago:'rendicion_pendiente',
+    cobrado_cliente:false,
+    descripcion:'',
+    gar_meses: 0,
+    equipos_ids: eqId ? [eqId] : [],
+  };
+  DB.compras.push(compra);
+  // Vincular el equipo a esta compra
+  if (eqId) {
+    const eq = DB.equipos.find(x => x.id === eqId);
+    if (eq) eq.compra_id = id;
+  }
+  addLog('Creó compra rápida','compras', id + ' · ' + prov);
+  closeMo();
+  toast('Compra ' + id + ' creada ✓');
+  // Reabrir el edit del equipo con la nueva compra ya vinculada
+  setTimeout(() => editEquipo(eqId), 100);
+}
+
+function volverAEditEq(eqId) { closeMo(); setTimeout(() => editEquipo(eqId), 100); }
 
 // ── FICHA: CONFIGURACIÓN Y NOTAS ──────────────────────────
 // Bloque mostrado en la ficha del equipo (viewEquipo): configuraciones
@@ -1833,12 +2307,37 @@ function saveEditEq(id) {
   const e = DB.equipos.find(x=>x.id===id);
   if (!e) return;
   e.estado      = $('eeE')?.value || e.estado;
-  e.area        = $('eeArea')?.value || '';
+  // Sede: puede quedar vacía (equipo sin ubicar). Se acepta explícitamente.
+  const sedeSel = $('eeSede')?.value;
+  if (sedeSel !== undefined) e.local_id = sedeSel || null;
+  // Área: el select puede devolver un valor real, "" (sin área) o "__custom__" (que activa input libre).
+  const sel = $('eeArea')?.value;
+  if (sel === '__custom__') {
+    e.area = ($('eeAreaCustom')?.value || '').trim();
+  } else if (sel !== undefined) {
+    e.area = sel; // puede ser "" para desasignar el área
+  }
   e.garantia    = $('eeGarantia')?.value || '';
   // compra_id puede volver vacío (equipo desvinculado) — se acepta explícitamente
   const compraSel = $('eeCompra')?.value;
   if (compraSel !== undefined) e.compra_id = compraSel || null;
   e.comentarios = $('eeCo')?.value || '';
+  // Specs técnicos del tab Hardware. Se guarda solo lo que tenga valor; los
+  // vacíos limpian el campo (para poder borrar un dato antes cargado por error).
+  if (!e.specs) e.specs = {};
+  const _lee = id => ($(id)?.value || '').trim();
+  const asignaSpec = (campo, valor) => {
+    if (valor) e.specs[campo] = valor;
+    else delete e.specs[campo];
+  };
+  asignaSpec('procesador', _lee('hwP'));
+  asignaSpec('ram',        _lee('hwR'));
+  asignaSpec('disco',      _lee('hwDi'));
+  asignaSpec('pantalla',   _lee('hwPa'));
+  asignaSpec('so',         _lee('hwSo'));
+  asignaSpec('red',        _lee('hwRed'));
+  asignaSpec('mac_wifi',     _lee('hwMacW').toUpperCase());
+  asignaSpec('mac_ethernet', _lee('hwMacE').toUpperCase());
   e.campos      = (window._eqEditCampos||[]).filter(f=>f.k);
   e.software    = (window._eqEditSw||[]).filter(s=>s.nombre);
   if (typeof syncEquipo==='function') syncEquipo(e, false);
@@ -1876,7 +2375,23 @@ function filtrarAsignaciones(q) {
   _asigFiltros.sede    = $('afSede')?.value    || '';
   _asigFiltros.area    = $('afArea')?.value    || '';
   _asigFiltros.tipo    = $('afTipo')?.value    || '';
+  // Guardar cuál input tenía el foco y la posición del cursor.
+  // go() rehace el DOM completo, así que el input pierde el foco y por eso
+  // solo se podía escribir una letra a la vez. Restauramos foco + cursor.
+  const activo = document.activeElement;
+  const focoId = activo?.id || null;
+  const start  = activo?.selectionStart ?? null;
+  const end    = activo?.selectionEnd   ?? null;
   go('asignaciones');
+  if (focoId) {
+    const nuevo = document.getElementById(focoId);
+    if (nuevo) {
+      nuevo.focus();
+      if (start !== null && typeof nuevo.setSelectionRange === 'function') {
+        try { nuevo.setSelectionRange(start, end); } catch(_) {}
+      }
+    }
+  }
 }
 
 function actualizarSedesAsig() {
@@ -1917,6 +2432,8 @@ function limpiarFiltrosAsig() {
 // MÓDULO PERSONAS — directorio por empresa
 // ============================================================
 let _persQ = '';
+let _persFiltroSede = '';
+let _persFiltroCargo = '';
 function _persScope(){ return (DB.personas||[]).filter(p=>p.co===DB.co); }
 function nombrePersona(p){ return p ? ((p.nombre||'')+' '+(p.apellido||'')).trim() : ''; }
 function getPersona(id){ return (DB.personas||[]).find(p=>p.id===id); }
@@ -1925,28 +2442,113 @@ function personasDeSede(sedeId){
   return _persScope().filter(p=>p.activo!==false && Array.isArray(p.sedes) && p.sedes.includes(sedeId));
 }
 
-function filtrarPersonas(q){ _persQ=(q||'').toLowerCase(); go('personas'); }
+function filtrarPersonas(q){
+  _persQ=(q||'').toLowerCase();
+  _persFiltroSede = $('pfSede')?.value || '';
+  _persFiltroCargo = $('pfCargo')?.value || '';
+  // Guardar foco antes del redibujo para no perder cursor en el input.
+  const activo = document.activeElement;
+  const focoId = activo?.id || null;
+  const start  = activo?.selectionStart ?? null;
+  const end    = activo?.selectionEnd   ?? null;
+  go('personas');
+  if (focoId) {
+    const nuevo = document.getElementById(focoId);
+    if (nuevo) {
+      nuevo.focus();
+      if (start !== null && typeof nuevo.setSelectionRange === 'function') {
+        try { nuevo.setSelectionRange(start, end); } catch(_) {}
+      }
+    }
+  }
+}
+function limpiarFiltrosPersonas(){
+  _persQ = ''; _persFiltroSede = ''; _persFiltroCargo = ''; go('personas');
+}
 
-function renderPersonas(){
-  const c = co();
-  const sedes = c.sedes||[];
+// Exporta las personas visibles (filtradas) a Excel.
+function exportarPersonas(){
+  const lista = _personasFiltradas();
+  if (!lista.length) { toast('No hay personas para exportar','err'); return; }
+  if (typeof XLSX === 'undefined') {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = () => exportarPersonas();
+    document.head.appendChild(s);
+    return;
+  }
+  const sedes = (co().sedes)||[];
+  const sedeNom = id => sedes.find(s=>s.id===id)?.nombre || id;
+  const rows = lista.map(p => ({
+    Nombre: p.nombre || '',
+    Apellido: p.apellido || '',
+    Cargo: p.cargo || '',
+    Correo: p.email || '',
+    Celular: p.celular || '',
+    Sedes: (p.sedes||[]).map(sedeNom).join(', '),
+    Estado: p.activo !== false ? 'Activo' : 'Inactivo',
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [{wch:14},{wch:14},{wch:20},{wch:26},{wch:16},{wch:26},{wch:10}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Personas');
+  const fecha = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, 'personas_'+fecha+'.xlsx');
+  toast('Personas exportadas ✓');
+}
+
+// Devuelve las personas después de aplicar todos los filtros (texto + sede + cargo).
+function _personasFiltradas(){
   let lista = _persScope();
   if(_persQ){
     lista = lista.filter(p=> (nombrePersona(p)+' '+(p.email||'')+' '+(p.cargo||'')+' '+(p.celular||'')).toLowerCase().includes(_persQ));
   }
+  if (_persFiltroSede) lista = lista.filter(p => (p.sedes||[]).includes(_persFiltroSede));
+  if (_persFiltroCargo) lista = lista.filter(p => (p.cargo||'') === _persFiltroCargo);
+  return lista;
+}
+
+function renderPersonas(){
+  const c = co();
+  const sedes = c.sedes||[];
+  const scope = _persScope();
+  const lista = _personasFiltradas();
+  // Cargos únicos existentes (para el select del filtro)
+  const cargos = Array.from(new Set(scope.map(p => p.cargo).filter(Boolean))).sort();
   const sedeNom = id => sedes.find(s=>s.id===id)?.nombre || id;
+  const hayFiltros = !!(_persQ || _persFiltroSede || _persFiltroCargo);
 
   return ''+
-  '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">'+
+  '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">'+
     '<div class="srch-wrap" style="flex:1;min-width:200px"><span class="si">&#128269;</span>'+
-      '<input type="text" placeholder="Buscar persona, correo, cargo…" value="'+escHtml(_persQ)+'" oninput="filtrarPersonas(this.value)"></div>'+
-    '<button class="btn btn-primary" onclick="addPersona()">+ Nueva persona</button>'+
+      '<input id="pfQ" type="text" placeholder="Buscar persona, correo, cargo…" value="'+escHtml(_persQ)+'" oninput="filtrarPersonas(this.value)"></div>'+
+    '<div style="display:flex;gap:6px">'+
+      '<button class="btn btn-secondary btn-sm" onclick="exportarPersonas()" title="Exportar personas filtradas a Excel">&#128229; Exportar</button>'+
+      '<button class="btn btn-primary" onclick="addPersona()">+ Nueva persona</button>'+
+    '</div>'+
+  '</div>'+
+  // Fila de filtros
+  '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">'+
+    (sedes.length > 0
+      ? '<select id="pfSede" style="width:auto;min-width:140px" onchange="filtrarPersonas()">'+
+          '<option value="">Todas las sedes</option>'+
+          sedes.map(s => '<option value="'+escHtml(s.id)+'"'+(_persFiltroSede===s.id?' selected':'')+'>'+escHtml(s.nombre)+'</option>').join('')+
+        '</select>'
+      : '')+
+    (cargos.length > 0
+      ? '<select id="pfCargo" style="width:auto;min-width:140px" onchange="filtrarPersonas()">'+
+          '<option value="">Todos los cargos</option>'+
+          cargos.map(c => '<option value="'+escHtml(c)+'"'+(_persFiltroCargo===c?' selected':'')+'>'+escHtml(c)+'</option>').join('')+
+        '</select>'
+      : '')+
+    (hayFiltros ? '<button class="btn btn-ghost btn-sm" onclick="limpiarFiltrosPersonas()">&#10005; Limpiar</button>' : '')+
+    '<span style="margin-left:auto;font-size:11.5px;color:var(--t3)">'+lista.length+' de '+scope.length+' persona'+(scope.length!==1?'s':'')+'</span>'+
   '</div>'+
   (lista.length===0
     ? '<div class="card" style="text-align:center;padding:40px;color:var(--t2)">'+
         '<div style="font-size:32px;margin-bottom:8px">&#128100;</div>'+
-        '<div>'+(_persQ?'Sin resultados':'Aún no hay personas en esta empresa')+'</div>'+
-        (!_persQ?'<button class="btn btn-secondary btn-sm" style="margin-top:12px" onclick="addPersona()">+ Crear la primera</button>':'')+
+        '<div>'+(hayFiltros?'Sin resultados para los filtros aplicados':'Aún no hay personas en esta empresa')+'</div>'+
+        (!hayFiltros?'<button class="btn btn-secondary btn-sm" style="margin-top:12px" onclick="addPersona()">+ Crear la primera</button>':'')+
       '</div>'
     : '<div class="card"><div class="tw"><table><thead><tr>'+
         '<th>Nombre</th><th>Cargo</th><th>Correo</th><th>Celular</th><th>Sedes</th><th>Estado</th><th></th>'+
@@ -2090,12 +2692,15 @@ function renderAsignaciones() {
     '<div class="stat blue"><div class="sl">Filtradas</div><div class="sv">'+asig.length+'</div></div>'+
   '</div>'+
 
-  // Filtros superiores
+  // Filtros superiores. El filtro "Empresa" solo tiene sentido si hay más de una;
+  // en despliegue mono-empresa se oculta.
   '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'+
-    '<select id="afEmpresa" style="width:auto;min-width:140px" onchange="actualizarSedesAsig()">'+
-      '<option value="">Todas las empresas</option>'+
-      empresas.map(e=>'<option value="'+escHtml(e.id)+'"'+(f.empresa===e.id?' selected':'')+'>'+escHtml(e.name)+'</option>').join('')+
-    '</select>'+
+    (empresas.length > 1
+      ? '<select id="afEmpresa" style="width:auto;min-width:140px" onchange="actualizarSedesAsig()">'+
+          '<option value="">Todas las empresas</option>'+
+          empresas.map(e=>'<option value="'+escHtml(e.id)+'"'+(f.empresa===e.id?' selected':'')+'>'+escHtml(e.name)+'</option>').join('')+
+        '</select>'
+      : '')+
     '<select id="afSede" style="width:auto;min-width:130px" onchange="actualizarAreasAsig()">'+
       '<option value="">Todas las sedes</option>'+
       sedesOpts.map(s=>'<option value="'+escHtml(s.id)+'"'+(f.sede===s.id?' selected':'')+'>'+escHtml(s.nombre)+'</option>').join('')+
@@ -2114,33 +2719,33 @@ function renderAsignaciones() {
   '<div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">'+
     '<div style="position:relative;flex:1">'+
       '<span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3)">&#9906;</span>'+
-      '<input style="padding-left:30px" type="text" value="'+(f.q||'')+'" placeholder="Persona, equipo, cargo, ubicación..." oninput="filtrarAsignaciones(this.value)">'+
+      '<input id="afQ" style="padding-left:30px" type="text" value="'+escHtml(f.q||'')+'" placeholder="Persona, equipo, cargo, ubicación..." oninput="filtrarAsignaciones(this.value)">'+
     '</div>'+
     (hasFilters?'<button class="btn btn-ghost btn-sm" onclick="limpiarFiltrosAsig()">&#10005; Limpiar</button>':'')+
     '<span style="font-size:11.5px;color:var(--t3);white-space:nowrap">'+asig.length+' asignación'+(asig.length!==1?'es':'')+'</span>'+
   '</div>'+
 
-  // Tabla
+  // Tabla. Columna Empresa solo aparece con múltiples empresas.
   '<div class="card"><div class="tw">'+
   '<table><thead><tr>'+
-    '<th>Equipo</th><th>Tipo</th><th>Empresa</th><th>Sede / Área</th>'+
+    '<th>Equipo</th><th>Tipo</th>'+(empresas.length>1?'<th>Empresa</th>':'')+'<th>Sede / Área</th>'+
     '<th>Persona</th><th>Cargo</th><th>Desde</th><th></th>'+
   '</tr></thead>'+
   '<tbody>'+
   (asig.length===0?
-    '<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:24px">Sin resultados</td></tr>'
+    '<tr><td colspan="'+(empresas.length>1?8:7)+'" style="text-align:center;color:var(--t3);padding:24px">Sin resultados</td></tr>'
     :
     asig.map(a => {
       const eq = getEq(a.eq_id);
       const sede = allSedes.find(s=>s.id===(eq?.local_id||a.sede_id));
       const emp = DB.companies[eq?.co];
       return '<tr onclick="viewEquipo(\''+a.eq_id+'\')">'+
-        '<td><div class="td-id">'+a.eq_id+'</div><div style="font-size:11.5px;color:var(--t2)">'+(eq?eq.marca+' '+eq.modelo:'—')+'</div></td>'+
-        '<td class="td-muted">'+(eq?.tipo||'—')+'</td>'+
-        '<td class="td-muted">'+(emp?.name||'—')+'</td>'+
-        '<td class="td-muted">'+(sede?sede.nombre:'—')+(eq?.area?' <span style="color:var(--t3)">/ '+eq.area+'</span>':'')+'</td>'+
-        '<td style="font-size:12.5px;font-weight:500">'+(a.persona||'<span style="color:var(--t3)">Sin persona</span>')+'</td>'+
-        '<td class="td-muted">'+(a.cargo||'—')+'</td>'+
+        '<td><div class="td-id">'+escHtml(a.eq_id)+'</div><div style="font-size:11.5px;color:var(--t2)">'+(eq?escHtml(eq.marca+' '+eq.modelo):'—')+'</div></td>'+
+        '<td class="td-muted">'+escHtml(eq?.tipo||'—')+'</td>'+
+        (empresas.length>1?'<td class="td-muted">'+escHtml(emp?.name||'—')+'</td>':'')+
+        '<td class="td-muted">'+(sede?escHtml(sede.nombre):'—')+(eq?.area?' <span style="color:var(--t3)">/ '+escHtml(eq.area)+'</span>':'')+'</td>'+
+        '<td style="font-size:12.5px;font-weight:500">'+(a.persona?escHtml(a.persona):'<span style="color:var(--t3)">Sin persona</span>')+'</td>'+
+        '<td class="td-muted">'+escHtml(a.cargo||'—')+'</td>'+
         '<td class="td-muted">'+fDate(a.fecha)+'</td>'+
         '<td onclick="event.stopPropagation()">'+
           '<button class="btn btn-ghost btn-sm btn-icon" onclick="asignarEquipo(\''+a.eq_id+'\')" title="Reasignar">&#8596;</button>'+
@@ -2252,7 +2857,24 @@ function asignarEquipo(eqId){
     return;
   }
   const c=co();
-  const sedeOpts=c.sedes?.map(s=>'<option value="'+s.id+'">'+escHtml(s.nombre)+'</option>').join('')||'';
+  const sedes = c.sedes||[];
+  // Precheck: sin sedes creadas, no se puede asignar. Damos mensaje claro.
+  if (sedes.length === 0) {
+    openMo('No hay sedes creadas',
+      '<div style="padding:20px;text-align:center;color:var(--t2)">'+
+        '<div style="font-size:32px;margin-bottom:12px">&#127970;</div>'+
+        '<div>Para asignar equipos primero necesitas crear al menos una sede.</div>'+
+      '</div>',
+      '<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button>'+
+      '<button class="btn btn-primary" onclick="closeMo();go(\'empresas\')">Ir a Mi empresa</button>'
+    );
+    return;
+  }
+  // Total de personas en la empresa: sirve para el aviso "no hay personas creadas"
+  // vs "hay personas pero no están asignadas a esta sede".
+  const totalPersonas = _persScope().filter(p=>p.activo!==false).length;
+
+  const sedeOpts=sedes.map(s=>'<option value="'+s.id+'">'+escHtml(s.nombre)+'</option>').join('');
   openMo('Asignar Equipo - '+eqId,
     '<div class="fgrid f2">'+
       // SEDE
@@ -2260,13 +2882,15 @@ function asignarEquipo(eqId){
         '<label>Sede / Sucursal <span class="req">*</span></label>'+
         '<select id="asS" onchange="onSedeAsig(this.value)"><option value="">Selecciona sede</option>'+sedeOpts+'</select>'+
       '</div>'+
-      // UBICACION
+      // UBICACION — el select propone las ubicaciones de la sede; el input libre
+      // sirve para escribir una nueva. Ambos se mantienen sincronizados.
       '<div class="fg">'+
-        '<label>Ubicacion (sala, room, piso...)</label>'+
+        '<label>Ubicación (sala, oficina, room...)</label>'+
         '<div style="display:flex;gap:6px">'+
-          '<select id="asUL" onchange="$(\'asU\').value=this.value"><option value="">Selecciona...</option></select>'+
-          '<input type="text" id="asU" placeholder="O escribe aqui" style="flex:1">'+
+          '<select id="asUL" onchange="_asigUbicSelChange(this.value)" style="flex:1"><option value="">Selecciona...</option></select>'+
+          '<input type="text" id="asU" placeholder="O escribe una nueva" style="flex:1" oninput="_asigUbicInputChange(this.value)">'+
         '</div>'+
+        '<div style="font-size:11px;color:var(--t3);margin-top:4px">Al escribir en el campo libre, se agrega esa ubicación al asignar.</div>'+
       '</div>'+
       // PERSONA (de la lista, según sede)
       '<div class="fg">'+
@@ -2274,38 +2898,90 @@ function asignarEquipo(eqId){
         '<select id="asPsel" onchange="onPersonaAsig(this.value)" disabled>'+
           '<option value="">Primero elige una sede</option>'+
         '</select>'+
-        '<div style="font-size:11px;color:var(--t3);margin-top:4px">¿Falta alguien? Créalo en <a href="#" onclick="closeMo();go(\'personas\');return false" style="color:var(--accent)">Personas</a>.</div>'+
+        '<div id="asPersonaHint" style="font-size:11px;color:var(--t3);margin-top:4px">'+
+          (totalPersonas===0
+            ? 'Aún no hay personas creadas. <a href="#" onclick="closeMo();go(\'personas\');return false" style="color:var(--accent)">Créalas en Personas</a> primero.'
+            : '¿Falta alguien? <a href="#" onclick="closeMo();go(\'personas\');return false" style="color:var(--accent)">Créala en Personas</a> o revisa que tenga esta sede asignada.'
+          )+
+        '</div>'+
       '</div>'+
-      '<div class="fg"><label>Cargo</label><input type="text" id="asCa" placeholder="Se completa según la persona" readonly style="opacity:.85"></div>'+
-      '<div class="fg"><label>Fecha asignacion</label><input type="date" id="asF" value="'+new Date().toISOString().slice(0,10)+'"></div>'+
-      '<div class="fg" style="grid-column:1/-1"><label>Observaciones</label><textarea id="asO" placeholder="Notas sobre la asignacion..."></textarea></div>'+
+      // CARGO — editable siempre. Si la persona tiene cargo se autocompleta,
+      // pero el usuario puede sobrescribirlo (por ejemplo, si esta asignación
+      // es temporal y el rol cambia). Antes era readonly y bloqueaba escribir.
+      '<div class="fg"><label>Cargo</label>'+
+        '<input type="text" id="asCa" placeholder="Se completa según la persona (editable)">'+
+      '</div>'+
+      '<div class="fg"><label>Fecha asignación</label><input type="date" id="asF" value="'+new Date().toISOString().slice(0,10)+'"></div>'+
+      '<div class="fg" style="grid-column:1/-1"><label>Observaciones</label><textarea id="asO" placeholder="Notas sobre la asignación..."></textarea></div>'+
     '</div>',
     '<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button>'+
     '<button class="btn btn-primary" onclick="saveAsig(\''+eqId+'\')">Asignar</button>',
     'lg'
   );
-  setTimeout(()=>{if(c.sedes?.length){$('asS').value=c.sedes[0].id;updateUbics(c.sedes[0].id);}},50);
+  // Al abrir: preseleccionar primera sede y disparar el flujo completo.
+  setTimeout(()=>{
+    if (sedes.length) {
+      $('asS').value = sedes[0].id;
+      onSedeAsig(sedes[0].id);
+    }
+  }, 50);
 }
 function updateUbics(sedeId){
   const s=getSede(sedeId);const sel=$('asUL');if(!sel)return;
-  sel.innerHTML='<option value="">Selecciona ubicacion</option>'+(s?.ubicaciones?.map(u=>'<option value="'+escHtml(u)+'">'+escHtml(u)+'</option>').join('')||'');
+  sel.innerHTML='<option value="">Selecciona ubicación</option>'+(s?.ubicaciones?.map(u=>'<option value="'+escHtml(u)+'">'+escHtml(u)+'</option>').join('')||'');
+}
+// Sincronización select <-> input libre de ubicación en el modal de asignación.
+function _asigUbicSelChange(val){ const inp=$('asU'); if(inp) inp.value = val; }
+function _asigUbicInputChange(val){
+  // Si el usuario escribe algo que YA está en el select, marcarlo. Si no,
+  // deja el select en blanco (indicando "ubicación nueva").
+  const sel=$('asUL'); if(!sel) return;
+  const existe = Array.from(sel.options).some(o=>o.value === val);
+  sel.value = existe ? val : '';
 }
 // Al elegir sede: actualiza ubicaciones y la lista de personas de esa sede.
+// Muestra mensaje contextual si la sede no tiene personas asignadas.
 function onSedeAsig(sedeId){
   updateUbics(sedeId);
   const sel=$('asPsel'); if(!sel) return;
-  if(!sedeId){ sel.disabled=true; sel.innerHTML='<option value="">Primero elige una sede</option>'; $('asCa').value=''; return; }
+  const hint=$('asPersonaHint');
+  if(!sedeId){
+    sel.disabled=true;
+    sel.innerHTML='<option value="">Primero elige una sede</option>';
+    $('asCa').value='';
+    return;
+  }
   const personas=personasDeSede(sedeId);
-  sel.disabled=false;
-  sel.innerHTML='<option value="">— Sin persona (solo ubicación) —</option>'+
-    personas.map(p=>'<option value="'+p.id+'">'+escHtml(nombrePersona(p))+(p.cargo?' · '+escHtml(p.cargo):'')+'</option>').join('')+
-    (personas.length===0?'<option value="" disabled>No hay personas en esta sede</option>':'');
-  $('asCa').value='';
+  const totalPersonas = _persScope().filter(p=>p.activo!==false).length;
+  sel.disabled = false;
+  sel.innerHTML = '<option value="">— Sin persona (solo ubicación) —</option>'+
+    personas.map(p=>'<option value="'+p.id+'">'+escHtml(nombrePersona(p))+(p.cargo?' · '+escHtml(p.cargo):'')+'</option>').join('');
+  // Mensaje contextual: distinguir "no hay personas" de "hay personas pero
+  // ninguna en esta sede" — ayuda al usuario a entender qué revisar.
+  if (hint) {
+    if (personas.length === 0 && totalPersonas > 0) {
+      hint.innerHTML = '<span style="color:var(--yellow)">⚠ Hay '+totalPersonas+' persona(s) creada(s), pero ninguna tiene esta sede asignada. '+
+        '<a href="#" onclick="closeMo();go(\'personas\');return false" style="color:var(--accent)">Edítalas en Personas</a> para marcar la sede.</span>';
+    } else if (personas.length === 0) {
+      hint.innerHTML = 'Sin personas creadas. <a href="#" onclick="closeMo();go(\'personas\');return false" style="color:var(--accent)">Créalas en Personas</a> primero.';
+    } else {
+      hint.innerHTML = personas.length+' persona(s) en esta sede. ¿Falta alguien? <a href="#" onclick="closeMo();go(\'personas\');return false" style="color:var(--accent)">Créala en Personas</a>.';
+    }
+  }
+  $('asCa').value = '';
 }
-// Al elegir persona: autocompleta el cargo.
+// Al elegir persona: autocompleta cargo (pero deja editable).
 function onPersonaAsig(pid){
   const p=getPersona(pid);
-  $('asCa').value = p ? (p.cargo||'') : '';
+  const inp=$('asCa'); if (!inp) return;
+  // Solo autocompletamos si el input está vacío. Si el usuario ya escribió algo,
+  // no lo sobrescribimos (respeta lo que él/ella puso a propósito).
+  if (!inp.value.trim()) inp.value = p ? (p.cargo || '') : '';
+  else if (p && p.cargo && inp.value !== p.cargo) {
+    // Si tenía otro valor y la nueva persona tiene un cargo distinto, actualizar.
+    // Excepción: al cambiar de persona, siempre poner el cargo de la nueva.
+    inp.value = p.cargo;
+  }
 }
 function saveAsig(eqId){
   const sedeId=$('asS')?.value;if(!sedeId){toast('Selecciona una sede','err');return;}
@@ -2316,14 +2992,36 @@ function saveAsig(eqId){
     a.estado='Devuelta';a.fecha_dev=new Date().toISOString().slice(0,10);
     if(cloudMode) cloudWrite('asignacion_edit',{ asignacion:a });
   });
-  const ub=$('asU')?.value||$('asUL')?.value||'';
+  const ub=$('asU')?.value?.trim()||$('asUL')?.value||'';
   const nomPersona=persona?nombrePersona(persona):'';
+  // Si el usuario escribió una ubicación nueva (no estaba en el select), la
+  // agregamos a las ubicaciones de la sede para que aparezca la próxima vez.
+  // Evita el bug de tener que retipearla cada asignación.
+  if (ub) {
+    const sede = getSede(sedeId);
+    if (sede) {
+      if (!sede.ubicaciones) sede.ubicaciones = [];
+      if (!sede.ubicaciones.includes(ub)) {
+        sede.ubicaciones.push(ub);
+        if (cloudMode) cloudWrite('empresa_edit', { empresa: co() });
+      }
+    }
+  }
   const id='A-'+String(DB.asignaciones.length+1).padStart(3,'0');
   const asignacion={id,eq_id:eqId,co:DB.co,sede_id:sedeId,ubicacion:ub,persona:nomPersona,persona_id:personaId||null,cargo:$('asCa')?.value||'',fecha:$('asF')?.value,fecha_dev:null,estado:'Activa',obs:$('asO')?.value||''};
   DB.asignaciones.push(asignacion);
   if(cloudMode) cloudWrite('asignacion_add',{ asignacion });
   const eq=DB.equipos.find(e=>e.id===eqId);
-  if(eq){eq.estado='En uso';if(typeof syncEquipo==='function')syncEquipo(eq,false);}
+  if(eq){
+    eq.estado='En uso';
+    // Sincronizamos sede + área del equipo con la asignación.
+    // Antes solo se guardaba en la asignación, y el equipo quedaba con datos
+    // desactualizados → el mapa no lo reconocía porque comparaba e.area con
+    // el nombre del área pintada en el mapa, y no coincidía.
+    eq.local_id = sedeId;
+    if (ub) eq.area = ub;
+    if(typeof syncEquipo==='function')syncEquipo(eq,false);
+  }
   // Auto log en historial
   const destino=nomPersona||ub||'ubicación';
   const hist={id:'H-'+String(DB.historial.length+1).padStart(3,'0'),eq_id:eqId,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Equipo asignado a '+destino+' en '+(getSede(sedeId)?.nombre||'')+' / '+ub,prox:null};
@@ -2433,40 +3131,475 @@ function saveEL(id){const l=DB.licencias.find(x=>x.id===id);l.n=parseInt($('elN'
 // ============================================================
 // TAREAS
 // ============================================================
-function renderTareas(){
-  const ta=coTa(),v=getView('tareas');
-  const pend=ta.filter(t=>t.estado==='pending');
-  const inp=ta.filter(t=>t.estado==='in_progress');
-  const done=ta.filter(t=>t.estado==='done');
+// ══════════════════════════════════════════════════════════════
+// TAREAS — Kanban estilo Trello
+// 3 columnas (Por hacer / En progreso / Hecho) con drag & drop.
+// Cada tarjeta soporta descripción, checklist, comentarios, prioridad y
+// fecha límite. Al abrir muestra ficha completa con historial.
+// ══════════════════════════════════════════════════════════════
 
-  if(v==='list') return '<div>'+ta.map(t=>'<div class="cl-item" onclick="viewTarea(\''+t.id+'\')"><span class="cl-id">'+t.id+'</span><span class="cl-main">'+t.titulo+'</span><span class="cl-meta">'+t.cat+'</span>'+prioBadge(t.prio)+taBadge(t.estado)+'</div>').join('')+'</div>';
+let _taFiltros = { q:'', prio:'', asignado:'' };
 
-  if(v==='table') return '<div class="card"><div class="tw"><table><thead><tr><th>ID</th><th>Titulo</th><th>Categoria</th><th>Asignado</th><th>Limite</th><th>Prioridad</th><th>Estado</th></tr></thead><tbody>'+
-    ta.map(t=>'<tr onclick="viewTarea(\''+t.id+'\')"><td class="td-id">'+t.id+'</td><td style="font-weight:500">'+t.titulo+'</td><td class="td-muted">'+t.cat+'</td><td class="td-muted">'+t.asig+'</td><td class="td-muted">'+fDate(t.limite)+'</td><td>'+prioBadge(t.prio)+'</td><td>'+taBadge(t.estado)+'</td></tr>').join('')+
-    '</tbody></table></div></div>';
-
-  const kbCard=t=>'<div class="kb-card" onclick="viewTarea(\''+t.id+'\')"><div style="font-size:12.5px;font-weight:500;margin-bottom:5px">'+t.titulo+'</div><div style="font-size:11.5px;color:var(--text2);margin-bottom:8px">'+t.cat+'</div><div style="display:flex;justify-content:space-between;align-items:center">'+prioBadge(t.prio)+'<span style="font-size:11px;color:var(--text2)">'+fDate(t.limite)+'</span></div></div>';
-  const kbCol=(title,items,col)=>'<div class="kb-col"><div class="kb-head"><span style="color:'+col+'">'+title+'</span><span style="background:var(--s3);padding:2px 7px;border-radius:10px;font-size:11px">'+items.length+'</span></div>'+items.map(kbCard).join('')+'</div>';
-  return '<div class="kanban">'+kbCol('&#9203; Pendiente',pend,'var(--text2)')+kbCol('&#8635; En Proceso',inp,'var(--yellow)')+kbCol('&#10003; Realizado',done,'var(--green)')+'</div>';
+function _taFiltradas() {
+  let ta = coTa();
+  if (_taFiltros.q) {
+    const q = _taFiltros.q.toLowerCase();
+    ta = ta.filter(t =>
+      (t.titulo||'').toLowerCase().includes(q) ||
+      (t.desc||'').toLowerCase().includes(q) ||
+      (t.cat||'').toLowerCase().includes(q) ||
+      (t.asig||'').toLowerCase().includes(q)
+    );
+  }
+  if (_taFiltros.prio) ta = ta.filter(t => t.prio === _taFiltros.prio);
+  if (_taFiltros.asignado) ta = ta.filter(t => t.asig === _taFiltros.asignado);
+  return ta;
 }
-function viewTarea(id){
-  const t=DB.tareas.find(x=>x.id===id);
-  openMo('Tarea '+t.id,
-    '<div style="display:flex;gap:8px;margin-bottom:12px">'+taBadge(t.estado)+prioBadge(t.prio)+'</div>'+
-    '<div class="dr"><span class="dl">Titulo</span><span class="dv">'+escHtml(t.titulo)+'</span></div>'+
-    '<div class="dr"><span class="dl">Descripcion</span><span class="dv">'+escHtml(t.desc)+'</span></div>'+
-    '<div class="dr"><span class="dl">Categoria</span><span class="dv">'+t.cat+'</span></div>'+
-    '<div class="dr"><span class="dl">Asignado</span><span class="dv">'+t.asig+'</span></div>'+
-    '<div class="dr"><span class="dl">Fecha limite</span><span class="dv">'+fDate(t.limite)+'</span></div>'+
-    '<div style="margin-top:14px;display:flex;gap:6px;flex-wrap:wrap">'+
-      '<button class="btn btn-ghost btn-sm" onclick="chgTa(\''+t.id+'\',\'pending\')">&#9203; Pendiente</button>'+
-      '<button class="btn btn-ghost btn-sm" onclick="chgTa(\''+t.id+'\',\'in_progress\')">&#8635; En proceso</button>'+
-      '<button class="btn btn-success btn-sm" onclick="chgTa(\''+t.id+'\',\'done\')">&#10003; Realizado</button>'+
-    '</div>',
-    '<button class="btn btn-secondary" onclick="closeMo()">Cerrar</button>'
+
+function filtrarTareas(campo, valor) {
+  _taFiltros[campo] = valor;
+  const activo = document.activeElement;
+  const focoId = activo?.id || null;
+  const start  = activo?.selectionStart ?? null;
+  const end    = activo?.selectionEnd   ?? null;
+  go('tareas');
+  if (focoId) {
+    const nuevo = document.getElementById(focoId);
+    if (nuevo) {
+      nuevo.focus();
+      if (start !== null && typeof nuevo.setSelectionRange === 'function') {
+        try { nuevo.setSelectionRange(start, end); } catch(_) {}
+      }
+    }
+  }
+}
+
+function renderTareas() {
+  const ta = _taFiltradas();
+  const asignados = Array.from(new Set(coTa().map(t=>t.asig).filter(Boolean))).sort();
+
+  const pend = ta.filter(t => t.estado === 'pending');
+  const inp  = ta.filter(t => t.estado === 'in_progress');
+  const done = ta.filter(t => t.estado === 'done');
+
+  // Ordena por prioridad (alta > media > baja) y luego por fecha límite
+  const rankPrio = { alta:0, media:1, baja:2 };
+  const ordenar = arr => arr.sort((a,b) => {
+    const dp = (rankPrio[a.prio]??3) - (rankPrio[b.prio]??3);
+    if (dp !== 0) return dp;
+    if (a.limite && b.limite) return new Date(a.limite) - new Date(b.limite);
+    return 0;
+  });
+  ordenar(pend); ordenar(inp); ordenar(done);
+
+  return (
+    // Header
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">'+
+      '<div class="srch-wrap" style="flex:1;min-width:200px"><span class="si">&#128269;</span>'+
+        '<input id="taQ" type="text" placeholder="Buscar tarea..." value="'+escHtml(_taFiltros.q)+'" oninput="filtrarTareas(\'q\',this.value)"></div>'+
+      '<button class="btn btn-primary" onclick="addTarea()">+ Nueva tarea</button>'+
+    '</div>'+
+
+    // Filtros
+    '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">'+
+      '<select style="width:auto" onchange="filtrarTareas(\'prio\',this.value)">'+
+        ['','alta','media','baja'].map(p => {
+          const lbl = { '':'Todas las prioridades', alta:'Urgente', media:'Normal', baja:'Baja' }[p];
+          return '<option value="'+p+'"'+(_taFiltros.prio===p?' selected':'')+'>'+lbl+'</option>';
+        }).join('')+
+      '</select>'+
+      (asignados.length > 0
+        ? '<select style="width:auto" onchange="filtrarTareas(\'asignado\',this.value)">'+
+            '<option value="">Todos los asignados</option>'+
+            asignados.map(a=>'<option value="'+escHtml(a)+'"'+(_taFiltros.asignado===a?' selected':'')+'>'+escHtml(a)+'</option>').join('')+
+          '</select>'
+        : '')+
+      (_taFiltros.q||_taFiltros.prio||_taFiltros.asignado
+        ? '<button class="btn btn-ghost btn-sm" onclick="_taFiltros={q:\'\',prio:\'\',asignado:\'\'};go(\'tareas\')">&#10005; Limpiar</button>'
+        : '')+
+      '<span style="margin-left:auto;font-size:11.5px;color:var(--t3)">'+ta.length+' tarea'+(ta.length!==1?'s':'')+'</span>'+
+    '</div>'+
+
+    // Kanban con 3 columnas
+    '<div class="ta-kanban">'+
+      _renderColTa('Por hacer',   pend, '#94a3b8', 'pending')+
+      _renderColTa('En progreso', inp,  '#3b82f6', 'in_progress')+
+      _renderColTa('Hecho',       done, '#10b981', 'done')+
+    '</div>'+
+
+    // Estilos inline del Kanban (mismo enfoque que soporte)
+    '<style>'+
+      '.ta-kanban{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}'+
+      '@media(max-width:900px){.ta-kanban{grid-template-columns:1fr}}'+
+      '.ta-col{background:var(--s2);border-radius:var(--r2);padding:12px;min-height:240px}'+
+      '.ta-col-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--t2)}'+
+      '.ta-col-body{min-height:150px}'+
+      '.ta-card{background:var(--s1);border-radius:var(--r);padding:10px 12px;margin-bottom:8px;cursor:grab;border-left:3px solid var(--border);transition:transform .1s;position:relative;touch-action:manipulation}'+
+      '.ta-card:active{cursor:grabbing}'+
+      '.ta-card:hover{background:var(--s2);transform:translateY(-1px)}'+
+      '.ta-card.prio-alta{border-left-color:#ef4444}'+
+      '.ta-card.prio-media{border-left-color:#f59e0b}'+
+      '.ta-card.prio-baja{border-left-color:#10b981}'+
+      '.ta-card.done{opacity:.7}'+
+      '.ta-card.done .ta-titulo{text-decoration:line-through}'+
+      // Clases Sortable
+      '.ta-drag-ghost{opacity:.4;background:var(--accent-dim)!important}'+
+      '.ta-drag-drag{opacity:.9;transform:rotate(2deg);box-shadow:0 8px 24px rgba(0,0,0,.3)}'+
+      '.ta-drag-chosen{cursor:grabbing}'+
+      // Botones móviles ← → (siempre visibles)
+      '.ta-mover{display:flex;gap:4px;margin-top:8px;justify-content:flex-end}'+
+      '.ta-mv-btn{background:var(--s3);border:none;color:var(--text);width:32px;height:32px;border-radius:var(--r);cursor:pointer;font-size:14px;display:inline-flex;align-items:center;justify-content:center;padding:0}'+
+      '.ta-mv-btn:hover{background:var(--accent-dim);color:var(--accent)}'+
+      '.ta-mv-btn.disabled{opacity:.3;cursor:default;pointer-events:none}'+
+      '.ta-empty{font-size:11px;color:var(--t3);text-align:center;padding:16px 8px;font-style:italic}'+
+      '.ta-add-btn{background:transparent;border:1px dashed var(--border);color:var(--t3);width:100%;padding:8px;border-radius:var(--r);cursor:pointer;font-size:12px;margin-top:4px}'+
+      '.ta-add-btn:hover{border-color:var(--accent);color:var(--accent)}'+
+      '.ta-checklist-progress{background:var(--s3);height:4px;border-radius:2px;margin-top:6px;overflow:hidden}'+
+      '.ta-checklist-progress > div{background:#10b981;height:100%;transition:width .3s}'+
+    '</style>'
   );
 }
-function chgTa(id,s){const t=DB.tareas.find(x=>x.id===id);if(!t)return;t.estado=s;if(cloudMode)cloudWrite('tarea_edit',{tarea:t});closeMo();toast('Tarea actualizada');go('tareas');}
+
+function _renderColTa(titulo, arr, color, estado) {
+  return '<div class="ta-col" data-estado="'+estado+'" data-ta-col="1">'+
+    '<div class="ta-col-head">'+
+      '<span style="color:'+color+'">● '+titulo.toUpperCase()+'</span>'+
+      '<span>'+arr.length+'</span>'+
+    '</div>'+
+    '<div class="ta-col-body" data-estado="'+estado+'">'+
+      (arr.length === 0
+        ? '<div class="ta-empty">— sin tareas —</div>'
+        : arr.map(t => _renderTarjetaTa(t)).join(''))+
+    '</div>'+
+    // Botón "+ Agregar" en la primera columna, para agregar rápido
+    (estado === 'pending'
+      ? '<button class="ta-add-btn" onclick="addTarea()">+ Agregar tarea</button>'
+      : '')+
+  '</div>';
+}
+
+// Estados de tareas en orden lineal (para los botones ← →)
+const _ESTADOS_TAREA = ['pending','in_progress','done'];
+
+function _renderTarjetaTa(t) {
+  const chk = t.checklist || [];
+  const chkDone = chk.filter(c => c.done).length;
+  const chkTotal = chk.length;
+  const chkProgress = chkTotal ? Math.round((chkDone/chkTotal)*100) : 0;
+  const prioClass = 'prio-'+(t.prio || 'baja');
+  const doneClass = t.estado === 'done' ? ' done' : '';
+  const prioColor = { alta:'#ef4444', media:'#f59e0b', baja:'#10b981' }[t.prio] || '#94a3b8';
+  const prioLbl = { alta:'Urgente', media:'Normal', baja:'Baja' }[t.prio] || 'Sin prioridad';
+  // Etiqueta de fecha límite: rojo si vencida, amarillo si <3 días
+  let fechaBadge = '';
+  if (t.limite) {
+    const diasParaVencer = Math.floor((new Date(t.limite) - Date.now()) / 86400000);
+    let col = 'var(--t3)';
+    let txt = fDate(t.limite);
+    if (t.estado !== 'done') {
+      if (diasParaVencer < 0) { col = '#ef4444'; txt = 'Vencida'; }
+      else if (diasParaVencer <= 3) { col = '#f59e0b'; }
+    }
+    fechaBadge = '<span style="font-size:10.5px;color:'+col+'">&#128197; '+escHtml(txt)+'</span>';
+  }
+  const numComents = (t.comentarios || []).length;
+  // Botones ← → para mover entre columnas (funciona en cualquier dispositivo)
+  const idxActual = _ESTADOS_TAREA.indexOf(t.estado);
+  const puedeIzq = idxActual > 0;
+  const puedeDer = idxActual < _ESTADOS_TAREA.length - 1;
+  const btnMover =
+    '<div class="ta-mover" onclick="event.stopPropagation()">'+
+      (puedeIzq
+        ? '<button class="ta-mv-btn" onclick="chgTa(\''+t.id+'\',\''+_ESTADOS_TAREA[idxActual-1]+'\')" title="Mover atrás">&#9664;</button>'
+        : '<span class="ta-mv-btn disabled">&#9664;</span>')+
+      (puedeDer
+        ? '<button class="ta-mv-btn" onclick="chgTa(\''+t.id+'\',\''+_ESTADOS_TAREA[idxActual+1]+'\')" title="Mover adelante">&#9654;</button>'
+        : '<span class="ta-mv-btn disabled">&#9654;</span>')+
+    '</div>';
+  return '<div class="ta-card '+prioClass+doneClass+'" data-id="'+escHtml(t.id)+'" '+
+    'onclick="viewTarea(\''+t.id+'\')">'+
+    '<div class="ta-titulo" style="font-size:12.5px;font-weight:600;line-height:1.3;margin-bottom:4px">'+escHtml(t.titulo||'(sin título)')+'</div>'+
+    (t.cat ? '<div style="font-size:10.5px;color:var(--t3);margin-bottom:6px">'+escHtml(t.cat)+'</div>' : '')+
+    // Barra de progreso del checklist si existe
+    (chkTotal > 0
+      ? '<div style="font-size:10.5px;color:var(--t2);margin-bottom:3px">&#9744; '+chkDone+'/'+chkTotal+' completadas</div>'+
+        '<div class="ta-checklist-progress"><div style="width:'+chkProgress+'%"></div></div>'
+      : '')+
+    // Footer: prioridad + fecha + comentarios + asignado
+    '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px">'+
+      '<span class="badge" style="background:'+prioColor+'22;color:'+prioColor+';font-size:9.5px;padding:2px 6px">'+escHtml(prioLbl)+'</span>'+
+      fechaBadge +
+      (numComents ? '<span style="font-size:10.5px;color:var(--t3)">&#128172; '+numComents+'</span>' : '')+
+      (t.asig ? '<span style="margin-left:auto;font-size:10.5px;color:var(--t2)">'+escHtml(t.asig)+'</span>' : '')+
+    '</div>'+
+    btnMover+
+  '</div>';
+}
+
+// Inicializa Sortable en columnas de tareas. Mismo enfoque que soporte.
+function _initSortableTareas() {
+  if (typeof Sortable === 'undefined') return;
+  document.querySelectorAll('.ta-col-body').forEach(col => {
+    if (col._sortable) col._sortable.destroy();
+    col._sortable = new Sortable(col, {
+      group: 'tareas-kanban',
+      animation: 180,
+      ghostClass: 'ta-drag-ghost',
+      dragClass: 'ta-drag-drag',
+      chosenClass: 'ta-drag-chosen',
+      delay: 100,
+      delayOnTouchOnly: true,
+      touchStartThreshold: 5,
+      onEnd: (evt) => {
+        const id = evt.item.dataset.id;
+        const nuevoEstado = evt.to.dataset.estado;
+        if (id && nuevoEstado) chgTa(id, nuevoEstado);
+      },
+    });
+  });
+}
+
+// Registra evento en historial de una tarea (línea de tiempo)
+function _agregarEventoTarea(t, tipo, descripcion) {
+  if (!t.historial) t.historial = [];
+  t.historial.push({
+    fecha: new Date().toISOString(),
+    tipo,
+    autor: currentUser?.nombre || currentUser?.email || 'Yo',
+    descripcion,
+  });
+}
+
+// Ficha completa de la tarea (estilo Jira: contenido a la izquierda, meta+historial a la derecha)
+function viewTarea(id) {
+  const t = DB.tareas.find(x => x.id === id);
+  if (!t) return;
+
+  const prioColor = { alta:'#ef4444', media:'#f59e0b', baja:'#10b981' }[t.prio] || 'var(--t3)';
+  const prioLbl = { alta:'Urgente', media:'Normal', baja:'Baja' }[t.prio] || t.prio || 'Sin prioridad';
+  const estLbl = { pending:'Por hacer', in_progress:'En progreso', done:'Hecho' }[t.estado] || t.estado;
+  const estColor = { pending:'#94a3b8', in_progress:'#3b82f6', done:'#10b981' }[t.estado] || 'var(--t3)';
+
+  const chk = t.checklist || [];
+  const coments = t.comentarios || [];
+
+  openMo('Tarea · '+escHtml(t.id),
+    '<div style="display:grid;grid-template-columns:1fr 280px;gap:20px" class="tarea-detail">'+
+      // Columna principal
+      '<div>'+
+        '<div style="font-size:16px;font-weight:600;margin-bottom:6px">'+escHtml(t.titulo||'(sin título)')+'</div>'+
+        '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">'+
+          '<span class="badge" style="background:'+estColor+'22;color:'+estColor+'">'+escHtml(estLbl)+'</span>'+
+          '<span class="badge" style="background:'+prioColor+'22;color:'+prioColor+'">'+escHtml(prioLbl)+'</span>'+
+          (t.cat ? '<span class="badge" style="background:var(--adim);color:var(--accent)">'+escHtml(t.cat)+'</span>' : '')+
+        '</div>'+
+
+        (t.desc
+          ? '<div style="font-size:13px;color:var(--text2);white-space:pre-wrap;padding:12px;background:var(--s2);border-radius:var(--r);margin-bottom:16px">'+escHtml(t.desc)+'</div>'
+          : '')+
+
+        // Checklist
+        '<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:.5px;margin-bottom:8px">'+
+          'CHECKLIST'+(chk.length?' ('+chk.filter(c=>c.done).length+'/'+chk.length+')':'')+
+        '</div>'+
+        '<div id="taChkList" style="margin-bottom:8px">'+
+          (chk.length === 0
+            ? '<div style="font-size:12px;color:var(--t3);padding:12px;text-align:center;background:var(--s2);border-radius:var(--r)">Sin ítems aún</div>'
+            : chk.map((c,i) => _renderChkItem(t.id, c, i)).join(''))+
+        '</div>'+
+        '<div style="display:flex;gap:6px;margin-bottom:16px">'+
+          '<input type="text" id="taChkNuevo" placeholder="Agregar ítem al checklist..." style="flex:1" onkeydown="if(event.key===\'Enter\')agregarChkItem(\''+t.id+'\')">'+
+          '<button class="btn btn-secondary btn-sm" onclick="agregarChkItem(\''+t.id+'\')">+ Agregar</button>'+
+        '</div>'+
+
+        // Comentarios
+        '<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:.5px;margin-bottom:8px">COMENTARIOS</div>'+
+        '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;max-height:200px;overflow-y:auto">'+
+          (coments.length === 0
+            ? '<div style="font-size:12px;color:var(--t3);padding:12px;text-align:center;background:var(--s2);border-radius:var(--r)">Sin comentarios aún</div>'
+            : coments.map(c => '<div style="padding:10px;border-radius:var(--r);background:var(--s2)">'+
+                '<div style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--t3);margin-bottom:4px">'+
+                  '<b>'+escHtml(c.autor||'Yo')+'</b>'+
+                  '<span>· '+new Date(c.fecha).toLocaleString('es-CL')+'</span>'+
+                '</div>'+
+                '<div style="font-size:12.5px;white-space:pre-wrap;line-height:1.45">'+escHtml(c.texto)+'</div>'+
+              '</div>').join(''))+
+        '</div>'+
+        '<div>'+
+          '<textarea id="taComentNuevo" placeholder="Escribe un comentario..." style="min-height:60px;font-size:13px"></textarea>'+
+          '<button class="btn btn-primary btn-sm" style="margin-top:6px" onclick="agregarComentarioTa(\''+t.id+'\')">&#128172; Comentar</button>'+
+        '</div>'+
+      '</div>'+
+
+      // Sidebar
+      '<div>'+
+        '<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:.5px;margin-bottom:8px">DETALLE</div>'+
+        '<div class="dr"><span class="dl">Asignado</span><span class="dv">'+escHtml(t.asig||'—')+'</span></div>'+
+        '<div class="dr"><span class="dl">Categoría</span><span class="dv">'+escHtml(t.cat||'—')+'</span></div>'+
+        '<div class="dr"><span class="dl">Fecha límite</span><span class="dv">'+escHtml(fDate(t.limite)||'—')+'</span></div>'+
+        '<div class="dr"><span class="dl">Creada</span><span class="dv" style="font-size:11px">'+(t.creada?new Date(t.creada).toLocaleDateString('es-CL'):'—')+'</span></div>'+
+
+        // Historial
+        '<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:.5px;margin:20px 0 8px 0">HISTORIAL</div>'+
+        _renderHistorialTarea(t)+
+      '</div>'+
+    '</div>',
+    // Acciones
+    '<button class="btn btn-ghost btn-sm" onclick="editarTarea(\''+t.id+'\')">&#9998; Editar</button>'+
+    '<button class="btn btn-danger btn-sm" onclick="eliminarTarea(\''+t.id+'\')" style="margin-left:auto">&#128465; Eliminar</button>',
+    'xl'
+  );
+}
+
+function _renderChkItem(taId, c, idx) {
+  return '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--s2);border-radius:var(--r);margin-bottom:4px">'+
+    '<input type="checkbox" '+(c.done?'checked':'')+' onchange="toggleChkItem(\''+taId+'\','+idx+')" style="width:auto;accent-color:var(--accent)">'+
+    '<span style="flex:1;font-size:12.5px;'+(c.done?'text-decoration:line-through;color:var(--t3)':'')+'">'+escHtml(c.texto)+'</span>'+
+    '<button class="btn btn-ghost btn-sm btn-icon" onclick="borrarChkItem(\''+taId+'\','+idx+')" title="Eliminar">&#128465;</button>'+
+  '</div>';
+}
+
+function agregarChkItem(taId) {
+  const t = DB.tareas.find(x=>x.id===taId);
+  if (!t) return;
+  const inp = $('taChkNuevo');
+  const txt = inp?.value?.trim();
+  if (!txt) return;
+  if (!t.checklist) t.checklist = [];
+  t.checklist.push({ texto: txt, done: false });
+  _agregarEventoTarea(t, 'checklist', 'Añadió ítem: '+txt);
+  if (cloudMode) cloudWrite('tarea_edit', { tarea: t });
+  inp.value = '';
+  closeMo(); viewTarea(taId);
+}
+function toggleChkItem(taId, idx) {
+  const t = DB.tareas.find(x=>x.id===taId);
+  if (!t?.checklist?.[idx]) return;
+  t.checklist[idx].done = !t.checklist[idx].done;
+  _agregarEventoTarea(t, 'checklist',
+    (t.checklist[idx].done?'✓ Completó: ':'✗ Reabrió: ')+t.checklist[idx].texto);
+  if (cloudMode) cloudWrite('tarea_edit', { tarea: t });
+}
+function borrarChkItem(taId, idx) {
+  const t = DB.tareas.find(x=>x.id===taId);
+  if (!t?.checklist?.[idx]) return;
+  const txt = t.checklist[idx].texto;
+  t.checklist.splice(idx, 1);
+  _agregarEventoTarea(t, 'checklist', 'Eliminó ítem: '+txt);
+  if (cloudMode) cloudWrite('tarea_edit', { tarea: t });
+  closeMo(); viewTarea(taId);
+}
+
+function agregarComentarioTa(taId) {
+  const t = DB.tareas.find(x=>x.id===taId);
+  if (!t) return;
+  const txt = $('taComentNuevo')?.value?.trim();
+  if (!txt) return;
+  if (!t.comentarios) t.comentarios = [];
+  t.comentarios.push({
+    fecha: new Date().toISOString(),
+    autor: currentUser?.nombre || 'Yo',
+    texto: txt,
+  });
+  _agregarEventoTarea(t, 'comentario', 'Comentó');
+  if (cloudMode) cloudWrite('tarea_edit', { tarea: t });
+  closeMo(); viewTarea(taId);
+}
+
+function eliminarTarea(id) {
+  if (!confirm('¿Eliminar esta tarea? No se puede deshacer.')) return;
+  DB.tareas = DB.tareas.filter(t=>t.id!==id);
+  addLog('Eliminó tarea', 'tareas', id);
+  closeMo();
+  toast('Tarea eliminada');
+  go('tareas');
+}
+
+function editarTarea(id) {
+  const t = DB.tareas.find(x=>x.id===id);
+  if (!t) return;
+  openMo('Editar tarea',
+    '<div class="fg"><label>Título</label><input type="text" id="teTit" value="'+escHtml(t.titulo||'')+'"></div>'+
+    '<div class="fg"><label>Descripción</label><textarea id="teDesc" style="min-height:80px">'+escHtml(t.desc||'')+'</textarea></div>'+
+    '<div class="fgrid f2">'+
+      '<div class="fg"><label>Categoría</label><input type="text" id="teCat" value="'+escHtml(t.cat||'')+'" placeholder="Ej: Instalación, Configuración"></div>'+
+      '<div class="fg"><label>Asignado a</label><input type="text" id="teAsig" value="'+escHtml(t.asig||'')+'"></div>'+
+      '<div class="fg"><label>Prioridad</label>'+
+        '<select id="tePrio">'+
+          ['baja','media','alta'].map(p=>'<option value="'+p+'"'+(t.prio===p?' selected':'')+'>'+
+            ({baja:'Baja',media:'Normal',alta:'Urgente'}[p])+'</option>').join('')+
+        '</select>'+
+      '</div>'+
+      '<div class="fg"><label>Fecha límite</label><input type="date" id="teLim" value="'+(t.limite||'')+'"></div>'+
+    '</div>',
+    '<button class="btn btn-secondary" onclick="closeMo();viewTarea(\''+id+'\')">Cancelar</button>'+
+    '<button class="btn btn-primary" onclick="guardarEditTarea(\''+id+'\')">Guardar</button>'
+  );
+}
+function guardarEditTarea(id) {
+  const t = DB.tareas.find(x=>x.id===id);
+  if (!t) return;
+  const cambios = [];
+  const nuevoTit = $('teTit')?.value?.trim();
+  const nuevoPri = $('tePrio')?.value;
+  if (nuevoTit && nuevoTit !== t.titulo) cambios.push('título');
+  if (nuevoPri && nuevoPri !== t.prio) cambios.push('prioridad');
+  t.titulo = nuevoTit || t.titulo;
+  t.desc = $('teDesc')?.value || '';
+  t.cat = $('teCat')?.value || '';
+  t.asig = $('teAsig')?.value || '';
+  t.prio = nuevoPri || t.prio;
+  t.limite = $('teLim')?.value || '';
+  if (cambios.length) _agregarEventoTarea(t, 'editado', 'Editó '+cambios.join(', '));
+  if (cloudMode) cloudWrite('tarea_edit', { tarea: t });
+  closeMo(); toast('Tarea actualizada'); viewTarea(id);
+}
+
+// Renderiza historial de la tarea (línea de tiempo tipo Jira)
+function _renderHistorialTarea(t) {
+  const eventos = [];
+  eventos.push({
+    fecha: t.creada || new Date().toISOString(),
+    tipo: 'creado',
+    autor: t.autor || 'Yo',
+    descripcion: 'Tarea creada',
+  });
+  (t.historial || []).forEach(e => eventos.push(e));
+  eventos.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+
+  const iconos = { creado:'📥', estado:'🔄', comentario:'💬', checklist:'☑️', editado:'✏️' };
+  return '<div style="display:flex;flex-direction:column;gap:8px">'+
+    eventos.map(ev => {
+      const cuandoAbs = new Date(ev.fecha).toLocaleString('es-CL',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+      const cuandoRel = tiempoDesde(ev.fecha);
+      return '<div style="display:flex;gap:8px;font-size:11.5px">'+
+        '<span style="font-size:13px">'+ (iconos[ev.tipo]||'•') +'</span>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="line-height:1.3">'+escHtml(ev.descripcion)+'</div>'+
+          '<div style="font-size:10.5px;color:var(--t3);margin-top:2px" title="'+escHtml(cuandoAbs)+'">'+
+            escHtml(ev.autor)+' · '+cuandoRel+
+          '</div>'+
+        '</div>'+
+      '</div>';
+    }).join('')+
+  '</div>';
+}
+
+function chgTa(id, s) {
+  const t = DB.tareas.find(x=>x.id===id);
+  if (!t) return;
+  const antes = t.estado;
+  if (antes === s) return;
+  t.estado = s;
+  const estLbl = { pending:'Por hacer', in_progress:'En progreso', done:'Hecho' };
+  _agregarEventoTarea(t, 'estado', (estLbl[antes]||antes)+' → '+(estLbl[s]||s));
+  if (cloudMode) cloudWrite('tarea_edit', { tarea: t });
+  addLog('Cambió estado tarea', 'tareas', id+': '+antes+' → '+s);
+  // Si viene de dentro de la ficha refresca; si viene del kanban, refresca el módulo
+  if (document.getElementById('taChkList')) { closeMo(); viewTarea(id); }
+  else { toast('Tarea movida'); go('tareas'); }
+}
+
 function addTarea(){
   openMo('Nueva Tarea',
     '<div class="fgrid f2">'+
@@ -2482,7 +3615,21 @@ function addTarea(){
 }
 function saveTarea(){
   const id='T-'+String(DB.tareas.length+1).padStart(3,'0');
-  const tarea={id,co:DB.co,titulo:$('tT')?.value||'Sin titulo',desc:$('tD')?.value||'',cat:$('tC')?.value,prio:$('tP')?.value,estado:'pending',asig:'Cristobal R.',limite:$('tF')?.value};
+  const tarea = {
+    id, co: DB.co,
+    titulo: $('tT')?.value || 'Sin titulo',
+    desc:   $('tD')?.value || '',
+    cat:    $('tC')?.value,
+    prio:   $('tP')?.value,
+    estado: 'pending',
+    asig:   currentUser?.nombre || '',  // era 'Cristobal R.' hardcoded
+    limite: $('tF')?.value,
+    creada: new Date().toISOString(),   // para el historial
+    autor:  currentUser?.nombre || currentUser?.email || 'Yo',
+    checklist: [],
+    comentarios: [],
+    historial: [],
+  };
   DB.tareas.push(tarea);
   if(cloudMode) cloudWrite('tarea_add',{ tarea });
   closeMo();toast('Tarea creada');go('tareas');
@@ -2665,14 +3812,14 @@ function saveEditEmp(id){
 // ============================================================
 // USUARIOS
 // ============================================================
-const ROLES={super_admin:'Super Admin',admin_empresa:'Admin Empresa',tecnico:'Tecnico',lectura_empresa:'Solo Lectura'};
+const ROLES={super_admin:'Super Admin',admin_empresa:'Admin Empresa',tecnico:'Tecnico',lectura_empresa:'Solo Lectura',basico:'Basico (solo QR)'};
 // ── GESTIÓN DE USUARIOS ───────────────────────────────────
 // Compat: la hoja usa `activo` (booleano); mostramos "Activo/Inactivo".
 function _uActivo(u){ return u.activo===undefined ? (String(u.estado||'').toLowerCase()!=='inactivo') : !(u.activo===false||String(u.activo).toLowerCase()==='false'); }
 function _esSuperUsuario(){ return !cloudMode || !!currentUser?.scopeAll; }
 // Roles que el usuario actual puede asignar
 function _rolesAsignables(){
-  const base = { admin_empresa:'Admin Empresa', tecnico:'Técnico', lectura_empresa:'Solo Lectura' };
+  const base = { admin_empresa:'Admin Empresa', tecnico:'Técnico', lectura_empresa:'Solo Lectura', basico:'Básico (solo consulta QR)' };
   return _esSuperUsuario() ? { super_admin:'Super Admin', ...base } : base;
 }
 // Empresas que el usuario actual puede asignar
@@ -2683,10 +3830,46 @@ function _empresasAsignables(){
 }
 
 function renderUsuarios(){
-  return '<div style="display:flex;justify-content:flex-end;margin-bottom:16px"><button class="btn btn-primary" onclick="addUsuario()">+ Nuevo Usuario</button></div>'+
-  '<div class="card"><div class="tw"><table><thead><tr><th>Usuario</th><th>Email</th><th>Rol</th><th>Empresa</th><th>Estado</th><th></th></tr></thead><tbody>'+
-    DB.usuarios.map(u=>'<tr><td><div style="display:flex;align-items:center;gap:8px"><div class="av">'+escHtml((u.nombre||'?').split(' ').map(n=>n[0]).join('').slice(0,2))+'</div><span style="font-weight:500">'+escHtml(u.nombre)+'</span></div></td><td class="td-muted">'+escHtml(u.email)+'</td><td><span class="badge bb">'+escHtml(ROLES[u.rol]||u.rol)+'</span></td><td class="td-muted">'+(String(u.co)==='todas'?'<span class="badge bp">Todas</span>':escHtml(DB.companies[u.co]?.name||u.co))+'</td><td><span class="badge '+(_uActivo(u)?'bg':'bgr')+'">'+(_uActivo(u)?'Activo':'Inactivo')+'</span></td><td><button class="btn btn-ghost btn-sm btn-icon" onclick="editUsuario(\''+u.id+'\')">&#9998;</button></td></tr>').join('')+
-  '</tbody></table></div></div>';
+  const usuarios = DB.usuarios || [];  // guarda: la tabla puede no existir aún
+  // Si no hay usuarios, mostramos empty state con call-to-action claro.
+  if (!usuarios.length) {
+    return '<div style="display:flex;justify-content:flex-end;margin-bottom:16px">'+
+        '<button class="btn btn-primary" onclick="addUsuario()">+ Nuevo Usuario</button>'+
+      '</div>'+
+      '<div class="card" style="text-align:center;padding:40px 20px;color:var(--t2)">'+
+        '<div style="font-size:36px;margin-bottom:12px">&#128101;</div>'+
+        '<div style="font-size:14px;margin-bottom:6px">Aún no hay usuarios registrados</div>'+
+        '<div style="font-size:12px;color:var(--t3);margin-bottom:16px">Crea el primero para que pueda ingresar con su cuenta de Google</div>'+
+        '<button class="btn btn-secondary btn-sm" onclick="addUsuario()">+ Crear el primero</button>'+
+      '</div>';
+  }
+  // Vista normal con tabla. Columna "Empresa" oculta si solo hay una.
+  const multiEmpresa = Object.keys(DB.companies||{}).length > 1;
+  return '<div style="display:flex;justify-content:flex-end;margin-bottom:16px">'+
+      '<button class="btn btn-primary" onclick="addUsuario()">+ Nuevo Usuario</button>'+
+    '</div>'+
+    '<div class="card"><div class="tw"><table>'+
+      '<thead><tr><th>Usuario</th><th>Email</th><th>Rol</th>'+(multiEmpresa?'<th>Empresa</th>':'')+'<th>Estado</th><th></th></tr></thead>'+
+      '<tbody>'+
+        usuarios.map(u => {
+          const iniciales = (u.nombre||'?').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+          const empresaLabel = String(u.co) === 'todas'
+            ? '<span class="badge bp">Todas</span>'
+            : escHtml(DB.companies[u.co]?.name || u.co || '—');
+          const activo = _uActivo(u);
+          return '<tr>'+
+            '<td><div style="display:flex;align-items:center;gap:8px">'+
+              '<div class="av">'+iniciales+'</div>'+
+              '<span style="font-weight:500">'+escHtml(u.nombre||'')+'</span>'+
+            '</div></td>'+
+            '<td class="td-muted">'+escHtml(u.email||'')+'</td>'+
+            '<td><span class="badge bb">'+escHtml(ROLES[u.rol] || u.rol || '—')+'</span></td>'+
+            (multiEmpresa?'<td class="td-muted">'+empresaLabel+'</td>':'')+
+            '<td><span class="badge '+(activo?'bg':'bgr')+'">'+(activo?'Activo':'Inactivo')+'</span></td>'+
+            '<td><button class="btn btn-ghost btn-sm btn-icon" onclick="editUsuario(\''+escHtml(u.id)+'\')" title="Editar">&#9998;</button></td>'+
+          '</tr>';
+        }).join('')+
+      '</tbody></table></div></div>';
 }
 function _optsRol(sel){ return Object.entries(_rolesAsignables()).map(([k,v])=>'<option value="'+k+'"'+(sel===k?' selected':'')+'>'+v+'</option>').join(''); }
 function _optsEmpresa(sel){ return Object.entries(_empresasAsignables()).map(([k,v])=>'<option value="'+k+'"'+(sel===k?' selected':'')+'>'+escHtml(v)+'</option>').join(''); }
@@ -2699,7 +3882,10 @@ function addUsuario(){
       '<div class="fg"><label>Nombre <span class="req">*</span></label><input type="text" id="uN"></div>'+
       '<div class="fg"><label>Email <span class="req">*</span></label><input type="email" id="uE" placeholder="correo@empresa.cl"></div>'+
       '<div class="fg"><label>Rol</label><select id="uR">'+_optsRol('lectura_empresa')+'</select></div>'+
-      '<div class="fg"><label>Empresa</label><select id="uC"'+(_esSuperUsuario()?'':' disabled')+'>'+_optsEmpresa(currentUser?.co)+'</select></div>'+
+      // Empresa: solo se muestra si hay varias. Con una sola, se auto-asigna al guardar.
+      (Object.keys(DB.companies||{}).length > 1
+        ? '<div class="fg"><label>Empresa</label><select id="uC"'+(_esSuperUsuario()?'':' disabled')+'>'+_optsEmpresa(currentUser?.co)+'</select></div>'
+        : '')+
     '</div>'+
     '<div style="font-size:11.5px;color:var(--t2);margin-top:4px">El acceso es con cuenta Google. El usuario podrá entrar con el email indicado.</div>',
     '<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button>'+
@@ -2711,7 +3897,13 @@ async function saveUsuario(){
     nombre:$('uN')?.value?.trim(),
     email:$('uE')?.value?.trim(),
     rol:$('uR')?.value,
-    co:_esSuperUsuario()?($('uC')?.value):currentUser?.co,
+    // Empresa: si hay solo una, se auto-asigna (el select estará oculto).
+    // Si hay varias, el super_admin la elige; el resto ve su propia empresa.
+    co: (function(){
+      const cos = Object.keys(DB.companies||{});
+      if (cos.length <= 1) return cos[0] || DB.co;
+      return _esSuperUsuario() ? ($('uC')?.value) : currentUser?.co;
+    })(),
     activo:true
   };
   if(!u.nombre||!u.email){ toast('Nombre y email son obligatorios','err'); return; }
@@ -2721,19 +3913,27 @@ async function saveUsuario(){
       if(!res.ok) throw new Error(res.error||'Error');
       u.id=res.id;
     }catch(err){ toast('Error: '+err.message,'err'); return; }
-  } else { u.id='U-'+String(DB.usuarios.length+1).padStart(3,'0'); }
+  } else {
+    // Asegurar que DB.usuarios existe antes de usar length/push
+    if (!DB.usuarios) DB.usuarios = [];
+    u.id = 'U-' + String(DB.usuarios.length + 1).padStart(3, '0');
+  }
+  if (!DB.usuarios) DB.usuarios = [];
   DB.usuarios.push(u);
   closeMo();toast('Usuario creado ✓');go('usuarios');
 }
 function editUsuario(id){
-  const u=DB.usuarios.find(x=>x.id===id);
+  const u=(DB.usuarios||[]).find(x=>x.id===id);
   if(!u) return;
   openMo('Editar - '+escHtml(u.nombre),
     '<div class="fgrid f2">'+
       '<div class="fg"><label>Nombre <span class="req">*</span></label><input type="text" id="uN2" value="'+escHtml(u.nombre||'')+'"></div>'+
       '<div class="fg"><label>Email <span class="req">*</span></label><input type="email" id="uE2" value="'+escHtml(u.email||'')+'"></div>'+
       '<div class="fg"><label>Rol</label><select id="uR2">'+_optsRol(u.rol)+'</select></div>'+
-      '<div class="fg"><label>Empresa</label><select id="uC2"'+(_esSuperUsuario()?'':' disabled')+'>'+_optsEmpresa(u.co)+'</select></div>'+
+      // Empresa: oculta si solo hay una (mono-empresa). Mantiene el valor actual al guardar.
+      (Object.keys(DB.companies||{}).length > 1
+        ? '<div class="fg"><label>Empresa</label><select id="uC2"'+(_esSuperUsuario()?'':' disabled')+'>'+_optsEmpresa(u.co)+'</select></div>'
+        : '')+
       '<div class="fg"><label>Estado</label><select id="uSt"><option value="true"'+(_uActivo(u)?' selected':'')+'>Activo</option><option value="false"'+(!_uActivo(u)?' selected':'')+'>Inactivo</option></select></div>'+
     '</div>',
     '<button class="btn btn-danger btn-sm" onclick="delUsuario(\''+id+'\')" style="margin-right:auto">&#128465; Eliminar</button>'+
@@ -2742,14 +3942,19 @@ function editUsuario(id){
   );
 }
 async function saveEditU(id){
-  const u=DB.usuarios.find(x=>x.id===id);
+  const u=(DB.usuarios||[]).find(x=>x.id===id);
   if(!u) return;
   const upd={
     id,
     nombre:$('uN2')?.value?.trim()||u.nombre,
     email:$('uE2')?.value?.trim()||u.email,
     rol:$('uR2')?.value,
-    co:_esSuperUsuario()?($('uC2')?.value):currentUser?.co,
+    // Empresa: si hay solo una, mantener la que ya tenía (select oculto).
+    co: (function(){
+      const cos = Object.keys(DB.companies||{});
+      if (cos.length <= 1) return u.co || cos[0];
+      return _esSuperUsuario() ? ($('uC2')?.value) : currentUser?.co;
+    })(),
     activo:$('uSt')?.value==='true'
   };
   if(!upd.nombre||!upd.email){ toast('Nombre y email son obligatorios','err'); return; }
@@ -2770,7 +3975,7 @@ async function delUsuario(id){
       if(!res.ok) throw new Error(res.error||'Error');
     }catch(err){ toast('Error: '+err.message,'err'); return; }
   }
-  DB.usuarios=DB.usuarios.filter(x=>x.id!==id);
+  DB.usuarios=(DB.usuarios||[]).filter(x=>x.id!==id);
   closeMo();toast('Usuario eliminado');go('usuarios');
 }
 
@@ -2867,7 +4072,9 @@ function renderRendicion() {
 
     // FILTROS
     '<div style="display:flex;gap:8px;flex-wrap:wrap;flex:1">'+
-      (esSuper?
+      // Solo mostrar filtro de empresa si hay más de una y el usuario es super_admin.
+      // En un solo cliente (caso normal), este selector no aporta y se esconde.
+      (esSuper && Object.keys(DB.companies||{}).length > 1 ?
         '<select style="width:auto" onchange="_rend.filtroEmpresa=this.value;refreshRendicion()">'+
           '<option value="">Todas las empresas</option>'+coOpts+
         '</select>':'')+
@@ -3029,6 +4236,9 @@ function exportarRendicionPDF() {
   const baseCompras = esSuper ? DB.compras : DB.compras.filter(c => c.co === DB.co);
   const sel = baseCompras.filter(c => _rend.seleccionados.has(c.id));
   if (!sel.length) { toast('Selecciona al menos una compra', 'err'); return; }
+  // Ocultamos la columna Empresa en el PDF si solo hay una empresa cargada.
+  // En un despliegue mono-empresa (caso normal), no aporta información.
+  const multiEmpresa = Object.keys(DB.companies||{}).length > 1;
 
   const totalCompras = sel.reduce((s,c)=>s+(parseInt(c.monto)||0),0);
   const totalAbonado = sel.reduce((s,c)=>s+abonoRend(c),0);
@@ -3132,7 +4342,7 @@ function exportarRendicionPDF() {
       <tr>
         <th>N°</th>
         <th>Fecha</th>
-        <th>Empresa</th>
+        ${multiEmpresa ? '<th>Empresa</th>' : ''}
         <th>Proveedor</th>
         <th>Documento</th>
         <th>Descripcion</th>
@@ -3159,7 +4369,7 @@ function exportarRendicionPDF() {
         return `<tr>
           <td style="color:#666">${i+1}</td>
           <td>${fDate(c.fecha)}</td>
-          <td style="font-size:10px;color:#555">${co_name}</td>
+          ${multiEmpresa ? `<td style="font-size:10px;color:#555">${co_name}</td>` : ''}
           <td><strong>${c.proveedor}</strong></td>
           <td class="mono">${c.tipo_doc} ${c.num_doc}</td>
           <td style="color:#555">${c.descripcion||'—'}${eqCount>0?'<br><span style="font-size:9.5px;color:#888">'+eqCount+' equipo'+(eqCount!==1?'s':'')+'</span>':''}</td>
@@ -3201,7 +4411,7 @@ function exportarRendicionPDF() {
   <div class="firma-section">
     <div class="firma-box">
       <p>Administrador TI</p>
-      <p class="nombre">Cristobal R.</p>
+      <p class="nombre">${escHtml(currentUser?.nombre || co()?.contacto || '')}</p>
     </div>
     <div class="firma-box">
       <p>Recibido / Aprobado por</p>
@@ -5845,19 +7055,188 @@ function imprimirQREquipo(eqId) {
   _qr.selEquipos = prev;
 }
 
-// ── FICHA DE EQUIPO ───────────────────────────────────────
-// El acceso a la app ya está protegido por Google Sign-In, así que la ficha
-// se muestra directamente al usuario autenticado. No hay login paralelo ni PIN.
+// ══════════════════════════════════════════════════════════════
+// FICHA AL ESCANEAR QR
+// El flujo cuando alguien escanea el QR del equipo:
+//   1. Sin sesión → login primero (Google), guardando el equipoId pendiente.
+//   2. Con sesión → según rol:
+//      • admin/técnico/super → ficha interna completa (con acciones).
+//      • lectura/básico     → ficha pública simplificada (solo consulta).
+// La ficha pública NO expone información sensible: sin monto, sin claves,
+// sin notas internas, sin botones de edición.
+// ══════════════════════════════════════════════════════════════
 function mostrarFichaQR(eqId) {
-  // En modo nube exigimos sesión activa; si no la hay, se mostrará el login de Google.
+  // En modo nube exigimos sesión activa; si no la hay, se mostrará el login de Google
+  // y el ID queda pendiente para reabrirse cuando complete el login.
   if (cloudMode && !currentUser?.token) {
+    _pendingEqId = eqId;
     showLoginScreen();
     toast('Inicia sesión para ver la ficha del equipo');
     return;
   }
+  // Bifurcación por rol. Solo consulta (básico/lectura) → vista pública.
+  if (_esSoloConsulta()) {
+    return mostrarFichaPublicaQR(eqId);
+  }
+  // El resto (admin, técnico, super) → ficha interna completa.
   abrirFichaEquipo(eqId, currentUser || { rol: 'lector' });
 }
 
+// ══════════════════════════════════════════════════════════════
+// FICHA PÚBLICA (rol básico / lectura tras escanear QR)
+// Vista simplificada y de solo consulta. Sin acciones, sin datos
+// financieros, sin claves. Diseñada para leerse en el celular.
+// ══════════════════════════════════════════════════════════════
+function mostrarFichaPublicaQR(eqId) {
+  const eq = DB.equipos.find(e => e.id === eqId);
+  if (!eq) {
+    openMo('Equipo no encontrado',
+      '<div style="padding:20px;text-align:center">'+
+        '<div style="font-size:48px;margin-bottom:12px">&#128683;</div>'+
+        '<div style="font-size:14px;color:var(--t2)">El código escaneado no corresponde a ningún equipo registrado.</div>'+
+        '<div style="font-size:12px;color:var(--t3);margin-top:8px;font-family:var(--mono)">ID: '+escHtml(eqId)+'</div>'+
+      '</div>',
+      '<button class="btn btn-secondary" onclick="closeMo()">Cerrar</button>'
+    );
+    return;
+  }
+
+  const empresa = DB.companies[eq.co];
+  const sede    = getLocal(eq.local_id);
+  const compra  = DB.compras.find(c => c.id === eq.compra_id);
+  const asigActiva = DB.asignaciones.find(a => a.eq_id === eqId && a.estado === 'Activa');
+  const asigTodas  = DB.asignaciones.filter(a => a.eq_id === eqId)
+    .sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+  const historial = DB.historial.filter(h => h.eq_id === eqId)
+    .sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+
+  // Helper: pareja etiqueta / valor apilada (más legible en celular que 2 columnas).
+  function dato(label, valor) {
+    if (!valor && valor !== 0) valor = '<span style="color:var(--t3)">—</span>';
+    return '<div style="margin-bottom:10px">'+
+      '<div style="font-size:10.5px;color:var(--t3);font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:2px">'+label+'</div>'+
+      '<div style="font-size:13.5px;color:var(--text)">'+valor+'</div>'+
+    '</div>';
+  }
+  // Card contenedora con título
+  function card(titulo, icono, contenido) {
+    return '<div class="card" style="padding:14px 16px;margin-bottom:12px">'+
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)">'+
+        '<span style="font-size:16px">'+icono+'</span>'+
+        '<span style="font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--t2)">'+titulo+'</span>'+
+      '</div>'+
+      contenido+
+    '</div>';
+  }
+
+  // ─── DATOS TÉCNICOS ───────────────────────────
+  const datosTecnicos =
+    dato('Código',   '<span class="mono" style="color:var(--accent);font-weight:600">'+escHtml(eq.id)+'</span>') +
+    dato('Tipo',     escHtml(eq.tipo || '')) +
+    dato('Marca',    escHtml(eq.marca || '')) +
+    dato('Modelo',   escHtml(eq.modelo || '')) +
+    dato('N° Serie', '<span class="mono">'+escHtml(eq.serie || 'Sin serie')+'</span>') +
+    dato('Estado',   estadoBadge(eq.estado)) +
+    (eq.garantia ? dato('Garantía', garantiaBadge(eq)+' <span style="font-size:11px;color:var(--t2);margin-left:6px">'+new Date(eq.garantia).toLocaleDateString('es-CL')+'</span>') : '') +
+    // Specs técnicos si existen (útil para soporte remoto y auditoría de red)
+    (function(){
+      const s = eq.specs || {};
+      const L = { procesador:'Procesador', ram:'RAM', disco:'Disco', pantalla:'Pantalla',
+                  so:'Sistema Operativo', red:'Red', mac_wifi:'MAC Wi-Fi', mac_ethernet:'MAC Ethernet' };
+      return ['procesador','ram','disco','pantalla','so','red','mac_wifi','mac_ethernet']
+        .filter(k => s[k])
+        .map(k => dato(L[k], k.startsWith('mac_') ? '<span class="mono">'+escHtml(s[k])+'</span>' : escHtml(s[k])))
+        .join('');
+    })();
+
+  // ─── ASIGNACIÓN ACTUAL ────────────────────────
+  const asigActual = asigActiva
+    ? dato('Persona',        escHtml(asigActiva.persona || '—')) +
+      dato('Cargo',           escHtml(asigActiva.cargo   || '—')) +
+      dato('Sede',            escHtml(sede?.nombre       || '—')) +
+      dato('Área / Ubicación',escHtml(eq.area            || '—')) +
+      dato('Fecha asignación',fDate(asigActiva.fecha))
+    : '<div style="font-size:12.5px;color:var(--t3);font-style:italic">Sin asignación activa. Equipo disponible o pendiente de asignar.</div>';
+
+  // ─── COMPRA (sin monto, para no exponer datos financieros) ────
+  const infoCompra = compra
+    ? dato('N° de compra',    '<span class="mono">'+escHtml(compra.id)+'</span>') +
+      dato('Proveedor',       escHtml(compra.proveedor || '—')) +
+      dato('Fecha compra',    fDate(compra.fecha)) +
+      dato('Documento',       escHtml((compra.tipo_doc||'')+' '+(compra.num_doc||''))) +
+      '<div style="font-size:10.5px;color:var(--t3);font-style:italic;margin-top:6px">La información financiera está disponible solo para administradores.</div>'
+    : '<div style="font-size:12.5px;color:var(--t3);font-style:italic">Sin información de compra registrada.</div>';
+
+  // ─── HISTORIAL DE ASIGNACIONES ────────────────
+  const histAsig = asigTodas.length > 0
+    ? '<div style="display:flex;flex-direction:column;gap:8px">'+
+        asigTodas.slice(0, 10).map(a => {
+          const activa = a.estado === 'Activa';
+          const borde = activa ? '3px solid var(--accent)' : '3px solid var(--border)';
+          return '<div style="padding:8px 10px;background:var(--s2);border-radius:var(--r);border-left:'+borde+'">'+
+            '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;font-weight:500">'+
+              '<span>'+escHtml(a.persona || '—')+'</span>'+
+              (activa ? '<span style="font-size:10px;color:var(--accent);font-weight:600">ACTIVA</span>' : '')+
+            '</div>'+
+            '<div style="font-size:11px;color:var(--t2);margin-top:2px">'+
+              (a.cargo ? escHtml(a.cargo)+' · ' : '')+
+              fDate(a.fecha)+
+            '</div>'+
+          '</div>';
+        }).join('') +
+      '</div>'
+    : '<div style="font-size:12.5px;color:var(--t3);font-style:italic">Sin historial de asignaciones.</div>';
+
+  // ─── HISTORIAL DE MOVIMIENTOS (mantenciones, reparaciones, cambios) ────
+  const historialLista = historial.length > 0
+    ? '<div style="display:flex;flex-direction:column;gap:8px">'+
+        historial.slice(0, 20).map(h => {
+          const iconos = {
+            'Mantención': '🔧', 'Reparación': '🛠️', 'Cambio de estado': '🔄',
+            'Asignación': '👤', 'Devolución': '↩️', 'Recepción': '📦',
+          };
+          const icono = iconos[h.tipo] || '📌';
+          return '<div style="padding:8px 10px;background:var(--s2);border-radius:var(--r);display:flex;gap:10px">'+
+            '<span style="font-size:15px">'+icono+'</span>'+
+            '<div style="flex:1;min-width:0">'+
+              '<div style="font-size:12.5px;font-weight:500">'+escHtml(h.tipo||'Evento')+'</div>'+
+              (h.detalle ? '<div style="font-size:11.5px;color:var(--t2);margin-top:2px;line-height:1.35">'+escHtml(h.detalle)+'</div>' : '')+
+              '<div style="font-size:10.5px;color:var(--t3);margin-top:3px">'+fDate(h.fecha)+'</div>'+
+            '</div>'+
+          '</div>';
+        }).join('') +
+      '</div>'
+    : '<div style="font-size:12.5px;color:var(--t3);font-style:italic">Sin eventos registrados.</div>';
+
+  // ─── ARMADO DEL MODAL ─────────────────────────
+  openMo('Ficha del equipo',
+    // Header con marca del equipo
+    '<div style="text-align:center;padding:16px 0 20px;border-bottom:1px solid var(--border);margin-bottom:14px">'+
+      (empresa?.logo
+        ? '<img src="'+escHtml(empresa.logo)+'" alt="" style="max-height:36px;max-width:120px;object-fit:contain;margin-bottom:10px">'
+        : (empresa?.name ? '<div style="font-size:11px;color:var(--t3);letter-spacing:1px;margin-bottom:4px">'+escHtml(empresa.name.toUpperCase())+'</div>' : ''))+
+      '<div style="font-size:18px;font-weight:600;line-height:1.2">'+escHtml((eq.marca||'')+' '+(eq.modelo||''))+'</div>'+
+      '<div style="font-size:12px;color:var(--t2);margin-top:4px;font-family:var(--mono)">'+escHtml(eq.id)+'</div>'+
+    '</div>'+
+
+    card('Información del equipo',    '&#128187;', datosTecnicos)+
+    card('Asignación actual',         '&#128205;', asigActual)+
+    card('Información de compra',     '&#128722;', infoCompra)+
+    card('Historial de asignaciones', '&#128100;', histAsig)+
+    card('Historial y mantenciones',  '&#128203;', historialLista)+
+
+    // Footer con nota sobre el rol
+    '<div style="text-align:center;padding:10px;background:var(--s2);border-radius:var(--r);margin-top:12px">'+
+      '<div style="font-size:10.5px;color:var(--t3)">Vista de solo consulta &middot; '+escHtml(currentUser?.nombre || currentUser?.email || 'Usuario')+'</div>'+
+    '</div>',
+    '<button class="btn btn-secondary" onclick="closeMo()">Cerrar</button>',
+    'lg'
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// FICHA INTERNA COMPLETA (admin/técnico) — con acciones
+// ══════════════════════════════════════════════════════════════
 function abrirFichaEquipo(eqId, usuario) {
   const eq   = DB.equipos.find(e=>e.id===eqId);
   if (!eq) { toast('Equipo no encontrado','err'); return; }
@@ -6072,6 +7451,19 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbymbOSbf4DQsE10
 const GOOGLE_CLIENT_ID = '821988684861-hoepbnaqu7uopknatvasbajrhqa93eoa.apps.googleusercontent.com';
 
 // ── Estado sesión ──
+// Aplica una clase CSS al <body> según el rol del usuario actual. Se usa para
+// mostrar u ocultar partes de la UI (por ejemplo, el rol 'básico' solo ve
+// dashboard y ficha del equipo por QR).
+function aplicarClaseRolBody(){
+  const body = document.body;
+  if (!body) return;
+  body.classList.remove('rol-basico','rol-lectura','rol-tecnico','rol-admin');
+  const r = _rol();
+  if (r === 'basico') body.classList.add('rol-basico');
+  else if (r === 'lectura_empresa') body.classList.add('rol-lectura');
+  else if (r === 'tecnico') body.classList.add('rol-tecnico');
+  else if (r === 'admin_empresa' || r === 'super_admin' || r === 'titular') body.classList.add('rol-admin');
+}
 let currentUser = (function(){
   try{ const s=sessionStorage.getItem('itcUser'); return s?JSON.parse(s):null; }catch(e){return null;}
 })();
@@ -6150,6 +7542,7 @@ async function handleGoogleToken(response) {
     if(res.ok && res.user) {
       currentUser = { ...res.user, token };
       sessionStorage.setItem('itcUser', JSON.stringify(currentUser));
+      aplicarClaseRolBody();
       hideLoginScreen();
       showLoadingIndicator(false);
       await loadCloudData();
@@ -6199,6 +7592,7 @@ function signOut() {
   if(!confirm('¿Cerrar sesión?')) return;
   currentUser = null;
   sessionStorage.removeItem('itcUser');
+  aplicarClaseRolBody();
   try { google.accounts.id.disableAutoSelect(); } catch(e) {}
   showLoginScreen();
 }
@@ -6377,6 +7771,157 @@ function delCloudCompra(id){ cloudWrite('compra_del', { id }); }
 // ── RESET DE DATOS (solo modo prueba/local) ───────────────
 // Vacía todos los datos operativos en memoria para probar desde cero.
 // Solo disponible cuando cloudMode=false (no toca la planilla).
+// ══════════════════════════════════════════════════════════════
+// BACKUP / RESTORE
+// ══════════════════════════════════════════════════════════════
+// Exporta TODO el DB a un JSON descargable. Este es el respaldo maestro:
+// si Supabase falla, si te bloquean la cuenta, o si borras algo por error,
+// puedes restaurar desde este archivo.
+//
+// Recomendación: guardar este archivo semanalmente en OneDrive/Drive/USB.
+// Un JSON en tu Drive vale más que 10 sistemas fancy sin configurar.
+function exportarBackup() {
+  try {
+    const backup = {
+      _meta: {
+        app: 'ITControl',
+        version: 'v38',
+        exportado_en: new Date().toISOString(),
+        empresa_activa: DB.co || null,
+        total_empresas: Object.keys(DB.companies||{}).length,
+        total_equipos: (DB.equipos||[]).length,
+        total_compras: (DB.compras||[]).length,
+        total_personas: (DB.personas||[]).length,
+        total_tickets: (DB.solicitudes_soporte||[]).length,
+      },
+      DB: DB,
+    };
+    const json = JSON.stringify(backup, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    // Nombre: itcontrol_backup_YYYYMMDD_HHMM.json
+    const now = new Date();
+    const fecha = now.toISOString().slice(0,10).replace(/-/g,'');
+    const hora  = now.toTimeString().slice(0,5).replace(':','');
+    a.download = 'itcontrol_backup_'+fecha+'_'+hora+'.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    addLog('Exportó respaldo','sistema',
+      backup._meta.total_empresas+' empresa(s), '+
+      backup._meta.total_equipos+' equipo(s), '+
+      backup._meta.total_compras+' compra(s)');
+    toast('Respaldo descargado ✓');
+  } catch (e) {
+    console.error(e);
+    toast('Error al exportar: '+e.message, 'err');
+  }
+}
+
+// Dispara el input file para elegir un backup.
+function importarBackupBtn() {
+  document.getElementById('importBackupFile')?.click();
+}
+
+// Procesa el archivo de backup: valida estructura y pide confirmación
+// mostrando qué se va a restaurar y qué se perderá.
+function onImportBackupFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    let backup;
+    try {
+      backup = JSON.parse(ev.target.result);
+    } catch (e) {
+      toast('El archivo no es un JSON válido', 'err');
+      return;
+    }
+    if (!backup || !backup.DB || !backup._meta) {
+      toast('El archivo no parece ser un respaldo de ITControl', 'err');
+      return;
+    }
+    // Mostrar resumen y pedir confirmación fuerte
+    const meta = backup._meta;
+    const empresasActuales = Object.keys(DB.companies||{}).length;
+    const equiposActuales = (DB.equipos||[]).length;
+
+    openMo('Restaurar respaldo',
+      '<div style="font-size:13px;line-height:1.65">'+
+        '<div style="background:rgba(245,158,11,.08);border-left:3px solid #f59e0b;padding:12px;border-radius:0 var(--r) var(--r) 0;margin-bottom:14px">'+
+          '<b style="color:#b45309">⚠️ Esta acción reemplaza TODOS tus datos actuales</b>'+
+          '<div style="font-size:12px;color:var(--t2);margin-top:4px">Lo que tengas ahora se sobrescribe con el contenido del respaldo. No se puede deshacer.</div>'+
+        '</div>'+
+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">'+
+          '<div style="padding:10px;background:var(--s2);border-radius:var(--r)">'+
+            '<div style="font-size:11px;color:var(--t3);font-weight:700;letter-spacing:.5px;margin-bottom:4px">DATOS ACTUALES</div>'+
+            '<div style="font-size:12px;line-height:1.7">'+
+              empresasActuales+' empresa(s)<br>'+
+              equiposActuales+' equipo(s)<br>'+
+              (DB.compras||[]).length+' compra(s)<br>'+
+              (DB.personas||[]).length+' persona(s)'+
+            '</div>'+
+          '</div>'+
+          '<div style="padding:10px;background:rgba(59,130,246,.08);border-radius:var(--r);border:1px solid rgba(59,130,246,.3)">'+
+            '<div style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.5px;margin-bottom:4px">DEL RESPALDO</div>'+
+            '<div style="font-size:12px;line-height:1.7">'+
+              (meta.total_empresas||'?')+' empresa(s)<br>'+
+              (meta.total_equipos||'?')+' equipo(s)<br>'+
+              (meta.total_compras||'?')+' compra(s)<br>'+
+              (meta.total_personas||'?')+' persona(s)'+
+            '</div>'+
+          '</div>'+
+        '</div>'+
+
+        '<div style="font-size:11.5px;color:var(--t2);margin-bottom:10px">'+
+          'Respaldo creado el <b>'+(meta.exportado_en?new Date(meta.exportado_en).toLocaleString('es-CL'):'?')+'</b>'+
+          (meta.version?' — versión '+escHtml(meta.version):'')+
+        '</div>'+
+
+        '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:10px;background:var(--s2);border-radius:var(--r);cursor:pointer">'+
+          '<input type="checkbox" id="chkConfirmarRestore" style="width:auto;accent-color:var(--red)">'+
+          '<span>Entiendo que esto reemplazará todos mis datos actuales</span>'+
+        '</label>'+
+      '</div>',
+      '<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button>'+
+      '<button class="btn btn-danger" id="btnConfirmarRestore" onclick="_ejecutarRestore()" disabled>Restaurar respaldo</button>'
+    );
+
+    // Guardar el backup en variable global temporal para el confirm
+    window._backupPendiente = backup;
+    // Habilitar botón solo si marcaron el checkbox
+    setTimeout(() => {
+      const chk = document.getElementById('chkConfirmarRestore');
+      const btn = document.getElementById('btnConfirmarRestore');
+      if (chk && btn) chk.addEventListener('change', () => btn.disabled = !chk.checked);
+    }, 50);
+  };
+  reader.onerror = () => toast('No se pudo leer el archivo', 'err');
+  reader.readAsText(file);
+  // Reset el input para poder volver a elegir el mismo archivo
+  document.getElementById('importBackupFile').value = '';
+}
+
+// Ejecuta la restauración real después de la confirmación explícita.
+function _ejecutarRestore() {
+  const backup = window._backupPendiente;
+  if (!backup?.DB) { toast('Error interno','err'); return; }
+
+  // Reemplazar todas las tablas
+  Object.keys(backup.DB).forEach(k => { DB[k] = backup.DB[k]; });
+
+  addLog('Restauró respaldo','sistema',
+    'Respaldo del '+(backup._meta?.exportado_en ? new Date(backup._meta.exportado_en).toLocaleString('es-CL') : '?'));
+
+  window._backupPendiente = null;
+  closeMo();
+  toast('Respaldo restaurado ✓');
+  setTimeout(() => location.reload(), 800); // recarga para que todos los renders vean el nuevo DB
+}
+
 function resetDatosPrueba(){
   if(cloudMode){ toast('El reset solo está disponible en modo prueba','err'); return; }
   if(!confirm('¿Borrar TODOS los datos ingresados? Esto vacía equipos, compras, asignaciones, licencias, tareas, historial, etc. (No se puede deshacer.)')) return;
@@ -6480,6 +8025,7 @@ async function instalarApp(){
   // OAuth redirect check
   if(cloudMode && checkOAuthRedirect()) return;
 
+  aplicarClaseRolBody(); // clase según rol del usuario (sesión guardada)
   checkQRParam(); // Recuerda ?equipo= aunque falte iniciar sesión
 
   if(cloudMode) {
@@ -7662,7 +9208,24 @@ function renderMapaViewer() {
     '</div>';
 
     if (!areaEqs.length) {
-      html += '<div style="text-align:center;padding:14px;color:var(--t3);font-size:12px">Sin equipos en esta área</div>';
+      // Equipos de la misma sede que no tienen área asignada: candidatos a
+      // vincular al área actual con un solo clic.
+      const sinArea = eqSede.filter(e => !e.area);
+      html += '<div style="text-align:center;padding:14px 10px;color:var(--t3);font-size:12px">'+
+        'Sin equipos en <b>'+escHtml(_map.areaViendo)+'</b> aún.';
+      if (sinArea.length > 0) {
+        html += '<div style="margin-top:10px;padding:10px;background:var(--s2);border-radius:var(--r);text-align:left">'+
+          '<div style="font-size:11.5px;color:var(--text);margin-bottom:6px">'+
+            '<b>'+sinArea.length+' equipo'+(sinArea.length!==1?'s':'')+'</b> en esta sede sin área asignada.'+
+          '</div>'+
+          '<button class="btn btn-primary btn-sm" style="width:100%" onclick="asignarEquiposAArea(\''+escQ(_map.areaViendo)+'\')">'+
+            '&#8594; Asignar equipos a esta área'+
+          '</button>'+
+        '</div>';
+      } else {
+        html += '<div style="margin-top:8px;font-size:11px">Todos los equipos de la sede ya tienen área asignada.<br>Edita un equipo desde <b>Equipos</b> para moverlo aquí.</div>';
+      }
+      html += '</div>';
     } else {
       html += '<div style="display:flex;flex-direction:column;gap:6px;max-height:420px;overflow-y:auto">';
       areaEqs.forEach(eq=>{
@@ -7686,6 +9249,62 @@ function renderMapaViewer() {
 }
 
 function verAreaEquipos(area) { _map.areaViendo=area; go('mapas'); }
+
+// Modal para vincular masivamente equipos sin área al área actualmente
+// visible en el mapa. Muy útil después de un levantamiento inicial cuando
+// los equipos entraron sin área y el usuario ya pintó el mapa.
+function asignarEquiposAArea(area) {
+  const eqSede = DB.equipos.filter(e => e.co === _map.coId && e.local_id === _map.sedeId && !e.area);
+  if (!eqSede.length) { toast('No hay equipos sin área en esta sede','err'); return; }
+  openMo('Asignar equipos a "'+escHtml(area)+'"',
+    '<div style="font-size:12.5px;color:var(--t2);margin-bottom:12px">'+
+      'Marca los equipos que están físicamente en el área <b>'+escHtml(area)+'</b>. '+
+      'Al confirmar, se les asignará esa área y aparecerán en el mapa.'+
+    '</div>'+
+    '<div style="display:flex;gap:6px;margin-bottom:10px">'+
+      '<button class="btn btn-ghost btn-sm" onclick="_aeaSelTodos(true)">&#10003; Todos</button>'+
+      '<button class="btn btn-ghost btn-sm" onclick="_aeaSelTodos(false)">&#9633; Ninguno</button>'+
+    '</div>'+
+    '<div class="tw" style="max-height:340px;overflow-y:auto">'+
+      '<table><thead><tr>'+
+        '<th style="width:36px"><input type="checkbox" id="aeaChkAll" checked onchange="_aeaSelTodos(this.checked)" style="accent-color:var(--accent);width:auto"></th>'+
+        '<th>Código</th><th>Tipo</th><th>Marca / Modelo</th><th>N° Serie</th>'+
+      '</tr></thead><tbody>'+
+        eqSede.map(e =>
+          '<tr>'+
+            '<td><input type="checkbox" class="aeaChk" data-id="'+escHtml(e.id)+'" checked style="accent-color:var(--accent);width:auto"></td>'+
+            '<td class="mono">'+escHtml(e.id)+'</td>'+
+            '<td>'+escHtml(e.tipo||'—')+'</td>'+
+            '<td>'+escHtml(e.marca||'')+' '+escHtml(e.modelo||'')+'</td>'+
+            '<td class="mono td-muted">'+escHtml(e.serie||'—')+'</td>'+
+          '</tr>'
+        ).join('')+
+      '</tbody></table>'+
+    '</div>',
+    '<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button>'+
+    '<button class="btn btn-primary" onclick="_confirmarAsignarArea(\''+escQ(area)+'\')">Confirmar</button>',
+    'lg'
+  );
+}
+function _aeaSelTodos(v) {
+  document.querySelectorAll('.aeaChk').forEach(cb => cb.checked = !!v);
+  const all = document.getElementById('aeaChkAll'); if (all) all.checked = !!v;
+}
+function _confirmarAsignarArea(area) {
+  const seleccionados = Array.from(document.querySelectorAll('.aeaChk:checked')).map(cb => cb.dataset.id);
+  if (!seleccionados.length) { toast('Selecciona al menos un equipo','err'); return; }
+  seleccionados.forEach(id => {
+    const eq = DB.equipos.find(e => e.id === id);
+    if (eq) {
+      eq.area = area;
+      if (typeof syncEquipo === 'function') syncEquipo(eq, false);
+    }
+  });
+  addLog('Asignó área en mapa','equipos', seleccionados.length+' equipo(s) → '+area);
+  closeMo();
+  toast(seleccionados.length+' equipo(s) asignados a '+area+' ✓');
+  go('mapas');
+}
 
 function volverListaMapas() {
   _map.view='list'; _map.coId=null; _map.sedeId=null; _map.pisoId=null; _map.areaViendo=null;
@@ -8142,12 +9761,94 @@ function tiempoDesde(fecha) {
 }
 
 // Estado interno del módulo Soporte
-let _sop = { verFiltroPrio: '' };
+let _sop = { verFiltroPrio: '', vista: 'kanban', q: '', categoria: '' };
+
+// Devuelve tickets de la empresa aplicando búsqueda, categoría y prioridad.
+// Se usa desde el render y desde la exportación para trabajar con el mismo set.
+function _sopFiltrados() {
+  let solic = (DB.solicitudes_soporte || []).filter(s => s.co === DB.co);
+  if (_sop.verFiltroPrio) solic = solic.filter(s => s.prioridad === _sop.verFiltroPrio);
+  if (_sop.categoria)     solic = solic.filter(s => (s.titulo || '') === _sop.categoria);
+  if (_sop.q) {
+    const q = _sop.q.toLowerCase();
+    solic = solic.filter(s =>
+      (s.nombre   || '').toLowerCase().includes(q) ||
+      (s.email    || '').toLowerCase().includes(q) ||
+      (s.titulo   || '').toLowerCase().includes(q) ||
+      (s.desc     || '').toLowerCase().includes(q) ||
+      (s.equipo_id|| '').toLowerCase().includes(q) ||
+      (s.id       || '').toLowerCase().includes(q)
+    );
+  }
+  return solic;
+}
+
+// Cambia el filtro/búsqueda preservando foco (bug de "solo escribe una letra").
+function filtrarSoporte(campo, valor) {
+  _sop[campo] = valor;
+  const activo = document.activeElement;
+  const focoId = activo?.id || null;
+  const start  = activo?.selectionStart ?? null;
+  const end    = activo?.selectionEnd   ?? null;
+  go('soporte');
+  if (focoId) {
+    const nuevo = document.getElementById(focoId);
+    if (nuevo) {
+      nuevo.focus();
+      if (start !== null && typeof nuevo.setSelectionRange === 'function') {
+        try { nuevo.setSelectionRange(start, end); } catch(_) {}
+      }
+    }
+  }
+}
+function cambiarVistaSoporte(v) { _sop.vista = v; go('soporte'); }
+function limpiarFiltrosSoporte() { _sop.q=''; _sop.categoria=''; _sop.verFiltroPrio=''; go('soporte'); }
+
+// Exporta los tickets filtrados a Excel.
+function exportarTickets() {
+  const lista = _sopFiltrados();
+  if (!lista.length) { toast('No hay tickets para exportar','err'); return; }
+  if (typeof XLSX === 'undefined') {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = () => exportarTickets();
+    document.head.appendChild(s);
+    return;
+  }
+  const estLbl = { pendiente:'Pendiente', en_curso:'En curso', resuelta:'Resuelta' };
+  const prioLbl = { alta:'Urgente', media:'Normal', baja:'Baja' };
+  const rows = lista.map(s => ({
+    'N° Ticket':  s.id || '',
+    'Estado':     estLbl[s.estado] || s.estado || '',
+    'Prioridad':  prioLbl[s.prioridad] || s.prioridad || '',
+    'Categoría':  s.titulo || '',
+    'Solicitante':s.nombre || '',
+    'Correo':     s.email || '',
+    'Equipo':     s.equipo_id || '',
+    'Descripción':s.desc || '',
+    'Recibido':   s.fecha ? new Date(s.fecha).toLocaleString('es-CL') : '',
+    'Tomado':     s.tomado_en ? new Date(s.tomado_en).toLocaleString('es-CL') : '',
+    'Resuelto':   s.resuelto_en ? new Date(s.resuelto_en).toLocaleString('es-CL') : '',
+    'SLA':        slaNivel(s) === 'crit' ? 'Vencido' : slaNivel(s) === 'warn' ? 'Cerca' : 'OK',
+    'Antigüedad': s.estado !== 'resuelta' ? tiempoDesde(s.fecha) : '',
+    'Mensajes':   (s.mensajes || []).length,
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [
+    {wch:16},{wch:11},{wch:10},{wch:26},{wch:20},{wch:26},{wch:14},
+    {wch:40},{wch:18},{wch:18},{wch:18},{wch:10},{wch:12},{wch:10}
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Tickets');
+  const fecha = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, 'tickets_soporte_'+fecha+'.xlsx');
+  toast('Tickets exportados ✓');
+}
 
 function renderSoporte() {
   if (!DB.solicitudes_soporte) DB.solicitudes_soporte = [];
-  let solic = DB.solicitudes_soporte.filter(s => s.co === DB.co);
-  if (_sop.verFiltroPrio) solic = solic.filter(s => s.prioridad === _sop.verFiltroPrio);
+  const solic = _sopFiltrados();
+  const totalScope = (DB.solicitudes_soporte || []).filter(s => s.co === DB.co).length;
 
   // Orden dentro de cada columna: por SLA (los críticos primero) y luego más antiguos primero.
   const rankNivel = { crit: 0, warn: 1, ok: 2 };
@@ -8231,12 +9932,21 @@ function renderSoporte() {
           '@media(max-width:900px){.sop-kanban{grid-template-columns:1fr}}'+
           '.sop-col{background:var(--s2);border-radius:var(--r2);padding:10px;min-height:200px}'+
           '.sop-col-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--t2)}'+
-          '.sop-col.drag-over{outline:2px dashed var(--accent);background:rgba(59,130,246,.06)}'+
-          '.sop-ticket{background:var(--s1);border-radius:var(--r);padding:10px 12px;margin-bottom:8px;cursor:pointer;border-left:3px solid var(--border);transition:transform .1s}'+
+          '.sop-col-body{min-height:120px}'+  /* área donde se sueltan tarjetas */
+          '.sop-ticket{background:var(--s1);border-radius:var(--r);padding:10px 12px;margin-bottom:8px;cursor:grab;border-left:3px solid var(--border);transition:transform .1s;touch-action:manipulation}'+
+          '.sop-ticket:active{cursor:grabbing}'+
           '.sop-ticket:hover{background:var(--s2)}'+
           '.sop-ticket.sla-warn{border-left-color:#f59e0b}'+
           '.sop-ticket.sla-crit{border-left-color:#ef4444;background:rgba(239,68,68,.05)}'+
-          '.sop-ticket.dragging{opacity:.4}'+
+          // Clases que Sortable pone automáticamente
+          '.sop-drag-ghost{opacity:.4;background:var(--accent-dim)!important}'+  // hueco de destino
+          '.sop-drag-drag{opacity:.9;transform:rotate(2deg);box-shadow:0 8px 24px rgba(0,0,0,.3)}'+  // tarjeta arrastrada
+          '.sop-drag-chosen{cursor:grabbing}'+
+          // Botones móviles de mover (siempre visibles, imprescindibles en cel)
+          '.sop-mover{display:flex;gap:4px;margin-top:8px;justify-content:flex-end}'+
+          '.sop-mv-btn{background:var(--s3);border:none;color:var(--text);width:32px;height:32px;border-radius:var(--r);cursor:pointer;font-size:14px;display:inline-flex;align-items:center;justify-content:center;padding:0}'+
+          '.sop-mv-btn:hover{background:var(--accent-dim);color:var(--accent)}'+
+          '.sop-mv-btn.disabled{opacity:.3;cursor:default;pointer-events:none}'+
           '.sop-empty{font-size:11px;color:var(--t3);text-align:center;padding:16px 8px;font-style:italic}'+
         '</style>'
     )
@@ -8248,16 +9958,24 @@ function _renderColSop(titulo, arr, color) {
     .replace('pendientes','pendiente')
     .replace('en curso','en_curso')
     .replace('resueltas','resuelta');
-  return '<div class="sop-col" data-estado="'+key+'" ondragover="_sopDragOver(event)" ondragleave="_sopDragLeave(event)" ondrop="_sopDrop(event,\''+key+'\')">'+
+  // La columna es un contenedor Sortable. El data-estado se lee al soltar
+  // para saber a qué estado cambiar el ticket. En móvil también sirve para
+  // que los botones "mover" sepan cuál es la columna destino.
+  return '<div class="sop-col" data-estado="'+key+'" data-sop-col="1">'+
     '<div class="sop-col-head">'+
       '<span style="color:'+color+'">● '+titulo.toUpperCase()+'</span>'+
       '<span>'+arr.length+'</span>'+
     '</div>'+
-    (arr.length === 0
-      ? '<div class="sop-empty">— vacía —</div>'
-      : arr.map(s => _renderTicketCard(s)).join(''))+
+    '<div class="sop-col-body" data-estado="'+key+'">'+
+      (arr.length === 0
+        ? '<div class="sop-empty">— vacía —</div>'
+        : arr.map(s => _renderTicketCard(s)).join(''))+
+    '</div>'+
   '</div>';
 }
+
+// Estados en orden lineal, para los botones ← →
+const _ESTADOS_TICKET = ['pendiente','en_curso','resuelta'];
 
 function _renderTicketCard(s) {
   const nivel = slaNivel(s);
@@ -8266,7 +9984,20 @@ function _renderTicketCard(s) {
   const prioLbl = { alta:'Urgente', media:'Normal', baja:'Baja' }[s.prioridad] || s.prioridad;
   const iniciales = (s.nombre || '?').split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
   const tiempo = s.estado === 'resuelta' ? '' : tiempoDesde(s.fecha);
-  return '<div class="sop-ticket '+claseSla+'" draggable="true" ondragstart="_sopDragStart(event,\''+s.id+'\')" ondragend="_sopDragEnd(event)" onclick="verTicketSoporte(\''+s.id+'\')">'+
+  // Botones ← → para móvil / cuando drag no es cómodo.
+  const idxActual = _ESTADOS_TICKET.indexOf(s.estado);
+  const puedeIzq = idxActual > 0;
+  const puedeDer = idxActual < _ESTADOS_TICKET.length - 1;
+  const btnMover =
+    '<div class="sop-mover" onclick="event.stopPropagation()">'+
+      (puedeIzq
+        ? '<button class="sop-mv-btn" onclick="cambiarEstadoTicket(\''+s.id+'\',\''+_ESTADOS_TICKET[idxActual-1]+'\')" title="Mover a la izquierda">&#9664;</button>'
+        : '<span class="sop-mv-btn disabled">&#9664;</span>')+
+      (puedeDer
+        ? '<button class="sop-mv-btn" onclick="cambiarEstadoTicket(\''+s.id+'\',\''+_ESTADOS_TICKET[idxActual+1]+'\')" title="Mover a la derecha">&#9654;</button>'
+        : '<span class="sop-mv-btn disabled">&#9654;</span>')+
+    '</div>';
+  return '<div class="sop-ticket '+claseSla+'" data-id="'+escHtml(s.id)+'" onclick="verTicketSoporte(\''+s.id+'\')">'+
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px">'+
       '<span style="font-family:var(--mono);font-size:10.5px;color:var(--t3)">'+escHtml(s.id.split('-').slice(0,2).join('-'))+'</span>'+
       '<span class="badge" style="background:'+prioCol+'22;color:'+prioCol+';font-size:9.5px;padding:2px 6px">'+prioLbl+'</span>'+
@@ -8279,36 +10010,36 @@ function _renderTicketCard(s) {
     (s.equipo_id ? '<div style="font-size:10.5px;color:var(--t3);margin-top:4px;font-family:var(--mono)">&#128187; '+escHtml(s.equipo_id)+'</div>' : '')+
     (tiempo ? '<div style="font-size:10.5px;margin-top:4px;color:'+(nivel==='crit'?'#ef4444':nivel==='warn'?'#f59e0b':'var(--t3)')+'">&#9202; '+tiempo+(nivel!=='ok'?' · SLA vencido':'')+'</div>' : '')+
     ((s.mensajes||[]).length ? '<div style="font-size:10.5px;color:var(--t3);margin-top:4px">&#128172; '+(s.mensajes.length)+' mensajes</div>' : '')+
+    btnMover+
   '</div>';
 }
 
-function filtrarSoportePrio(p) { _sop.verFiltroPrio = p; go('soporte'); }
+// Inicializa Sortable en las columnas del kanban de Soporte.
+// Se llama después de que el DOM del módulo se renderiza.
+function _initSortableSoporte() {
+  if (typeof Sortable === 'undefined') return;
+  document.querySelectorAll('.sop-col-body').forEach(col => {
+    // Evitar duplicar Sortable si ya está inicializado
+    if (col._sortable) col._sortable.destroy();
+    col._sortable = new Sortable(col, {
+      group: 'soporte-kanban',      // permite mover entre columnas del mismo grupo
+      animation: 180,
+      ghostClass: 'sop-drag-ghost', // clase del "espacio" mientras se arrastra
+      dragClass: 'sop-drag-drag',   // clase de la tarjeta siendo arrastrada
+      chosenClass: 'sop-drag-chosen',
+      delay: 100,                   // 100ms para distinguir tap de drag en móvil
+      delayOnTouchOnly: true,       // el delay solo aplica a touch, no a mouse
+      touchStartThreshold: 5,       // umbral de píxeles para iniciar drag
+      onEnd: (evt) => {
+        const id = evt.item.dataset.id;
+        const nuevoEstado = evt.to.dataset.estado;
+        if (id && nuevoEstado) cambiarEstadoTicket(id, nuevoEstado);
+      },
+    });
+  });
+}
 
-// ── DRAG & DROP entre columnas ────────────────────────────────
-let _sopDragId = null;
-function _sopDragStart(e, id) {
-  _sopDragId = id;
-  e.currentTarget.classList.add('dragging');
-  try { e.dataTransfer.setData('text/plain', id); e.dataTransfer.effectAllowed = 'move'; } catch(_) {}
-}
-function _sopDragEnd(e) {
-  e.currentTarget.classList.remove('dragging');
-  document.querySelectorAll('.sop-col.drag-over').forEach(el => el.classList.remove('drag-over'));
-}
-function _sopDragOver(e) {
-  e.preventDefault();
-  e.currentTarget.classList.add('drag-over');
-}
-function _sopDragLeave(e) {
-  if (e.currentTarget === e.target) e.currentTarget.classList.remove('drag-over');
-}
-function _sopDrop(e, nuevoEstado) {
-  e.preventDefault();
-  e.currentTarget.classList.remove('drag-over');
-  const id = _sopDragId || (e.dataTransfer && e.dataTransfer.getData('text/plain'));
-  if (!id) return;
-  cambiarEstadoTicket(id, nuevoEstado);
-}
+function filtrarSoportePrio(p) { _sop.verFiltroPrio = p; go('soporte'); }
 
 // ══════════════════════════════════════════════════════════════
 // FICHA DEL TICKET (vista completa con conversación)
@@ -8378,11 +10109,52 @@ function verTicketSoporte(id) {
           ? '<div class="dr"><span class="dl">Equipo</span><span class="dv mono" style="color:var(--accent);cursor:pointer" onclick="closeMo();viewEquipo(\''+eq.id+'\')">'+eq.id+'</span></div>'+
             '<div class="dr"><span class="dl"></span><span class="dv" style="font-size:11px;color:var(--t2)">'+escHtml((eq.marca||'')+' '+(eq.modelo||''))+'</span></div>'
           : (s.equipo_id ? '<div class="dr"><span class="dl">Equipo</span><span class="dv mono" style="color:var(--red)">'+escHtml(s.equipo_id)+' (no encontrado)</span></div>' : '<div class="dr"><span class="dl">Equipo</span><span class="dv" style="color:var(--t3)">— sin equipo —</span></div>'))+
+
+        // Historial de cambios (línea de tiempo estilo Jira)
+        '<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:.5px;margin:20px 0 8px 0">HISTORIAL</div>'+
+        _renderHistorialTicket(s)+
       '</div>'+
     '</div>',
     acciones.join(''),
     'xl'
   );
+}
+
+// Renderiza la línea de tiempo del ticket: creación, cambios de estado, mensajes.
+// Se muestra en el sidebar derecho de la ficha. Del más nuevo al más viejo.
+function _renderHistorialTicket(s) {
+  // Combinamos historial explícito + evento sintético "Creado" a partir de s.fecha.
+  const eventos = [];
+  eventos.push({
+    fecha: s.fecha,
+    tipo: 'creado',
+    autor: s.nombre || 'Portal',
+    descripcion: 'Ticket recibido',
+  });
+  (s.historial || []).forEach(e => eventos.push(e));
+  // Orden reverso cronológico (recientes primero)
+  eventos.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+  if (eventos.length === 0) {
+    return '<div style="font-size:11.5px;color:var(--t3);font-style:italic">Sin eventos registrados aún.</div>';
+  }
+  const iconos = {
+    creado:'📥', estado:'🔄', mensaje:'💬', prioridad:'⚡',
+  };
+  return '<div style="display:flex;flex-direction:column;gap:8px;padding-right:2px">'+
+    eventos.map(ev => {
+      const cuandoAbs = new Date(ev.fecha).toLocaleString('es-CL',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+      const cuandoRel = tiempoDesde(ev.fecha);
+      return '<div style="display:flex;gap:8px;font-size:11.5px">'+
+        '<span style="font-size:13px">'+ (iconos[ev.tipo]||'•') +'</span>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="line-height:1.3">'+escHtml(ev.descripcion)+'</div>'+
+          '<div style="font-size:10.5px;color:var(--t3);margin-top:2px" title="'+escHtml(cuandoAbs)+'">'+
+            escHtml(ev.autor)+' · '+cuandoRel+
+          '</div>'+
+        '</div>'+
+      '</div>';
+    }).join('')+
+  '</div>';
 }
 
 function _renderMensaje(m) {
@@ -8413,6 +10185,8 @@ function agregarMensajeTicket(id) {
     tipo,
     texto: txt,
   });
+  _agregarEventoTicket(s, 'mensaje',
+    tipo === 'interno' ? 'Agregó nota interna' : 'Respondió al usuario');
   if (cloudMode) cloudWrite('solicitud_edit', { solicitud: s });
   addLog('Respondió ticket', 'soporte', id + ' · ' + tipo);
   closeMo();
@@ -8420,6 +10194,19 @@ function agregarMensajeTicket(id) {
 }
 
 // Cambia estado de un ticket + registra timestamps y agrega evento a la conversación.
+// Agrega un evento al historial de un ticket (línea de tiempo tipo Jira).
+// Cada evento tiene: fecha, tipo, autor y descripción. Se muestran en el
+// sidebar derecho de la ficha del ticket ordenados del más nuevo al más viejo.
+function _agregarEventoTicket(s, tipo, descripcion) {
+  if (!s.historial) s.historial = [];
+  s.historial.push({
+    fecha: new Date().toISOString(),
+    tipo,       // 'estado', 'mensaje', 'creado', 'prioridad'
+    autor: currentUser?.nombre || currentUser?.email || 'Técnico',
+    descripcion,
+  });
+}
+
 function cambiarEstadoTicket(id, nuevo) {
   const s = DB.solicitudes_soporte.find(x => x.id === id);
   if (!s) return;
@@ -8444,6 +10231,10 @@ function cambiarEstadoTicket(id, nuevo) {
   if (nuevo === 'en_curso' && !s.tomado_en) s.tomado_en = now;
   if (nuevo === 'resuelta') s.resuelto_en = now;
   if (nuevo !== 'resuelta') s.resuelto_en = null; // reabrir limpia
+  // Registrar en el historial visible del ticket
+  const estLabel = { pendiente:'Pendiente', en_curso:'En curso', resuelta:'Resuelta' };
+  _agregarEventoTicket(s, 'estado',
+    'Cambió estado: '+(estLabel[antes]||antes)+' → '+(estLabel[nuevo]||nuevo));
   if (cloudMode) cloudWrite('solicitud_edit', { solicitud: s });
   addLog('Cambió estado ticket', 'soporte', id + ': ' + antes + ' → ' + nuevo);
   // Si el modal está abierto (venimos de la ficha), refrescar; si no, refrescar el módulo
@@ -8678,14 +10469,32 @@ window.addEventListener('message', e=>{});
   iframe.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:99999;border:none;background:#f1f5f9';
   document.body.appendChild(iframe);
 
-  // Listen for solicitudes from portal
-  window.addEventListener('message', function onMsg(e) {
-    if (e.data?.type === 'solicitud_soporte') {
+  // Listen for solicitudes from portal.
+  // No removemos el listener: el usuario puede enviar varias solicitudes
+  // seguidas antes de cerrar el portal. Antes solo se guardaba la primera.
+  const onMsg = function(e) {
+    if (e.data?.type === 'solicitud_soporte' && e.data.solic) {
       if (!DB.solicitudes_soporte) DB.solicitudes_soporte = [];
-      DB.solicitudes_soporte.push(e.data.solic);
-      addLog('Nueva solicitud soporte','soporte', e.data.solic.titulo);
-      toast('&#9989; Nueva solicitud recibida: '+e.data.solic.titulo);
-      window.removeEventListener('message', onMsg);
+      // Evitar duplicado si el mismo mensaje llegara dos veces
+      if (!DB.solicitudes_soporte.some(s => s.id === e.data.solic.id)) {
+        DB.solicitudes_soporte.push(e.data.solic);
+        addLog('Nueva solicitud soporte','soporte', e.data.solic.titulo);
+        toast('✅ Nueva solicitud: '+e.data.solic.titulo);
+      }
+    }
+  };
+  window.addEventListener('message', onMsg);
+  // Limpiar el listener al cerrar el iframe (para no acumularlos entre previews)
+  const iframeEl = iframe;
+  iframeEl.addEventListener('load', () => {
+    // Cuando el usuario cierre la ventana con la X del preview, limpiamos.
+    const btnCerrar = iframeEl.contentDocument?.querySelector('button[onclick*="close"]');
+    if (btnCerrar) {
+      const orig = btnCerrar.onclick;
+      btnCerrar.onclick = () => {
+        window.removeEventListener('message', onMsg);
+        iframeEl.remove();
+      };
     }
   });
 
@@ -9965,10 +11774,16 @@ async function procesarImportacion(file) {
   if (totalDupExist) warnings.push(totalDupExist + ' equipo(s) tienen serie que ya existe en el sistema');
   if (totalDupIntern) warnings.push(totalDupIntern + ' equipo(s) tienen serie repetida dentro del archivo');
 
+  // Marcamos todos como seleccionados por defecto. El usuario puede
+  // desmarcar los que no quiere importar (por ejemplo duplicados).
+  validos.forEach((v, i) => { v._sel = true; v._idx = i; });
+  // Guardar globalmente para que los checkboxes puedan mutarla.
+  window._importValidos = validos;
+
   preview.innerHTML =
     '<div class="card cp">'+
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">'+
-        '<div class="card-title" style="margin:0">Vista previa — '+validos.length+' equipo(s) a importar</div>'+
+        '<div class="card-title" style="margin:0">Vista previa — <span id="impSelCount">'+validos.length+'</span> de '+validos.length+' seleccionado(s)</div>'+
         '<div style="display:flex;gap:6px">'+
           (errors.length ? '<span class="badge br">'+errors.length+' error(es)</span>' : '')+
           (warnings.length ? '<span class="badge by">'+warnings.length+' aviso(s)</span>' : '')+
@@ -9986,18 +11801,30 @@ async function procesarImportacion(file) {
       (warnings.length ?
         '<div style="background:rgba(245,158,11,.08);border-left:3px solid #f59e0b;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#b45309;border-radius:0 var(--r) var(--r) 0">'+
           '<b>Avisos:</b><br>'+ warnings.join('<br>')+
-          '<div style="margin-top:6px;font-size:11px;color:var(--t3)">Los duplicados igual se importarán, revisa la tabla abajo para identificarlos.</div>'+
+          '<div style="margin-top:6px;font-size:11px;color:var(--t3)">Puedes desmarcar los duplicados para no importarlos.</div>'+
         '</div>' : '')+
 
-      '<div class="tw" style="max-height:280px;overflow-y:auto">'+
-        '<table><thead><tr><th>Fila</th><th>Tipo</th><th>Marca</th><th>Modelo</th><th>Serie</th><th>Aviso</th></tr></thead>'+
+      // Barra de selección
+      '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">'+
+        '<button class="btn btn-ghost btn-sm" onclick="impSelAll(true)">&#10003; Seleccionar todos</button>'+
+        '<button class="btn btn-ghost btn-sm" onclick="impSelAll(false)">&#9633; Deseleccionar todos</button>'+
+        '<button class="btn btn-ghost btn-sm" onclick="impSelSinDup()">Solo los sin duplicado</button>'+
+        '<button class="btn btn-ghost btn-sm" onclick="impInvertirSel()">Invertir selección</button>'+
+      '</div>'+
+
+      '<div class="tw" style="max-height:320px;overflow-y:auto">'+
+        '<table><thead><tr>'+
+          '<th style="width:36px"><input type="checkbox" id="impChkAll" checked onchange="impSelAll(this.checked)" style="accent-color:var(--accent);width:auto"></th>'+
+          '<th>Fila</th><th>Tipo</th><th>Marca</th><th>Modelo</th><th>Serie</th><th>Aviso</th>'+
+        '</tr></thead>'+
         '<tbody>'+
-          validos.slice(0, 20).map(r => {
+          validos.map((r,i) => {
             const dupTxt = r._dupExistente ? '<span class="badge br" title="Serie ya existe en el sistema">Duplicado sistema</span>'
                         : r._dupInterno ? '<span class="badge by" title="Serie repetida en la planilla">Duplicado archivo</span>'
                         : '';
             const rowStyle = (r._dupExistente || r._dupInterno) ? ' style="background:rgba(245,158,11,.04)"' : '';
             return '<tr'+rowStyle+'>'+
+              '<td><input type="checkbox" class="impChk" data-idx="'+i+'" checked onchange="impToggle('+i+',this.checked)" style="accent-color:var(--accent);width:auto"></td>'+
               '<td class="mono td-muted">'+r._fila+'</td>'+
               '<td>'+escHtml(r.tipo)+'</td>'+
               '<td>'+escHtml(r.marca)+'</td>'+
@@ -10006,24 +11833,70 @@ async function procesarImportacion(file) {
               '<td>'+dupTxt+'</td>'+
             '</tr>';
           }).join('')+
-          (validos.length > 20 ? '<tr><td colspan="6" style="color:var(--t3);text-align:center;padding:8px">&hellip; y '+(validos.length - 20)+' más</td></tr>' : '')+
         '</tbody></table>'+
       '</div>'+
 
       '<div style="margin-top:12px;padding:10px;background:var(--s2);border-radius:var(--r);font-size:12px;color:var(--t2)">'+
-        '&#128161; Al confirmar, todos los equipos entrarán como <b>Disponibles</b> y sin asignación. '+
+        '&#128161; Los equipos seleccionados entrarán como <b>Disponibles</b> y sin asignación. '+
         'Luego, en el módulo <b>Equipos</b>, filtras por "Sin asignar" y los vas asignando uno a uno.'+
       '</div>'+
 
       '<div style="display:flex;gap:8px;margin-top:12px">'+
         '<button class="btn btn-secondary" onclick="$(\'importPreview\').innerHTML=\'\';$(\'importFile\').value=\'\'">Cancelar</button>'+
-        (validos.length > 0
-          ? '<button class="btn btn-primary" onclick=\'confirmarImportacion('+JSON.stringify(validos).replace(/</g,'\\u003c').replace(/'/g,"\\'")+')\'>'+
-              '&#10003; Importar '+validos.length+' equipo(s)'+
-            '</button>'
-          : '')+
+        '<button class="btn btn-primary" id="impBtnConfirmar" onclick="confirmarImportacionSeleccionados()">'+
+          '&#10003; Importar <span id="impBtnCount">'+validos.length+'</span> equipo(s)'+
+        '</button>'+
       '</div>'+
     '</div>';
+}
+
+// Handlers de selección múltiple en importación.
+function impSelAll(check) {
+  (window._importValidos||[]).forEach(v => v._sel = !!check);
+  document.querySelectorAll('.impChk').forEach(cb => cb.checked = !!check);
+  const chkAll = document.getElementById('impChkAll'); if (chkAll) chkAll.checked = !!check;
+  impActualizarContadores();
+}
+function impSelSinDup() {
+  (window._importValidos||[]).forEach(v => v._sel = !(v._dupExistente || v._dupInterno));
+  document.querySelectorAll('.impChk').forEach(cb => {
+    const idx = parseInt(cb.dataset.idx);
+    cb.checked = !!window._importValidos[idx]._sel;
+  });
+  impActualizarContadores();
+}
+function impInvertirSel() {
+  (window._importValidos||[]).forEach(v => v._sel = !v._sel);
+  document.querySelectorAll('.impChk').forEach(cb => {
+    const idx = parseInt(cb.dataset.idx);
+    cb.checked = !!window._importValidos[idx]._sel;
+  });
+  impActualizarContadores();
+}
+function impToggle(idx, checked) {
+  if (window._importValidos && window._importValidos[idx]) {
+    window._importValidos[idx]._sel = !!checked;
+  }
+  impActualizarContadores();
+}
+function impActualizarContadores() {
+  const sel = (window._importValidos||[]).filter(v => v._sel).length;
+  const total = (window._importValidos||[]).length;
+  const c1 = document.getElementById('impSelCount');
+  const c2 = document.getElementById('impBtnCount');
+  if (c1) c1.textContent = sel;
+  if (c2) c2.textContent = sel;
+  const chkAll = document.getElementById('impChkAll');
+  if (chkAll) chkAll.checked = sel === total && total > 0;
+  const btn = document.getElementById('impBtnConfirmar');
+  if (btn) btn.disabled = sel === 0;
+}
+
+// Confirma solo los seleccionados.
+function confirmarImportacionSeleccionados() {
+  const seleccionados = (window._importValidos||[]).filter(v => v._sel);
+  if (!seleccionados.length) { toast('Selecciona al menos un equipo','err'); return; }
+  confirmarImportacion(seleccionados);
 }
 
 function confirmarImportacion(equipos) {
