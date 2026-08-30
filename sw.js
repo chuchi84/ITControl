@@ -1,7 +1,8 @@
-// Service Worker — GitHub Pages (ruta /ITControl/) — v56
+// Service Worker — GitHub Pages (ruta /ITControl/) — v57
 // FIX login Supabase: el SW NO debe interceptar Supabase ni los OAuth
 // (Google/Microsoft), porque son navegaciones con redirect y romperían el login.
-const CACHE = 'itcontrol-v56';
+// v57: agrega WEB PUSH (avisos de tickets/tareas/mantenciones).
+const CACHE = 'itcontrol-v57';
 const ASSETS_PRECARGA = [
   '/ITControl/',
   '/ITControl/index.html',
@@ -72,4 +73,36 @@ self.addEventListener('fetch', e => {
       }))
     );
   }
+});
+
+// ──────────────────────────────────────────────────────────────────────
+// WEB PUSH: mostrar la notificación cuando el servidor la envía.
+// ─────────────────────────────────────────────────────────────────────
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data && e.data.text() }; }
+  const title = d.title || 'ITControl';
+  const opts = {
+    body: d.body || '',
+    icon: '/ITControl/icon-192.png',
+    badge: '/ITControl/icon-192.png',
+    data: { url: d.url || '/ITControl/' },
+    tag: d.tag || 'itcontrol',
+    renotify: true,
+  };
+  e.waitUntil(self.registration.showNotification(title, opts));
+});
+
+// Al tocar la notificación: enfocar una pestaña abierta de la app o abrir una.
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const destino = (e.notification.data && e.notification.data.url) || '/ITControl/';
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+      for (const c of clients) {
+        if (c.url.includes('/ITControl') && 'focus' in c) return c.focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(destino);
+    })
+  );
 });
