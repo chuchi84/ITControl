@@ -527,6 +527,11 @@ body.rol-basico .fin-card { display: none; }
       </button>
     </div>
     <input type="file" id="importBackupFile" accept=".json,application/json" style="display:none" onchange="onImportBackupFile(this.files[0])">
+    <button id="btnLogout" onclick="signOut()" title="Cerrar sesión"
+      style="display:none;width:100%;margin-top:8px;padding:9px;font-size:12px;font-weight:600;
+      background:transparent;border:1px solid var(--red,#dc2626);color:var(--red,#dc2626);border-radius:var(--r);cursor:pointer">
+      &#128682; Cerrar sesión
+    </button>
   </div>
 </aside>
 <div class="sb-overlay" id="sbOv" onclick="closeSb()"></div>
@@ -4269,7 +4274,7 @@ function addUsuario(){
         ? '<div class="fg"><label>Empresa</label><select id="uC"'+(_esSuperUsuario()?'':' disabled')+'>'+_optsEmpresa(currentUser?.co)+'</select></div>'
         : '')+
     '</div>'+
-    '<div style="font-size:11.5px;color:var(--t2);margin-top:4px">El acceso es con cuenta Google. El usuario podrá entrar con el email indicado.</div>',
+    '<div style="font-size:11.5px;color:var(--t2);margin-top:4px">El acceso es con cuenta Google o Microsoft (Office 365). El usuario ingresa con el email que pongas aquí — debe coincidir exactamente.</div>',
     '<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button>'+
     '<button class="btn btn-primary" onclick="saveUsuario()">Crear</button>'
   );
@@ -7883,14 +7888,17 @@ function actualizarInfoUsuario(){
   const av   = document.getElementById('uInfoAv');
   const name = document.getElementById('uInfoName');
   const role = document.getElementById('uInfoRole');
+  const btnLogout = document.getElementById('btnLogout');
   if (!av || !name || !role) return;
   if (!currentUser) {
     // Sin sesión (modo local o antes de login)
     av.textContent   = cloudMode ? '?' : '👤';
     name.textContent = cloudMode ? 'Sin sesión' : 'Modo local';
     role.textContent = cloudMode ? '' : 'Sin login';
+    if (btnLogout) btnLogout.style.display = 'none';
     return;
   }
+  if (btnLogout) btnLogout.style.display = cloudMode ? 'block' : 'none';
   const nombre = currentUser.nombre || currentUser.email || 'Usuario';
   // Iniciales: primeras letras de las dos primeras palabras del nombre
   const iniciales = nombre.split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]).join('').toUpperCase() || '?';
@@ -8354,6 +8362,7 @@ function signOut() {
   currentUser = null;
   sessionStorage.removeItem('itcUser');
   aplicarClaseRolBody();
+  try { if('clearAppBadge' in navigator) navigator.clearAppBadge(); } catch(e) {}
   try { if(sb) sb.auth.signOut(); } catch(e) {}
   showLoginScreen();
 }
