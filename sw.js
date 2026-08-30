@@ -1,8 +1,9 @@
-// Service Worker — GitHub Pages (ruta /ITControl/) — v57
+// Service Worker — GitHub Pages (ruta /ITControl/) — v58
 // FIX login Supabase: el SW NO debe interceptar Supabase ni los OAuth
 // (Google/Microsoft), porque son navegaciones con redirect y romperían el login.
 // v57: agrega WEB PUSH (avisos de tickets/tareas/mantenciones).
-const CACHE = 'itcontrol-v57';
+// v58: número en el ícono (App Badge) + notificación fija (requireInteraction).
+const CACHE = 'itcontrol-v58';
 const ASSETS_PRECARGA = [
   '/ITControl/',
   '/ITControl/index.html',
@@ -75,9 +76,9 @@ self.addEventListener('fetch', e => {
   }
 });
 
-// ──────────────────────────────────────────────────────────────────────
-// WEB PUSH: mostrar la notificación cuando el servidor la envía.
 // ─────────────────────────────────────────────────────────────────────
+// WEB PUSH: mostrar la notificación cuando el servidor la envía.
+// ────────────────────────────────────────────────────────────────────
 self.addEventListener('push', e => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data && e.data.text() }; }
@@ -87,10 +88,20 @@ self.addEventListener('push', e => {
     icon: '/ITControl/icon-192.png',
     badge: '/ITControl/icon-192.png',
     data: { url: d.url || '/ITControl/' },
-    tag: d.tag || 'itcontrol',
+    tag: d.tag || ('itcontrol-' + Date.now()),  // único: se acumulan varias
     renotify: true,
+    requireInteraction: true,                    // queda fija arriba hasta tocarla
   };
-  e.waitUntil(self.registration.showNotification(title, opts));
+  e.waitUntil((async () => {
+    await self.registration.showNotification(title, opts);
+    // Número en el ícono (App Badge): usa el count que manda el servidor.
+    try {
+      if (self.navigator && self.navigator.setAppBadge) {
+        if (typeof d.count === 'number') await self.navigator.setAppBadge(d.count);
+        else await self.navigator.setAppBadge();
+      }
+    } catch (err) {}
+  })());
 });
 
 // Al tocar la notificación: enfocar una pestaña abierta de la app o abrir una.
