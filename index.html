@@ -1123,6 +1123,7 @@ function go(mod) {
   // el render vuelve a dibujar el DOM (que borra las instancias anteriores).
   if (mod === 'soporte' && typeof _initSortableSoporte === 'function') _initSortableSoporte();
   if (mod === 'notificaciones' && typeof _pintarEstadoPush === 'function') _pintarEstadoPush();
+  if (typeof actualizarBadgeApp === 'function') actualizarBadgeApp();
   if (mod === 'tareas'  && typeof _initSortableTareas   === 'function') _initSortableTareas();
   if(VIEWS[mod]) renderVSW(mod);
   closeSb();
@@ -8215,6 +8216,15 @@ async function _pintarEstadoPush(){
   line.innerHTML='&#128276; No están activadas en este dispositivo todavía.';
   set(bA,true);set(bD,false);set(bP,false);
 }
+// Número en el ícono de la app = tickets pendientes (sin atender).
+async function actualizarBadgeApp(){
+  try{
+    if(!('setAppBadge' in navigator)) return;
+    const n = (DB.solicitudes_soporte||[]).filter(s=>String(s.estado||'').toLowerCase()==='pendiente').length;
+    if(n>0) await navigator.setAppBadge(n);
+    else await navigator.clearAppBadge();
+  }catch(e){}
+}
 
 // ── AUTH ─────────────────────────────────────────────────
 function showLoginScreen() {
@@ -8255,6 +8265,7 @@ async function _onSupaSession(session){
     showLoadingIndicator(false);
     await loadCloudData();
     _pushAutoActivar();   // re-suscribe al super admin si ya dio permiso antes
+    actualizarBadgeApp(); // pone el número de pendientes en el ícono
   } else {
     showLoadingIndicator(false);
     try { await sb.auth.signOut(); } catch(e){}
