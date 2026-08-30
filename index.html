@@ -1122,6 +1122,7 @@ function go(mod) {
   // Sortable soporta touch y mouse a la vez; se re-monta cada vez que
   // el render vuelve a dibujar el DOM (que borra las instancias anteriores).
   if (mod === 'soporte' && typeof _initSortableSoporte === 'function') _initSortableSoporte();
+  if (mod === 'notificaciones' && typeof _pintarEstadoPush === 'function') _pintarEstadoPush();
   if (mod === 'tareas'  && typeof _initSortableTareas   === 'function') _initSortableTareas();
   if(VIEWS[mod]) renderVSW(mod);
   closeSb();
@@ -7920,6 +7921,10 @@ let currentUser = (function(){
 const SUPABASE_URL      = 'https://hpgbpogyksnyfpsdudnb.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhwZ2Jwb2d5a3NueWZwc2R1ZG5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzMTY2NjMsImV4cCI6MjEwMTg5MjY2M30.vbsYF_PXZgPtyTCrh6DADhf2OVUNULVIVaZHPs7tsMY';
 
+// Llave pública VAPID para Web Push (es pública, va en el frontend).
+// La privada vive SOLO en Supabase → Edge Functions → Secrets.
+const VAPID_PUBLIC_KEY = 'BFnZRrulX6G-iCLA29Eu30929ztASwoFuHN4COrar78QXr4vmeS-txz1lrNnKKeTK95xizwqtOcyKK4SVTaa7mc';
+
 const _supaListo = !SUPABASE_URL.includes('PEGA_AQUI') && !SUPABASE_ANON_KEY.includes('PEGA_AQUI');
 const cloudMode  = _supaListo;   // true solo cuando pegues tus llaves
 const sb = (_supaListo && window.supabase)
@@ -8080,6 +8085,137 @@ async function apiFetch(action, body={}) {
   return apiFetchWithToken(currentUser.token, action, body);
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+//  WEB PUSH — avisos de tickets, tareas y mantenciones nuevas.
+//  El servidor (Edge Function 'notificar') dispara el push; aquí solo
+//  pedimos permiso, nos suscribimos y guardamos la suscripción en Supabase.
+// ═══════════════════════════════════════════════════════════════════════
+function _pushSoportado(){
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+function _u8FromB64(base64){
+  const pad = '='.repeat((4 - base64.length % 4) % 4);
+  const b64 = (base64 + pad).replace(/-/g,'+').replace(/_/g,'/');
+  const raw = atob(b64); const arr = new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+async function _pushEstado(){
+  if(!_pushSoportado()) return 'no-soportado';
+  if(Notification.permission==='denied') return 'bloqueado';
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if(sub) return 'activo';
+    return Notification.permission==='granted' ? 'permitido' : 'inactivo';
+  }catch(e){ return 'inactivo'; }
+}
+async function activarNotificaciones(silencioso){
+  if(!_pushSoportado()){ if(!silencioso) toast('Este navegador no soporta notificaciones push','err'); return false; }
+  if(!cloudMode || !sb){ if(!silencioso) toast('Debes iniciar sesión en la nube para activar los avisos','err'); return false; }
+  try{
+    let perm = Notification.permission;
+    if(perm==='default'){
+      if(silencioso) return false;              // nunca pedir permiso sin una acción del usuario
+      perm = await Notification.requestPermission();
+    }
+    if(perm!=='granted'){
+      if(!silencioso) toast('Debes permitir las notificaciones en el navegador','err');
+      _refrescarNotif(); return false;
+    }
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if(!sub){
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _u8FromB64(VAPID_PUBLIC_KEY),
+      });
+    }
+    const ok = await _guardarSuscripcion(sub);
+    if(ok && !silencioso) toast('Notificaciones activadas ✓','ok');
+    _refrescarNotif();
+    return ok;
+  }catch(e){
+    console.error('activarNotificaciones', e);
+    if(!silencioso) toast('No se pudo activar: '+(e.message||e),'err');
+    return false;
+  }
+}
+async function desactivarNotificaciones(){
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if(sub){
+      try{ await sb.from('push_subscriptions').delete().eq('endpoint', sub.endpoint); }catch(e){}
+      await sub.unsubscribe();
+    }
+    toast('Notificaciones desactivadas','ok');
+    _refrescarNotif();
+  }catch(e){ toast('Error: '+(e.message||e),'err'); }
+}
+async function _guardarSuscripcion(sub){
+  try{
+    const j = sub.toJSON();
+    const row = {
+      co: currentUser?.scopeAll ? 'todas' : (currentUser?.co||'todas'),
+      email: (currentUser?.email||'').toLowerCase(),
+      endpoint: j.endpoint,
+      p256dh: j.keys.p256dh,
+      auth: j.keys.auth,
+    };
+    const { error } = await sb.from('push_subscriptions').upsert(row, { onConflict:'endpoint' });
+    if(error){ console.error('push save', error); toast('No se pudo guardar la suscripción: '+error.message,'err'); return false; }
+    return true;
+  }catch(e){ console.error('guardarSuscripcion', e); return false; }
+}
+// Al entrar un super admin: si YA dio permiso antes, re-suscribe en silencio
+// (así la suscripción se mantiene fresca en cada dispositivo/navegador).
+async function _pushAutoActivar(){
+  try{
+    if(!_esTitularOSuper()) return;
+    if(!_pushSoportado()) return;
+    if(Notification.permission==='granted') await activarNotificaciones(true);
+  }catch(e){}
+}
+// Re-dibuja el módulo de notificaciones si es el que está visible.
+function _refrescarNotif(){
+  const cur = document.querySelector('.nav-item.on');
+  if(cur && cur.dataset.m==='notificaciones') go('notificaciones');
+}
+// Prueba local: muestra una notificación en este dispositivo (confirma permiso).
+async function probarPush(){
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    await reg.showNotification('ITControl — prueba', {
+      body:'Las notificaciones funcionan en este dispositivo ✓',
+      icon:'icon-192.png', tag:'itcontrol-prueba',
+    });
+  }catch(e){ toast('No se pudo mostrar la prueba: '+(e.message||e),'err'); }
+}
+// Pinta el estado real (async) del panel de notificaciones.
+async function _pintarEstadoPush(){
+  const line = document.getElementById('push-estado'); if(!line) return;
+  const bA=document.getElementById('push-activar');
+  const bD=document.getElementById('push-desactivar');
+  const bP=document.getElementById('push-prueba');
+  const set=(el,show)=>{ if(el) el.style.display = show?'':'none'; };
+  const est = await _pushEstado();
+  if(est==='no-soportado'){
+    line.innerHTML='&#9888; Este navegador no soporta notificaciones push.';
+    set(bA,false);set(bD,false);set(bP,false); return;
+  }
+  if(est==='bloqueado'){
+    line.innerHTML='&#128277; Están <b>bloqueadas</b> en este navegador. Actívalas en el candado &#128274; de la barra de direcciones &rarr; Notificaciones &rarr; Permitir, y recarga.';
+    set(bA,false);set(bD,false);set(bP,false); return;
+  }
+  if(est==='activo'){
+    line.innerHTML='&#9989; <span style="color:#16a34a">Activadas</span> en este dispositivo.';
+    set(bA,false);set(bD,true);set(bP,true); return;
+  }
+  line.innerHTML='&#128276; No están activadas en este dispositivo todavía.';
+  set(bA,true);set(bD,false);set(bP,false);
+}
+
 // ── AUTH ─────────────────────────────────────────────────
 function showLoginScreen() {
   const el = document.getElementById('login-overlay');
@@ -8118,6 +8254,7 @@ async function _onSupaSession(session){
     hideLoginScreen();
     showLoadingIndicator(false);
     await loadCloudData();
+    _pushAutoActivar();   // re-suscribe al super admin si ya dio permiso antes
   } else {
     showLoadingIndicator(false);
     try { await sb.auth.signOut(); } catch(e){}
@@ -12530,9 +12667,30 @@ function renderNotificaciones() {
   const mantVenc = (DB.programas_mant||[]).filter(p=>{ const d=daysUntil(p.proxima); return d!==null&&d<=7&&d>=0&&p.co===DB.co; });
   const soportePend = (DB.solicitudes_soporte||[]).filter(s=>s.co===DB.co&&s.estado==='pendiente');
 
+  // Panel de avisos automáticos (Web Push) — solo para titular/super_admin.
+  const _pushCard = !_esTitularOSuper() ? '' : (
+  '<div class="card cp" style="margin-bottom:16px;border:1px solid #2563eb">'+
+    '<div class="card-title">&#128276; Avisos automáticos (al instante)</div>'+
+    '<div style="font-size:12.5px;color:var(--t2);margin:6px 0 12px">'+
+      'Recibe un aviso apenas ocurra &mdash; notificaci&oacute;n en el dispositivo <b>y</b> correo &mdash; '+
+      'cuando entra un <b>ticket</b> de soporte, se crea una <b>tarea</b> o se programa una <b>mantenci&oacute;n</b>. '+
+      'No necesitas tener la app abierta.'+
+    '</div>'+
+    '<div id="push-estado" style="font-size:13px;font-weight:600;margin-bottom:12px">Comprobando&hellip;</div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+      '<button id="push-activar" class="btn-primary btn-sm" onclick="activarNotificaciones(false)">&#128276; Activar en este dispositivo</button>'+
+      '<button id="push-desactivar" class="btn-ghost btn-sm" style="display:none" onclick="desactivarNotificaciones()">Desactivar</button>'+
+      '<button id="push-prueba" class="btn-ghost btn-sm" style="display:none" onclick="probarPush()">Enviar prueba</button>'+
+    '</div>'+
+    '<div style="font-size:11.5px;color:var(--t2);margin-top:10px">'+
+      'Tip: act&iacute;valas tambi&eacute;n en tu <b>celular</b> (abre la app e instala &laquo;Agregar a pantalla de inicio&raquo;) para que te lleguen ah&iacute;.'+
+    '</div>'+
+  '</div>');
+
   return (
+  _pushCard+
   '<div style="margin-bottom:16px;font-size:13px;color:var(--t2)">'+
-    'Configura notificaciones por email para mantenerte informado. Requiere que la app esté conectada a Google Apps Script.'+
+    'Adem&aacute;s, puedes enviar res&uacute;menes por email manualmente:'+
   '</div>'+
 
   '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">'+
