@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0">
 <title>ITControl Pro</title>
 
+<!-- Evita que el propio navegador cachee index.html de forma agresiva.
+     GitHub Pages no permite configurar headers HTTP (Cache-Control) del
+     servidor, así que esto es la única palanca disponible del lado del
+     documento; el control real de versión lo hace version.json + sw.js. -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+
 <!-- PWA / Instalable -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f1117" media="(prefers-color-scheme: dark)">
@@ -7930,12 +7938,6 @@ let currentUser = (function(){
 const SUPABASE_URL      = 'https://hpgbpogyksnyfpsdudnb.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhwZ2Jwb2d5a3NueWZwc2R1ZG5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzMTY2NjMsImV4cCI6MjEwMTg5MjY2M30.vbsYF_PXZgPtyTCrh6DADhf2OVUNULVIVaZHPs7tsMY';
 
-// ── VERSIÓN DE LA APP (para la auto-actualización) ──────────────────────
-// Súbelo en 1 cada vez que publiques cambios, y pon el MISMO número en
-// version.json. La app se compara contra version.json y, si difiere, se
-// actualiza sola (limpia caché + recarga). No hay que borrar nada a mano.
-const APP_VERSION = '59';
-
 // Llave pública VAPID para Web Push (es pública, va en el frontend).
 // La privada vive SOLO en Supabase → Edge Functions → Secrets.
 const VAPID_PUBLIC_KEY = 'BFnZRrulX6G-iCLA29Eu30929ztASwoFuHN4COrar78QXr4vmeS-txz1lrNnKKeTK95xizwqtOcyKK4SVTaa7mc';
@@ -8697,12 +8699,12 @@ function _ejecutarRestore() {
 function resetDatosPrueba(){
   // Solo titular / super_admin pueden borrar todo
   if(!_esTitularOSuper()){ toast('Solo un titular o super admin puede borrar la información','err'); return; }
+  if(cloudMode){ toast('El reset solo está disponible en modo prueba','err'); return; }
 
   openMo(
     '⚠️ Borrar toda la información',
     '<div style="font-size:13px;line-height:1.6;color:var(--t2)">'+
       '<p style="margin:0 0 10px">Esta acción <b style="color:var(--red)">vacía por completo</b> la base de datos: equipos, compras, asignaciones, personas, licencias, tareas, tickets de soporte, historial, inventarios y logs. Los contadores vuelven a cero.</p>'+
-      '<p style="margin:0 0 10px;color:var(--t2)">Se <b>mantienen la empresa y los usuarios</b> (para no perder el acceso a la app).</p>'+
       '<p style="margin:0 0 14px"><b style="color:var(--red)">No se puede deshacer.</b> Si quieres conservar una copia, cancela y usa primero <b>&#128190; Respaldar</b>.</p>'+
       '<label style="display:block;font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px">Para confirmar, escribe <b>BORRAR</b>:</label>'+
       '<input id="resetConfirmInput" type="text" autocomplete="off" oninput="_resetChkInput()" onkeydown="if(event.key===\'Enter\'&&this.value.trim().toUpperCase()===\'BORRAR\')_ejecutarResetTotal()" placeholder="BORRAR" '+
@@ -8724,49 +8726,21 @@ function _resetChkInput(){
   b.style.pointerEvents = ok ? 'auto' : 'none';
 }
 
-// Borra TODOS los datos operativos en Supabase (mantiene empresa y usuarios).
-async function _supaResetTotal(){
-  // Orden: hijos antes que padres (aunque las FK son sueltas, por prolijidad).
-  const tablas = ['log_auditoria','historial','asignaciones','accesorios','bajas',
-    'sesiones_inventario','solicitudes_soporte','tareas','programas_mant',
-    'licencias','equipos','compras','personas'];
-  for(const t of tablas){
-    const { error } = await sb.from(t).delete().not('id','is',null);
-    if(error) throw new Error('No se pudo vaciar "'+t+'": '+error.message);
-  }
-  // Contadores de la(s) empresa(s) a cero (sin borrar la empresa).
-  try{ await sb.from('empresas').update({ counter:0, counterCompra:0 }).not('id','is',null); }catch(e){}
-}
-
-async function _ejecutarResetTotal(){
+function _ejecutarResetTotal(){
   // Doble verificación de seguridad (por si se llama fuera del flujo del modal)
   if(!_esTitularOSuper()){ toast('Solo un titular o super admin puede borrar la información','err'); return; }
+  if(cloudMode){ toast('El reset solo está disponible en modo prueba','err'); return; }
   const i=$('resetConfirmInput');
   if(!i || i.value.trim().toUpperCase()!=='BORRAR'){ toast('Escribe BORRAR para confirmar','err'); return; }
 
-  const btn=$('resetConfirmBtn');
-  if(cloudMode){
-    if(btn){ btn.disabled=true; btn.textContent='Borrando…'; btn.style.pointerEvents='none'; btn.style.opacity='.6'; }
-    try{
-      await _supaResetTotal();
-    }catch(err){
-      toast('Error al borrar: '+(err.message||err),'err');
-      if(btn){ btn.disabled=false; btn.textContent='🗑 Borrar todo'; btn.style.pointerEvents='auto'; btn.style.opacity='1'; }
-      return;
-    }
-  }
-
-  // Limpiar estado local (se mantienen usuarios y empresas).
   DB.equipos=[]; DB.compras=[]; DB.historial=[]; DB.asignaciones=[];
-  DB.licencias=[]; DB.tareas=[]; DB.bajas=[];
+  DB.licencias=[]; DB.tareas=[]; DB.usuarios=[]; DB.bajas=[];
   DB.programas_mant=[]; DB.solicitudes_soporte=[]; DB.sesiones_inventario=[];
   DB.accesorios=[]; DB.personas=[]; DB.log=[];
-  Object.values(DB.companies).forEach(e=>{ e.counter=0; e.counterCompra=0; });
+  Object.values(DB.companies).forEach(e=>{ e.counter=0; });
 
-  try{ if('setAppBadge' in navigator) navigator.clearAppBadge(); }catch(e){}
   closeMo();
-  toast('Datos borrados — empezando de cero ✓');
-  if(cloudMode){ try{ await loadCloudData(); }catch(e){} }
+  toast('Datos borrados — app en blanco ✓');
   go('dashboard');
 }
 
@@ -8820,70 +8794,93 @@ async function instalarApp(){
   // El botón de borrar información ahora vive en "Mi empresa"
   // (renderEmpresas), gatillado por rol titular/super_admin.
 
-  // ══ AUTO-ACTUALIZACIÓN ═══════════════════════════════════════════════
-  // La app consulta version.json (siempre fresco, sin caché). Si su APP_VERSION
-  // no coincide, se actualiza SOLA: actualiza el Service Worker, limpia toda la
-  // caché y recarga con la versión nueva. Sin borrar la app ni cookies a mano.
-  let _updating = false;
-  async function _chequearVersion(){
-    if(_updating) return;
-    let v = null;
-    try{
-      const r = await fetch('version.json?t='+Date.now(), { cache:'no-store' });
-      if(r.ok){ const j = await r.json(); v = (j && j.version!=null) ? String(j.version) : null; }
-    }catch(e){ return; }
-    if(!v) return;
-    if(v === String(APP_VERSION)){ try{ sessionStorage.removeItem('itc_upd_try'); }catch(e){} return; } // al día
-    // Seguro anti-bucle: si ya intentamos actualizar a esta versión y seguimos
-    // viejos (p.ej. olvido de subir el index nuevo), no recargar en bucle.
-    let intentada=null; try{ intentada=sessionStorage.getItem('itc_upd_try'); }catch(e){}
-    if(intentada === v){ _bannerActualizar(); return; }
-    try{ sessionStorage.setItem('itc_upd_try', v); }catch(e){}
-    _updating = true;
-    await _aplicarActualizacion();
-  }
-  async function _aplicarActualizacion(){
-    try{
-      if('serviceWorker' in navigator){
-        const reg = await navigator.serviceWorker.getRegistration();
-        if(reg){
-          try{ await reg.update(); }catch(e){}
-          if(reg.waiting) reg.waiting.postMessage({ type:'SKIP_WAITING' });
-          if(navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage({ type:'CLEAR_CACHES' });
-        }
+  // ============================================================
+  // CONTROL DE VERSIONES — auto-detección + auto-recarga
+  // ============================================================
+  // Fuente de verdad: version.json (pedido siempre con cache:'no-store' y un
+  // parámetro anti-caché, porque GitHub Pages no permite headers Cache-Control
+  // de servidor). Si la versión remota cambia respecto a la guardada en este
+  // dispositivo, se limpian las cachés y se recarga la app SOLA, sin pedirle
+  // nada al usuario (ni Ctrl+F5 ni borrar caché a mano).
+  const ITC_UPDATE = (function () {
+    const LS_KEY = 'itc_app_version';
+    const RELOAD_DELAY_MS = 2500; // deja ver el aviso un instante antes de recargar
+    let avisado = false;
+
+    function limpiarCachesAntiguos() {
+      if ('caches' in window) {
+        caches.keys()
+          .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+          .catch(() => {});
       }
-      if(window.caches){ const ks = await caches.keys(); await Promise.all(ks.map(k=>caches.delete(k))); }
-    }catch(e){}
-    // Recarga forzada saltando la caché HTTP (cache-buster en la URL).
-    setTimeout(()=>{
-      try{ const u=new URL(location.href); u.searchParams.set('_v', Date.now()); location.replace(u.toString()); }
-      catch(e){ location.reload(); }
-    }, 300);
-  }
-  function _bannerActualizar(){
-    if (document.getElementById('banner-update')) return;
-    const div=document.createElement('div');
-    div.id='banner-update';
-    div.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:99999;background:#1e40af;color:white;padding:12px 18px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.3);display:flex;align-items:center;gap:14px;font-size:13px;max-width:calc(100vw - 32px)';
-    div.innerHTML='<span>&#128260; Hay una versión nueva. Toca para actualizar.</span>'+
-      '<button onclick="try{sessionStorage.removeItem(\'itc_upd_try\')}catch(e){}location.reload()" style="background:white;color:#1e40af;border:none;padding:6px 14px;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px">Actualizar</button>';
-    document.body.appendChild(div);
+    }
+
+    function recargarAhora() {
+      limpiarCachesAntiguos();
+      // Cache-buster también en la propia navegación, para no reciclar
+      // una copia de index.html que el navegador tuviera en su caché HTTP.
+      const url = new URL(location.href);
+      url.searchParams.set('_v', Date.now());
+      location.replace(url.toString());
+    }
+
+    function avisarYRecargar() {
+      if (avisado) return;
+      avisado = true;
+      const div = document.createElement('div');
+      div.id = 'banner-update';
+      div.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:99999;background:#1e40af;color:white;padding:12px 18px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.3);font-size:13px;max-width:calc(100vw - 32px);animation:slideUp .3s';
+      div.textContent = '🔄 Hay una versión nueva de ITControl. Actualizando…';
+      document.body.appendChild(div);
+      setTimeout(recargarAhora, RELOAD_DELAY_MS);
+    }
+
+    async function chequearVersionJson() {
+      try {
+        const res = await fetch('version.json?_=' + Date.now(), { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const remota = data && data.version ? String(data.version) : null;
+        if (!remota) return;
+        const local = localStorage.getItem(LS_KEY);
+        if (!local) {
+          // Primera vez que corre este chequeo en este dispositivo: solo guarda.
+          localStorage.setItem(LS_KEY, remota);
+          return;
+        }
+        if (local !== remota) {
+          localStorage.setItem(LS_KEY, remota);
+          avisarYRecargar();
+        }
+      } catch (e) { /* sin red o sin version.json: no hace nada, reintenta después */ }
+    }
+
+    return { avisarYRecargar, chequearVersionJson };
+  })();
+
+  // PWA Service Worker con auto-actualización
+  if('serviceWorker' in navigator && location.hostname !== 'www.claudeusercontent.com'){
+    // updateViaCache:'none' → el propio sw.js nunca se sirve desde la caché
+    // HTTP del navegador al chequear actualizaciones (antes sí podía pasar).
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+      // Cada vez que se enfoca/vuelve visible la pestaña, chequea versión nueva.
+      const chequear = () => { reg.update().catch(()=>{}); ITC_UPDATE.chequearVersionJson(); };
+      window.addEventListener('focus', chequear);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') chequear();
+      });
+      // Chequeo periódico cada 5 min (por si la pestaña está en primer plano mucho tiempo)
+      setInterval(chequear, 5 * 60 * 1000);
+    }).catch(()=>{});
+
+    // Cuando el nuevo SW toma control (mensaje 'SW_ACTIVADO'), recargar solo.
+    navigator.serviceWorker.addEventListener('message', ev => {
+      if (ev.data?.type === 'SW_ACTIVADO') ITC_UPDATE.avisarYRecargar();
+    });
   }
 
-  if('serviceWorker' in navigator && location.hostname !== 'www.claudeusercontent.com'){
-    // updateViaCache:'none' → el navegador SIEMPRE revisa sw.js fresco (no cacheado).
-    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
-      const chequear = () => { reg.update().catch(()=>{}); _chequearVersion(); };
-      window.addEventListener('focus', chequear);
-      document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) chequear(); });
-      setInterval(chequear, 2 * 60 * 1000);   // cada 2 minutos
-      _chequearVersion();                      // al cargar
-    }).catch(()=>{ _chequearVersion(); });
-  } else {
-    document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) _chequearVersion(); });
-    setInterval(_chequearVersion, 2 * 60 * 1000);
-    _chequearVersion();
-  }
+  // Primer chequeo de version.json al cargar la app.
+  ITC_UPDATE.chequearVersionJson();
 
   aplicarClaseRolBody(); // clase según rol del usuario (sesión guardada)
   aplicarTema(getTemaGuardado()); // re-aplica para actualizar icono del botón

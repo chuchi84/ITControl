@@ -1,10 +1,12 @@
-// Service Worker — GitHub Pages (ruta /ITControl/) — v58
+// Service Worker — GitHub Pages (ruta /ITControl/) — v59
 // FIX login Supabase: el SW NO debe interceptar Supabase ni los OAuth
 // (Google/Microsoft), porque son navegaciones con redirect y romperían el login.
 // v57: agrega WEB PUSH (avisos de tickets/tareas/mantenciones).
 // v58: número en el ícono (App Badge) + notificación fija (requireInteraction).
-// v59: auto-actualización — version.json nunca se cachea, red sin caché en dinámicos,
-//      y mensajes SKIP_WAITING / CLEAR_CACHES para actualizar sin borrar la app.
+// v59: sistema de control de versiones — version.json nunca se cachea, los
+// recursos dinámicos (html/js/css/json) se piden siempre con cache:'no-store'
+// para no depender de la caché HTTP del navegador, y el registro en index.html
+// usa updateViaCache:'none' para que el propio sw.js tampoco quede cacheado.
 const CACHE = 'itcontrol-v59';
 const ASSETS_PRECARGA = [
   '/ITControl/',
@@ -41,24 +43,9 @@ function esRecursoDinamico(url) {
   } catch { return false; }
 }
 
-// Mensajes desde la app: forzar activación y limpiar caché (auto-actualización).
-self.addEventListener('message', e => {
-  const t = e.data && e.data.type;
-  if (t === 'SKIP_WAITING') self.skipWaiting();
-  if (t === 'CLEAR_CACHES') {
-    e.waitUntil(caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))));
-  }
-});
-
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = e.request.url;
-
-  // version.json SIEMPRE fresco desde la red (nunca cacheado) para el chequeo de versión.
-  if (url.includes('version.json')) {
-    e.respondWith(fetch(e.request, { cache: 'no-store' }).catch(() => caches.match(e.request)));
-    return;
-  }
 
   // ⬇️ CLAVE: dejar pasar directo (sin tocar) Supabase y los OAuth.
   if (url.includes('supabase.co')) return;
@@ -70,9 +57,17 @@ self.addEventListener('fetch', e => {
   // Nunca interceptar navegaciones cross-origin (redirects de login).
   if (e.request.mode === 'navigate' && new URL(url).origin !== self.location.origin) return;
 
+  // version.json: SIEMPRE a la red, nunca a caché. Es la fuente de verdad
+  // que usa index.html para saber si hay una versión nueva publicada.
+  if (url.includes('/version.json')) {
+    e.respondWith(fetch(e.request, { cache: 'no-store' }));
+    return;
+  }
+
   if (esRecursoDinamico(url)) {
-    // NETWORK-FIRST sin caché HTTP: siempre la última versión al recargar.
     e.respondWith(
+      // cache:'no-store' evita que la caché HTTP del navegador (no la del SW)
+      // sirva una copia vieja de index.html/js/css mientras decide si hay red.
       fetch(e.request, { cache: 'no-store' }).then(res => {
         if (res && res.ok) {
           const copia = res.clone();
@@ -96,7 +91,7 @@ self.addEventListener('fetch', e => {
 
 // ─────────────────────────────────────────────────────────────────────
 // WEB PUSH: mostrar la notificación cuando el servidor la envía.
-// ─────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────
 self.addEventListener('push', e => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data && e.data.text() }; }
