@@ -13147,10 +13147,13 @@ function confirmarImportacionSeleccionados() {
 }
 
 function confirmarImportacion(equipos) {
-  let offset = DB.equipos.filter(e => e.co === DB.co).length;
   let importados = 0;
-  equipos.forEach(eq => {
-    const id = eq.id || genEqId_new(offset + importados);
+       equipos.forEach(eq => {
+                // Sin offset: DB.equipos.length ya crece con cada push() de este mismo
+                // bucle, así que genEqId_new() (offset=0) ya refleja el correlativo
+                // correcto en cada vuelta. Sumarle un offset aparte contaba dos veces
+                // el avance y generaba IDs salteados (EMP-001, EMP-003, EMP-005…).
+                const id = eq.id || genEqId_new();
     const nuevoEq = {
       id, co: DB.co,
       // Levantamiento: sin sede/área hasta que se asigne uno a uno.
