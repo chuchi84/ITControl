@@ -6342,8 +6342,11 @@ function guardarTodo() {
     if(!isNaN(f)){ f.setMonth(f.getMonth()+garMeses); garantiaFecha = f.toISOString().slice(0,10); }
   }
   const eqIds = [];
-  equiposData.forEach((eq,offset)=>{
-    const id = eq.custom_id || genEqId_new(offset);
+  equiposData.forEach((eq)=>{
+           // Sin offset (ver nota en confirmarImportacion): DB.equipos.length ya
+           // crece con cada push() de este bucle, pasar además el índice contaba
+           // el avance dos veces y salteaba correlativos (EMP-001, EMP-003…).
+           const id = eq.custom_id || genEqId_new();
     eqIds.push(id);
     DB.equipos.push({
       id, co:DB.co,
@@ -7842,9 +7845,10 @@ function onQRSizeInput() {
 // ============================================================
 // CLOUD CONFIG
 // ============================================================
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbymbOSbf4DQsE10wMSMw2H6EZbFJ3DJis281Hj6sUIRTH4x-VOsgT16AWhILPMoOatN/exec';
-const GOOGLE_CLIENT_ID = '821988684861-hoepbnaqu7uopknatvasbajrhqa93eoa.apps.googleusercontent.com';
-
+// La base de datos es Supabase (ver bloque SUPABASE CONFIG más abajo).
+     // GOOGLE_CLIENT_ID es solo para el botón "Iniciar sesión con Google"
+// (OAuth), no tiene relación con dónde se guardan los datos.
+     const GOOGLE_CLIENT_ID = '821988684861-hoepbnaqu7uopknatvasbajrhqa93eoa.apps.googleusercontent.com';
 // ── Estado sesión ──
 // Aplica una clase CSS al <body> según el rol del usuario actual. Se usa para
 // mostrar u ocultar partes de la UI (por ejemplo, el rol 'básico' solo ve
@@ -8470,43 +8474,60 @@ function cloudWrite(action, body){
 }
 
 async function flushQueue(){
-  if(_flushing) return;
-  if(!currentUser?.token){ setSyncState(_loadQueue().length?'pending':'idle'); return; }
-  if(typeof navigator!=='undefined' && navigator.onLine===false){ setSyncState(_loadQueue().length?'pending':'idle'); return; }
-  _flushing = true;
-  try {
-    let q = _loadQueue();
-    while(q.length){
-      const item = q[0];
-      let res;
-      try {
-        res = await apiFetchWithToken(currentUser.token, item.action, item.body);
-      } catch(e){ res = { ok:false, error:e.message, _network:true }; }
+       if(_flushing) return;
+       if(!currentUser?.token){ setSyncState(_loadQueue().length?'pending':'idle'); return; }
+       if(typeof navigator!=='undefined' && navigator.onLine===false){ setSyncState(_loadQueue().length?'pending':'idle'); return; }
+       _flushing = true;
+       try {
+                while(true){
+                           // Releer SIEMPRE justo antes de procesar: mientras este flushQueue
+                           // esperaba la red (el await de abajo), cloudWrite() pudo haber
+                           // encolado ítems nuevos en localStorage. Si en vez de releer
+                           // usáramos una copia vieja de la cola tomada al principio, el
+                           // shift()+_saveQueue() de más abajo pisaría (borraría) esos ítems
+                           // nuevos — eso era el bug: en una importación masiva, todos los
+                           // equipos quedaban encolados correctamente en localStorage, pero
+                           // al terminar el primer envío se sobrescribía la cola con la copia
+                           // vieja (de un solo ítem), perdiendo el resto silenciosamente.
+                           let q = _loadQueue();
+                           if(!q.length) break;
+                           const item = q[0];
+                           let res;
+                           try {
+                                        res = await apiFetchWithToken(currentUser.token, item.action, item.body);
+                           } catch(e){ res = { ok:false, error:e.message, _network:true }; }
 
-      if(res && res.ok){
-        q.shift(); _saveQueue(q);                 // éxito → sacar de la cola
-      } else if(res && res._network){
-        setSyncState('pending'); break;           // sin red → reintentar luego
-      } else if(res && esErrorAuth(res)){
-        setSyncState('pending');                  // sesión vencida → conservar cola
-        forzarReLogin(); break;
-      } else {
-        // Error del servidor (permiso, validación): no reintentar en bucle.
-        item.intentos = (item.intentos||0)+1;
-        item.error = res?.error || 'Error';
-        if(item.intentos >= 3){
-          q.shift(); _saveQueue(q);               // descartar tras 3 intentos
-          toast('No se pudo guardar un cambio: '+item.error, 'err');
-        } else {
-          _saveQueue(q); setSyncState('error'); break;
-        }
-      }
-      q = _loadQueue();
-    }
-    setSyncState(_loadQueue().length ? _syncState==='error'?'error':'pending' : 'idle');
-  } finally {
-    _flushing = false;
-  }
+                           // Releer de nuevo: pudieron encolarse más ítems mientras esperábamos
+                                                                                      // la respuesta de red. Ubicamos el ítem procesado por su id (no por
+           // posición 0), porque la cola pudo haber cambiado mientras tanto.
+           q = _loadQueue();
+           const idx = q.findIndex(x => x.id === item.id);
+
+           if(res && res.ok){
+             if(idx !== -1){ q.splice(idx,1); _saveQueue(q); } // éxito → sacar de la cola
+     } else if(res && res._network){
+                               setSyncState('pending'); break;           // sin red → reintentar luego
+           } else if(res && esErrorAuth(res)){
+               setSyncState('pending');                  // sesión vencida → conservar cola
+             forzarReLogin(); break;
+           } else {
+                        // Error del servidor (permiso, validación): no reintentar en bucle.
+             if(idx !== -1){
+                 q[idx].intentos = (q[idx].intentos||0)+1;
+               q[idx].error = res?.error || 'Error';
+                 if(q[idx].intentos >= 3){
+                   q.splice(idx,1); _saveQueue(q);       // descartar tras 3 intentos
+                      toast('No se pudo guardar un cambio: '+(res?.error||'Error'), 'err');
+               } else {
+                 _saveQueue(q); setSyncState('error'); break;
+               }
+       }
+           }
+                }
+                setSyncState(_loadQueue().length ? _syncState==='error'?'error':'pending' : 'idle');
+       } finally {
+                _flushing = false;
+       }
 }
 
 function setSyncState(s){
@@ -11492,9 +11513,13 @@ function enviarSolicitud() {
   if (eqId && !EQS[eqId]) {
     if(!confirm('El código "'+eqId+'" no aparece en el sistema. ¿Enviar la solicitud igual?')) return;
   }
-  // Correlativo de ticket amigable
-  const prev = JSON.parse(localStorage.getItem('itc_solicitudes')||'[]');
-  const numTicket = 'T-'+String(prev.length+1).padStart(4,'0');
+// ID de ticket único: NO usamos un contador en localStorage porque cada
+      // dispositivo/navegador que escanea el QR tendría su propio contador
+            // empezando en 1 (números de ticket repetidos entre distintos equipos).
+                  // Este portal corre aislado (iframe) y no tiene el cliente de Supabase
+                        // para pedir un correlativo real, así que generamos un ID único basado
+                              // en tiempo + azar — se guarda en Supabase apenas llega a la app principal.
+                                    const numTicket = 'T-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
   const now = new Date();
   const solic = {
     id: numTicket, co:'${DB.co}',
@@ -11506,8 +11531,6 @@ function enviarSolicitud() {
     estado: 'pendiente',
     fecha: now.toISOString(),
   };
-  prev.push(solic);
-  localStorage.setItem('itc_solicitudes', JSON.stringify(prev));
   try { window.parent.postMessage({type:'solicitud_soporte',solic}, '*'); } catch(e){}
   document.getElementById('form-area').style.display='none';
   document.getElementById('success-area').style.display='block';
@@ -11543,6 +11566,10 @@ window.addEventListener('message', e=>{});
       // Evitar duplicado si el mismo mensaje llegara dos veces
       if (!DB.solicitudes_soporte.some(s => s.id === e.data.solic.id)) {
         DB.solicitudes_soporte.push(e.data.solic);
+           // Antes esto solo quedaba en memoria (se perdía al refrescar la
+                       // página y era invisible para otros dispositivos/usuarios). Ahora
+                       // se persiste en Supabase igual que el resto de la app.
+                       if (cloudMode) cloudWrite('solicitud_add', { solicitud: e.data.solic });
         addLog('Nueva solicitud soporte','soporte', e.data.solic.titulo);
         toast('✅ Nueva solicitud: '+e.data.solic.titulo);
       }
