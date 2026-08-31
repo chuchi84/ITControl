@@ -3,7 +3,9 @@
 // (Google/Microsoft), porque son navegaciones con redirect y romperían el login.
 // v57: agrega WEB PUSH (avisos de tickets/tareas/mantenciones).
 // v58: número en el ícono (App Badge) + notificación fija (requireInteraction).
-const CACHE = 'itcontrol-v58';
+// v59: auto-actualización — version.json nunca se cachea, red sin caché en dinámicos,
+//      y mensajes SKIP_WAITING / CLEAR_CACHES para actualizar sin borrar la app.
+const CACHE = 'itcontrol-v59';
 const ASSETS_PRECARGA = [
   '/ITControl/',
   '/ITControl/index.html',
@@ -39,9 +41,24 @@ function esRecursoDinamico(url) {
   } catch { return false; }
 }
 
+// Mensajes desde la app: forzar activación y limpiar caché (auto-actualización).
+self.addEventListener('message', e => {
+  const t = e.data && e.data.type;
+  if (t === 'SKIP_WAITING') self.skipWaiting();
+  if (t === 'CLEAR_CACHES') {
+    e.waitUntil(caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))));
+  }
+});
+
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = e.request.url;
+
+  // version.json SIEMPRE fresco desde la red (nunca cacheado) para el chequeo de versión.
+  if (url.includes('version.json')) {
+    e.respondWith(fetch(e.request, { cache: 'no-store' }).catch(() => caches.match(e.request)));
+    return;
+  }
 
   // ⬇️ CLAVE: dejar pasar directo (sin tocar) Supabase y los OAuth.
   if (url.includes('supabase.co')) return;
@@ -54,8 +71,9 @@ self.addEventListener('fetch', e => {
   if (e.request.mode === 'navigate' && new URL(url).origin !== self.location.origin) return;
 
   if (esRecursoDinamico(url)) {
+    // NETWORK-FIRST sin caché HTTP: siempre la última versión al recargar.
     e.respondWith(
-      fetch(e.request).then(res => {
+      fetch(e.request, { cache: 'no-store' }).then(res => {
         if (res && res.ok) {
           const copia = res.clone();
           caches.open(CACHE).then(c => c.put(e.request, copia)).catch(()=>{});
@@ -78,7 +96,7 @@ self.addEventListener('fetch', e => {
 
 // ─────────────────────────────────────────────────────────────────────
 // WEB PUSH: mostrar la notificación cuando el servidor la envía.
-// ────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 self.addEventListener('push', e => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data && e.data.text() }; }
