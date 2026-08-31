@@ -1,10 +1,7 @@
-{
-  "name": "ITControl Pro",
+{  "name": "ITControl Pro",
   "short_name": "ITControl",
   "description": "Gestión de activos TI multi-empresa",
-  "start_url": "/ITControl/",
-  "scope": "/ITControl/",
-  "display": "standalone",
+  "start_url": ".", "scope": ".",  "display": "standalone",
   "background_color": "#0f1117",
   "theme_color": "#0f1117",
   "orientation": "any",
