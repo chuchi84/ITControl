@@ -13141,9 +13141,17 @@ function impActualizarContadores() {
 
 // Confirma solo los seleccionados.
 function confirmarImportacionSeleccionados() {
-  const seleccionados = (window._importValidos||[]).filter(v => v._sel);
-  if (!seleccionados.length) { toast('Selecciona al menos un equipo','err'); return; }
-  confirmarImportacion(seleccionados);
+       // Sin empresa creada, DB.co queda vacío (''). Los equipos se ven en
+       // pantalla igual (el navegador no valida nada), pero Supabase rechaza
+       // CADA inserción porque 'co' no coincide con ninguna fila de la tabla
+       // empresas — y por eso todo desaparecía al refrescar, en silencio.
+       if (!DB.co || !DB.companies[DB.co]) {
+                toast('Primero crea (o selecciona) una empresa antes de importar equipos', 'err');
+                return;
+       }
+       const seleccionados = (window._importValidos||[]).filter(v => v._sel);
+       if (!seleccionados.length) { toast('Selecciona al menos un equipo','err'); return; }
+       confirmarImportacion(seleccionados);
 }
 
 function confirmarImportacion(equipos) {
