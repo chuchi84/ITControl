@@ -8918,13 +8918,22 @@ async function instalarApp(){
          // usamos solo el evento inicial que ya trae onAuthStateChange
          // ('INITIAL_SESSION', con la sesión guardada si existe), más un timeout
          // de seguridad por si algún navegador no lo dispara.
-         let _sesionResuelta = false;
-         sb.auth.onAuthStateChange((event, session)=>{
-           if(event==='SIGNED_OUT'){ _sesionResuelta=true; currentUser=null; sessionStorage.removeItem('itcUser'); showLoginScreen(); return; }
-                               if(session && !currentUser?.token){ _sesionResuelta=true; _onSupaSession(session); return; }
-           if(!session && !_sesionResuelta){ _sesionResuelta=true; showLoginScreen(); }
-         });
-         setTimeout(()=>{ if(!_sesionResuelta && !currentUser){ _sesionResuelta=true; showLoginScreen(); } }, 4000);
+         // OJO también: currentUser puede venir precargado de sessionStorage (para
+           // mostrar el nombre al toque, sin esperar), con un token ya presente aun
+           // en un refresh. Si el gate de abajo dependiera de "!currentUser?.token",
+           // en un refresh NUNCA se cumpliría (el token viejo ya está ahí) y
+           // _onSupaSession() —la que realmente llama a loadCloudData() y trae los
+           // equipos/empresa reales— jamás se ejecutaría: se veía tu nombre, pero
+           // todo lo demás en cero. Por eso usamos una bandera propia de esta carga
+           // de página (_datosCargados), no el currentUser heredado.
+           let _sesionResuelta = false;
+           let _datosCargados = false;
+           sb.auth.onAuthStateChange((event, session)=>{
+                      if(event==='SIGNED_OUT'){ _sesionResuelta=true; currentUser=null; sessionStorage.removeItem('itcUser'); showLoginScreen(); return; }
+                      if(session && !_datosCargados){ _sesionResuelta=true; _datosCargados=true; _onSupaSession(session); return; }
+                      if(!session && !_sesionResuelta){ _sesionResuelta=true; showLoginScreen(); }
+           });
+           setTimeout(()=>{ if(!_sesionResuelta && !_datosCargados){ _sesionResuelta=true; showLoginScreen(); } }, 4000);
      } else if(cloudMode && !sb) {
     showLoginScreen();
     showLoginError('Configura SUPABASE_URL y SUPABASE_ANON_KEY en index.html.');
