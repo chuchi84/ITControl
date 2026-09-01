@@ -8908,16 +8908,24 @@ async function instalarApp(){
   checkQRParam(); // Recuerda ?equipo= aunque falte iniciar sesión
 
   if(cloudMode && sb) {
-    // Supabase gestiona la sesión (incluye el retorno del OAuth en la URL).
-    sb.auth.onAuthStateChange((event, session)=>{
-      if(event==='SIGNED_OUT'){ currentUser=null; sessionStorage.removeItem('itcUser'); showLoginScreen(); return; }
-      if(session && !currentUser?.token) _onSupaSession(session);
-    });
-    sb.auth.getSession().then(({ data })=>{
-      if(data && data.session) _onSupaSession(data.session);
-      else showLoginScreen();
-    }).catch(()=>{ showLoginScreen(); });
-  } else if(cloudMode && !sb) {
+         // Supabase gestiona la sesión (incluye el retorno del OAuth en la URL).
+         // OJO: NO llamar además a sb.auth.getSession() aquí — hacerlo en paralelo
+         // con onAuthStateChange() hace que getSession() se cuelgue para siempre
+           // (problema conocido de supabase-js con su lock interno), y como antes
+         // dependíamos de esa promesa para mostrar el login, la pantalla de login
+         // JAMÁS aparecía: la app quedaba en "Sin sesión" para siempre, sin que
+         // nada de lo que se guardara llegara realmente a Supabase. En vez de eso,
+         // usamos solo el evento inicial que ya trae onAuthStateChange
+         // ('INITIAL_SESSION', con la sesión guardada si existe), más un timeout
+         // de seguridad por si algún navegador no lo dispara.
+         let _sesionResuelta = false;
+         sb.auth.onAuthStateChange((event, session)=>{
+           if(event==='SIGNED_OUT'){ _sesionResuelta=true; currentUser=null; sessionStorage.removeItem('itcUser'); showLoginScreen(); return; }
+                               if(session && !currentUser?.token){ _sesionResuelta=true; _onSupaSession(session); return; }
+           if(!session && !_sesionResuelta){ _sesionResuelta=true; showLoginScreen(); }
+         });
+         setTimeout(()=>{ if(!_sesionResuelta && !currentUser){ _sesionResuelta=true; showLoginScreen(); } }, 4000);
+     } else if(cloudMode && !sb) {
     showLoginScreen();
     showLoginError('Configura SUPABASE_URL y SUPABASE_ANON_KEY en index.html.');
   } else {
