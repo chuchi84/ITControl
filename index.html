@@ -9464,10 +9464,14 @@ function editarEmpresa(id) {
       '<div class="fg"><label>Email</label><input type="email" id="eeEmail" value="'+(emp.email||'')+'"></div>'+
       '<div class="fg"><label>Teléfono</label><input type="text" id="eeTel" value="'+(emp.tel||'')+'"></div>'+
       '<div class="fg" style="grid-column:1/-1"><label>Dirección principal</label><input type="text" id="eeDir" value="'+(emp.dir||'')+'"></div>'+
-               '<div class="fg" style="grid-column:1/-1"><label>Clave del portal de soporte público</label>'+
-                 '<input type="text" id="eeClaveSoporte" value="'+escHtml(emp.clave_soporte||'')+'" placeholder="Clave que pedirá el link de soporte (?soporte=1)">'+
-                 '<div style="font-size:11.5px;color:var(--t3);margin-top:4px">La necesita cualquiera que quiera crear o consultar un ticket desde el link público, sin iniciar sesión.</div>'+
-               '</div>'+
+                     '<div class="fg" style="grid-column:1/-1"><label>URL base pública <span style="color:var(--t3);font-weight:400">(donde está montada la app para esta empresa)</span></label>'+
+             '<input type="url" id="eeUrlBase" value="'+escHtml(emp.url_base||'')+'" placeholder="https://tuempresa.cl/it-app/">'+
+             '<div style="font-size:11px;color:var(--t3);margin-top:4px">Desde aquí se arman el link de soporte y los códigos QR. Déjala vacía para usar la ruta relativa al sitio actual.</div>'+
+           '</div>'+
+           '<div class="fg" style="grid-column:1/-1"><label>Clave del portal de soporte público</label>'+
+               '<input type="text" id="eeClaveSoporte" value="'+escHtml(emp.clave_soporte||'')+'" placeholder="Clave que pedirá el link de soporte (?soporte=1)">'+
+             '<div style="font-size:11.5px;color:var(--t3);margin-top:4px">La necesita cualquiera que quiera crear o consultar un ticket desde el link público, sin iniciar sesión.</div>'+
+                 '</div>'+
     '</div>',
     '<button class="btn-secondary" onclick="closeMo()">Cancelar</button>'+
     '<button class="btn-danger btn-sm" onclick="confirmarEliminarEmpresa(\''+id+'\')">&#128465; Eliminar empresa</button>'+
@@ -9487,6 +9491,7 @@ function guardarEditEmpresa(id) {
   emp.email    = $('eeEmail')?.value?.trim()||'';
   emp.tel      = $('eeTel')?.value?.trim()||'';
   emp.dir      = $('eeDir')?.value?.trim()||'';
+     emp.url_base = ($('eeUrlBase')?.value||'').trim();
      emp.clave_soporte = $('eeClaveSoporte')?.value?.trim()||'';
   if (typeof syncEmpresa === 'function') syncEmpresa(emp);
   addLog('Editó empresa','empresas',emp.name);
