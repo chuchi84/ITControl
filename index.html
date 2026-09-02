@@ -7862,9 +7862,10 @@ function abrirFichaEquipo(eqId, usuario) {
              const { data, error } = await sb.rpc('verificar_clave_soporte', { p_empresa_id: co, p_clave: clave });
                if (error || !data?.ok) throw new Error();
            $('gate-box').style.display = 'none';
-           renderFormularioSoporte(co);
+         renderFormularioSoporte(co);
+         } catch(e) {
                  $('gErr').style.display = 'block';
-           btn.disabled = false; btn.textContent = 'Ingresar';
+         btn.disabled = false; btn.textContent = 'Ingresar';
      }
      }
        $('gBtn').onclick = intentarIngreso;
