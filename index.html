@@ -11193,7 +11193,7 @@ function renderSoporte() {
         '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'+
           '<input type="text" value="'+escHtml(portalUrl)+'" readonly style="font-size:11px;width:240px;font-family:var(--mono)" id="portalUrlInput">'+
           '<button class="btn-primary btn-sm" onclick="copiarLinkPortal()">&#128203; Copiar</button>'+
-          '<button class="btn-ghost btn-sm" onclick="abrirPortalPreview()">&#128065; Preview</button>'+
+                  '<button class="btn btn-ghost btn-sm" onclick="window.open(portalUrl,\'_blank\')">&#128065; Preview</button>'+
         '</div>'+
       '</div>'+
     '</div>'+
