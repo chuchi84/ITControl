@@ -4070,7 +4070,7 @@ function urlBaseEmpresa(empId){
   if (!/[?#]$/.test(base) && !base.endsWith('/')) base += '/';
   return base;
 }
-function urlSoporteEmpresa(empId){ return urlBaseEmpresa(empId)+'?soporte=1'; }
+function urlSoporteEmpresa(empId){ const id = empId || DB.co; return urlBaseEmpresa(empId)+'?soporte=1&co='+encodeURIComponent(id); }
 function urlEquipoEmpresa(eqId, empId){
   return urlBaseEmpresa(empId)+'?equipo='+encodeURIComponent(eqId);
 }
@@ -7817,7 +7817,182 @@ function abrirFichaEquipo(eqId, usuario) {
   );
 }
 
-// ── URL PARAMS ────────────────────────────────────────────
+// ── PORTAL PÚBLICO DE SOPORTE (?soporte=1&co=<empresaId>) ──────────────
+     // Sin login. La clave se verifica en Supabase (función verificar_clave_soporte);
+     // el navegador nunca recibe la clave real, solo un true/false.
+     async function mostrarPortalSoporte() {
+       document.documentElement.style.background = 'var(--bg,#0f1117)';
+         document.body.innerHTML =
+         '<div id="portal-pub" style="max-width:420px;margin:0 auto;padding:32px 18px;min-height:100vh;box-sizing:border-box"></div>';
+       const cont = $('portal-pub');
+       const params = new URLSearchParams(location.search);
+       const co = params.get('co');
+            if (!co) {
+                     cont.innerHTML = '<p style="color:var(--t2);text-align:center;margin-top:60px">Link inválido: falta indicar la empresa (falta <b>&co=</b> en la URL).</p>';
+         return;
+     }
+     
+       let empresaNombre = 'Soporte';
+         try {
+             const { data } = await sb.from('empresas_publico').select('name').eq('id', co).maybeSingle();
+                  if (data?.name) empresaNombre = data.name;
+         } catch(e) {}
+          
+            cont.innerHTML =
+                     '<div style="text-align:center;margin-bottom:24px">'+
+           '<div style="font-size:32px">🖥️</div>'+
+           '<h2 style="margin:8px 0 2px;color:var(--t1)">'+escHtml(empresaNombre)+'</h2>'+
+               '<div style="color:var(--t2);font-size:13px">Portal de soporte</div>'+
+               '</div>'+
+         '<div id="gate-box">'+
+                             '<label style="font-size:13px;color:var(--t2)">Clave de acceso</label>'+
+             '<input id="gClave" type="password" class="inp" style="width:100%;margin:6px 0 12px;box-sizing:border-box" placeholder="••••••">'+
+                                                 '<button id="gBtn" class="btn btn-primary" style="width:100%">Ingresar</button>'+
+               '<div id="gErr" style="color:#e55;font-size:12px;margin-top:8px;display:none">Clave incorrecta. Intenta de nuevo más tarde.</div>'+
+         '</div>'+
+           '<div id="form-box" style="display:none"></div>';
+     
+         async function intentarIngreso() {
+         const clave = $('gClave').value.trim();
+           if (!clave) return;
+         const btn = $('gBtn');
+         btn.disabled = true; btn.textContent = 'Verificando…';
+           $('gErr').style.display = 'none';
+         try {
+             const { data, error } = await sb.rpc('verificar_clave_soporte', { p_empresa_id: co, p_clave: clave });
+               if (error || !data?.ok) throw new Error();
+           $('gate-box').style.display = 'none';
+           renderFormularioSoporte(co);
+                 } catch(e) {
+             $('gErr').style.display = 'block';
+           btn.disabled = false; btn.textContent = 'Ingresar';
+     }
+     }
+       $('gBtn').onclick = intentarIngreso;
+       $('gClave').addEventListener('keydown', e => { if (e.key === 'Enter') intentarIngreso(); });
+       }
+      
+     function renderFormularioSoporte(co) {
+       const box = $('form-box');
+       box.style.display = 'block';
+       box.innerHTML =
+         '<div style="display:flex;gap:8px;margin-bottom:16px">'+
+           '<button id="tabNuevo" class="btn btn-primary" style="flex:1">Nuevo ticket</button>'+
+           '<button id="tabConsulta" class="btn btn-secondary" style="flex:1">Consultar ticket</button>'+
+         '</div>'+
+         '<div id="panelNuevo"></div>'+
+         '<div id="panelConsulta" style="display:none"></div>';
+     
+       $('tabNuevo').onclick = () => {
+         $('panelNuevo').style.display = 'block';
+         $('panelConsulta').style.display = 'none';
+             $('tabNuevo').className = 'btn btn-primary';
+         $('tabConsulta').className = 'btn btn-secondary';
+                                 };
+       $('tabConsulta').onclick = () => {
+                                                                                                                        $('panelNuevo').style.display = 'none';
+         $('panelConsulta').style.display = 'block';
+         $('tabNuevo').className = 'btn btn-secondary';
+         $('tabConsulta').className = 'btn btn-primary';
+                               };
+     
+         renderPanelNuevoTicket(co);
+       renderPanelConsultaTicket(co);
+       }
+     
+     function renderPanelNuevoTicket(co) {
+             const p = $('panelNuevo');
+       p.innerHTML =
+         '<label style="font-size:12px;color:var(--t2)">Nombre</label>'+
+           '<input id="pNombre" class="inp" style="width:100%;margin:4px 0 10px;box-sizing:border-box">'+
+         '<label style="font-size:12px;color:var(--t2)">Correo</label>'+
+         '<input id="pEmail" type="email" class="inp" style="width:100%;margin:4px 0 10px;box-sizing:border-box">'+
+         '<label style="font-size:12px;color:var(--t2)">Título</label>'+
+         '<input id="pTitulo" class="inp" style="width:100%;margin:4px 0 10px;box-sizing:border-box">'+
+         '<label style="font-size:12px;color:var(--t2)">Prioridad</label>'+
+         '<select id="pPrio" class="inp" style="width:100%;margin:4px 0 10px;box-sizing:border-box">'+
+                               '<option value="baja">Baja</option><option value="media" selected>Media</option><option value="alta">Alta</option>'+
+         '</select>'+
+         '<label style="font-size:12px;color:var(--t2)">Descripción</label>'+
+           '<textarea id="pDesc" class="inp" rows="4" style="width:100%;margin:4px 0 14px;box-sizing:border-box"></textarea>'+
+         '<button id="pEnviar" class="btn btn-primary" style="width:100%">Enviar solicitud</button>'+
+         '<div id="pMsg" style="font-size:13px;margin-top:10px"></div>';
+     
+       $('pEnviar').onclick = async () => {
+           const nombre = $('pNombre').value.trim();
+         const email  = $('pEmail').value.trim();
+                       const titulo = $('pTitulo').value.trim();
+         if (!nombre || !email || !titulo) {
+           $('pMsg').innerHTML = '<span style="color:#e55">Nombre, correo y título son obligatorios.</span>';
+                    return;
+         }
+                const btn = $('pEnviar');
+                btn.disabled = true; btn.textContent = 'Enviando…';
+                const numTicket = 'T-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
+         const solic = {
+             id: numTicket, co,
+                                                        nombre, email,
+           equipo_id: '',
+                         titulo,
+           prioridad: $('pPrio').value,
+           desc: $('pDesc').value.trim(),
+           estado: 'pendiente',
+           fecha: new Date().toISOString(),
+     };
+         try {
+           const { error } = await sb.from('solicitudes_soporte').insert(solic);
+           if (error) throw error;
+           $('panelNuevo').innerHTML =
+             '<div style="text-align:center;padding:20px 0">'+
+                 '<div style="font-size:28px">✅</div>'+
+                   '<div style="margin:10px 0 4px;font-weight:600">Solicitud enviada</div>'+
+               '<div style="font-size:13px;color:var(--t2)">Guarda este número por si necesitas hacer seguimiento:</div>'+
+               '<div style="font-size:20px;font-weight:700;margin-top:8px;letter-spacing:1px">'+numTicket+'</div>'+
+               '</div>';
+         } catch(e) {
+           $('pMsg').innerHTML = '<span style="color:#e55">No se pudo enviar. Intenta de nuevo.</span>';
+             btn.disabled = false; btn.textContent = 'Enviar solicitud';
+     }
+     };
+       }
+       
+     function renderPanelConsultaTicket(co) {
+           const p = $('panelConsulta');
+         p.innerHTML =
+                           '<label style="font-size:12px;color:var(--t2)">Número de ticket</label>'+
+         '<input id="cTicket" class="inp" style="width:100%;margin:4px 0 10px;box-sizing:border-box" placeholder="T-ABC123">'+
+                                                                      '<label style="font-size:12px;color:var(--t2)">Correo con el que lo creaste</label>'+
+                                                                  '<input id="cEmail" type="email" class="inp" style="width:100%;margin:4px 0 14px;box-sizing:border-box">'+
+         '<button id="cBuscar" class="btn btn-primary" style="width:100%">Consultar</button>'+
+                           '<div id="cResult" style="margin-top:14px"></div>';
+     
+       $('cBuscar').onclick = async () => {
+ BLICO DE SOPORTE            const ticket = $('cTicket').value.trim();
+         const email  = $('cEmail').value.trim();
+         const res = $('cResult');
+           if (!ticket || !email) { res.innerHTML = '<span style="color:#e55;font-size:13px">Completa ambos campos.</span>'; return; }
+         res.innerHTML = '<span style="font-size:13px;color:var(--t2)">Buscando…</span>';
+         try {
+             const { data, error } = await sb.from('solicitudes_soporte').select('*')
+             .eq('id', ticket).eq('email', email).eq('co', co).maybeSingle();
+           if (error || !data) {
+             res.innerHTML = '<span style="font-size:13px;color:#e55">No se encontró ningún ticket con esos datos.</span>';
+             return;
+             }
+           const estados = { pendiente:'⏳ Pendiente', en_curso:'🔧 En curso', resuelto:'✅ Resuelto', cerrado:'✅ Cerrado' };
+           res.innerHTML =
+                '<div style="background:var(--s2);border-radius:var(--r,8px);padding:14px">'+
+               '<div style="font-weight:600;margin-bottom:6px">'+escHtml(data.titulo||'')+'</div>'+
+                           '<div style="font-size:13px;color:var(--t2);margin-bottom:4px">Estado: '+(estados[data.estado]||escHtml(data.estado||'—'))+'</div>'+
+                 '<div style="font-size:12px;color:var(--t3)">Creado: '+(data.fecha?new Date(data.fecha).toLocaleString('es-CL'):'—')+'</div>'+
+             '</div>';
+             } catch(e) {
+           res.innerHTML = '<span style="font-size:13px;color:#e55">No se encontró ningún ticket con esos datos.</span>';
+     }
+     };
+     }
+     
+     // ── URL PARAMS ────────────────────────────────────────────
 let _pendingEqId = null;
 function checkQRParam() {
   const params = new URLSearchParams(window.location.search);
