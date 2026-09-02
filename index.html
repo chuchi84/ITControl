@@ -7863,8 +7863,7 @@ function abrirFichaEquipo(eqId, usuario) {
                if (error || !data?.ok) throw new Error();
            $('gate-box').style.display = 'none';
            renderFormularioSoporte(co);
-                 aNo se encontró ningún ticket con esos datos.</span>';
-             $('gErr').style.display = 'block';
+                 $('gErr').style.display = 'block';
            btn.disabled = false; btn.textContent = 'Ingresar';
      }
      }
@@ -7949,8 +7948,7 @@ function abrirFichaEquipo(eqId, usuario) {
                '<div style="font-size:13px;color:var(--t2)">Guarda este número por si necesitas hacer seguimiento:</div>'+
                '<div style="font-size:20px;font-weight:700;margin-top:8px;letter-spacing:1px">'+numTicket+'</div>'+
                '</div>';
-         aNo se encontró ningún ticket con esos datos.</span>';
-           $('pMsg').innerHTML = '<span style="color:#e55">No se pudo enviar. Intenta de nuevo.</span>';
+$('pMsg').innerHTML = '<span style="color:#e55">No se pudo enviar. Intenta de nuevo.</span>';
              btn.disabled = false; btn.textContent = 'Enviar solicitud';
      }
      };
