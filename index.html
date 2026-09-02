@@ -7967,27 +7967,44 @@ function abrirFichaEquipo(eqId, usuario) {
                            '<div id="cResult" style="margin-top:14px"></div>';
      
        $('cBuscar').onclick = async () => {
-     const ticket = $('cTicket').value.trim();
+    const ticket = $('cTicket').value.trim();
          const email  = $('cEmail').value.trim();
-         const res = $('cResult');
-           if (!ticket || !email) { res.innerHTML = '<span style="color:#e55;font-size:13px">Completa ambos campos.</span>'; return; }
+                       const res = $('cResult');
+                                        if (!ticket || !email) { res.innerHTML = '<span style="color:#e55;font-size:13px">Completa ambos campos.</span>'; return; }
          res.innerHTML = '<span style="font-size:13px;color:var(--t2)">Buscando…</span>';
          try {
              const { data, error } = await sb.from('solicitudes_soporte').select('*')
-             .eq('id', ticket).eq('email', email).eq('co', co).maybeSingle();
+                                                             .eq('id', ticket).eq('email', email).eq('co', co).maybeSingle();
            if (error || !data) {
              res.innerHTML = '<span style="font-size:13px;color:#e55">No se encontró ningún ticket con esos datos.</span>';
-             return;
-             }
-           const estados = { pendiente:'⏳ Pendiente', en_curso:'🔧 En curso', resuelto:'✅ Resuelto', cerrado:'✅ Cerrado' };
+                 return;
+     }
+           // Los valores reales que usa la app son 'pendiente' | 'en_curso' | 'resuelta'
+                    // (antes esto decía 'resuelto'/'cerrado', que no existen, por eso nunca
+               // se veía el estado real).
+           const estados = { pendiente:'⏳ Pendiente', en_curso:'🔧 En curso', resuelta:'✅ Resuelta' };
+           // Solo mensajes públicos (tipo!=='interno'): las notas internas del
+           // técnico no deben verse desde el portal público.
+           const mensajesPublicos = (data.mensajes||[]).filter(m => m.tipo !== 'interno');
+           const mensajesHtml = mensajesPublicos.length
+                                ? mensajesPublicos.map(m =>
+                 '<div style="background:var(--s2);border-radius:var(--r,8px);padding:10px;margin-top:8px">'+
+                   '<div style="font-size:10.5px;color:var(--t3);margin-bottom:4px">'+escHtml(m.autor||'Técnico')+' · '+new Date(m.fecha).toLocaleString('es-CL')+'</div>'+
+                   '<div style="font-size:12.5px;white-space:pre-wrap;line-height:1.4">'+escHtml(m.texto||'')+'</div>'+
+                 '</div>'
+               ).join('')
+             : '<div style="font-size:12px;color:var(--t3);margin-top:8px">Sin respuestas todavía.</div>';
            res.innerHTML =
-                '<div style="background:var(--s2);border-radius:var(--r,8px);padding:14px">'+
+             '<div style="background:var(--s2);border-radius:var(--r,8px);padding:14px">'+
                '<div style="font-weight:600;margin-bottom:6px">'+escHtml(data.titulo||'')+'</div>'+
-                           '<div style="font-size:13px;color:var(--t2);margin-bottom:4px">Estado: '+(estados[data.estado]||escHtml(data.estado||'—'))+'</div>'+
-                 '<div style="font-size:12px;color:var(--t3)">Creado: '+(data.fecha?new Date(data.fecha).toLocaleString('es-CL'):'—')+'</div>'+
-             '</div>';
-             } catch(e) {
+               '<div style="font-size:13px;color:var(--t2);margin-bottom:4px">Estado: '+(estados[data.estado]||escHtml(data.estado||'—'))+'</div>'+
+               '<div style="font-size:12px;color:var(--t3)">Creado: '+(data.fecha?new Date(data.fecha).toLocaleString('es-CL'):'—')+'</div>'+
+             '</div>'+
+             '<div style="margin-top:6px;font-size:11px;color:var(--t3);font-weight:600">RESPUESTAS</div>'+
+               mensajesHtml;
+           } catch(e) {
            res.innerHTML = '<span style="font-size:13px;color:#e55">No se encontró ningún ticket con esos datos.</span>';
+         }
      }
      };
      }
