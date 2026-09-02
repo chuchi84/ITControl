@@ -8146,7 +8146,7 @@ const _TABLA = {
 // Columnas válidas por tabla (espejo del schema). Filtra props que no son
 // columnas para que PostgREST no rechace el insert/upsert.
 const _COLS = {
-  empresas:['id','name','rut','prefix','counter','counterCompra','counterCompraAnio','giro','contacto','email','tel','dir','sedes','logo','url_base'],
+  empresas:['id','name','rut','prefix','counter','counterCompra','counterCompraAnio','giro','contacto','email','tel','dir','sedes','logo','url_base','clave_soporte'],
   equipos:['id','co','local_id','area','compra_id','tipo','marca','modelo','serie','estado','specs','campos','software','comentarios','garantia','gar_meses','fecha_recepcion','baja_id','baja_fecha','baja_motivo'],
   compras:['id','co','local_id','proveedor','rut_prov','tipo_doc','num_doc','fecha','financiador','quien_pago','forma_pago','monto','estado_pago','metodo_pago','fecha_pago','cobrado_cliente','descripcion','area','equipos_ids','adjunto','adjunto_nombre'],
   historial:['id','eq_id','co','local_id','tipo','fecha','tecnico','costo','desc','prox'],
@@ -8987,6 +8987,13 @@ async function instalarApp(){
 // INIT
 // ============================================================
 (function init(){
+       // Portal público de soporte (?soporte=1&co=...): nadie necesita login para
+       // esto, así que se resuelve antes que cualquier lógica de sesión/dashboard.
+       if (new URLSearchParams(window.location.search).get('soporte') === '1') {
+                mostrarPortalSoporte();
+                return;
+       }
+     
   // El botón de borrar información ahora vive en "Mi empresa"
   // (renderEmpresas), gatillado por rol titular/super_admin.
 
@@ -9457,6 +9464,10 @@ function editarEmpresa(id) {
       '<div class="fg"><label>Email</label><input type="email" id="eeEmail" value="'+(emp.email||'')+'"></div>'+
       '<div class="fg"><label>Teléfono</label><input type="text" id="eeTel" value="'+(emp.tel||'')+'"></div>'+
       '<div class="fg" style="grid-column:1/-1"><label>Dirección principal</label><input type="text" id="eeDir" value="'+(emp.dir||'')+'"></div>'+
+               '<div class="fg" style="grid-column:1/-1"><label>Clave del portal de soporte público</label>'+
+                 '<input type="text" id="eeClaveSoporte" value="'+escHtml(emp.clave_soporte||'')+'" placeholder="Clave que pedirá el link de soporte (?soporte=1)">'+
+                 '<div style="font-size:11.5px;color:var(--t3);margin-top:4px">La necesita cualquiera que quiera crear o consultar un ticket desde el link público, sin iniciar sesión.</div>'+
+               '</div>'+
     '</div>',
     '<button class="btn-secondary" onclick="closeMo()">Cancelar</button>'+
     '<button class="btn-danger btn-sm" onclick="confirmarEliminarEmpresa(\''+id+'\')">&#128465; Eliminar empresa</button>'+
@@ -9476,6 +9487,7 @@ function guardarEditEmpresa(id) {
   emp.email    = $('eeEmail')?.value?.trim()||'';
   emp.tel      = $('eeTel')?.value?.trim()||'';
   emp.dir      = $('eeDir')?.value?.trim()||'';
+     emp.clave_soporte = $('eeClaveSoporte')?.value?.trim()||'';
   if (typeof syncEmpresa === 'function') syncEmpresa(emp);
   addLog('Editó empresa','empresas',emp.name);
   closeMo();
