@@ -11044,9 +11044,9 @@ function confirmarEjecucion(progId) {
 // Umbrales de SLA en horas por prioridad. Si (ahora - creación) supera el
 // umbral 'warning', se pinta amarillo; si supera 'critical', rojo.
 const SLA_UMBRALES = {
-  alta:  { warn: 4,  crit: 12 },
-  media: { warn: 24, crit: 72 },
-  baja:  { warn: 72, crit: 168 },
+       alta:  { warn: 4,  crit: 8 },
+       media: { warn: 24, crit: 48 },
+       baja:  { warn: 72, crit: 120 },
 };
 
 // Devuelve horas transcurridas desde 'fecha' hasta ahora.
