@@ -7940,9 +7940,10 @@ function abrirFichaEquipo(eqId, usuario) {
          }
                 const btn = $('pEnviar');
                 btn.disabled = true; btn.textContent = 'Enviando…';
-                const numTicket = 'T-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
+                const { data: numTicket, error: errNum } = await sb.rpc('siguiente_numero_ticket', { p_co: co });
+            const ticketId = numTicket || ('T-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,6).toUpperCase());
          const solic = {
-             id: numTicket, co,
+             id: ticketId, co,
                                                         nombre, email,
            equipo_id: '',
                          titulo,
@@ -7959,7 +7960,7 @@ function abrirFichaEquipo(eqId, usuario) {
                  '<div style="font-size:28px">✅</div>'+
                    '<div style="margin:10px 0 4px;font-weight:600">Solicitud enviada</div>'+
                '<div style="font-size:13px;color:var(--t2)">Guarda este número por si necesitas hacer seguimiento:</div>'+
-               '<div style="font-size:20px;font-weight:700;margin-top:8px;letter-spacing:1px">'+numTicket+'</div>'+
+               '<div style="font-size:20px;font-weight:700;margin-top:8px;letter-spacing:1px">'+ticketId+'</div>'+
                '</div>';
 } catch(e) {
               $('pMsg').innerHTML = '<span style="color:#e55">No se pudo enviar. Intenta de nuevo.</span>';
