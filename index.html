@@ -11375,7 +11375,7 @@ function verTicketSoporte(id) {
 
   const mensajes = s.mensajes || [];
 
-  openMo('Ticket · '+escHtml(s.id.split('-').slice(0,2).join('-')),
+  openMo('Ticket · '+escHtml(s.id),
     '<div style="display:grid;grid-template-columns:1fr 260px;gap:20px" class="ticket-detail">'+
       // Columna principal
       '<div>'+
