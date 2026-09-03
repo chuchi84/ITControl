@@ -1155,10 +1155,18 @@ function changeCo(){
 // Reconstruye el selector de empresa con SOLO las empresas visibles.
 // Si el usuario tiene una sola empresa, el selector queda fijo (no puede cambiar).
 function aplicarAlcanceEmpresa(){
-  const sel = $('coSel');
+    // Logo de la empresa activa en el bloque de arriba (donde antes deca 'IT')
+       const mark = document.querySelector('.sb-mark');
+       if (mark) {
+                const logo = DB.companies[DB.co]?.logo;
+                mark.innerHTML = logo ? '<img src="'+escHtml(logo)+'" style="width:100%;height:100%;object-fit:contain;border-radius:6px">' : 'IT';
+                mark.style.background = logo ? 'var(--s2)' : '';
+       }
+     const sel = $('coSel');
   if (sel) {
     const ids = Object.keys(DB.companies);
     sel.innerHTML = ids.map(id =>
+           
       '<option value="'+id+'"'+(id===DB.co?' selected':'')+'>'+escHtml(DB.companies[id].name||id)+'</option>'
     ).join('');
     const soloUna = ids.length <= 1;
@@ -4070,7 +4078,7 @@ function urlBaseEmpresa(empId){
   if (!/[?#]$/.test(base) && !base.endsWith('/')) base += '/';
   return base;
 }
-function urlSoporteEmpresa(empId){ const id = empId || DB.co; return urlBaseEmpresa(empId)+'?soporte=1&co='+encodeURIComponent(id); }
+function urlSoporteEmpresa(empId){ const id = empId || DB.co; return urlBaseEmpresa(empId)+'?s='+encodeURIComponent(id); }
 function urlEquipoEmpresa(eqId, empId){
   return urlBaseEmpresa(empId)+'?equipo='+encodeURIComponent(eqId);
 }
@@ -7826,7 +7834,7 @@ function abrirFichaEquipo(eqId, usuario) {
          '<div id="portal-pub" style="max-width:420px;margin:0 auto;padding:32px 18px;min-height:100vh;box-sizing:border-box"></div>';
        const cont = $('portal-pub');
        const params = new URLSearchParams(location.search);
-       const co = params.get('co');
+       const co = params.get('s');
             if (!co) {
                      cont.innerHTML = '<p style="color:var(--t2);text-align:center;margin-top:60px">Link inválido: falta indicar la empresa (falta <b>&co=</b> en la URL).</p>';
          return;
@@ -9009,7 +9017,7 @@ async function instalarApp(){
 (function init(){
        // Portal público de soporte (?soporte=1&co=...): nadie necesita login para
        // esto, así que se resuelve antes que cualquier lógica de sesión/dashboard.
-       if (new URLSearchParams(window.location.search).get('soporte') === '1') {
+       if (new URLSearchParams(window.location.search).has('s')) {
                 mostrarPortalSoporte();
                 return;
        }
