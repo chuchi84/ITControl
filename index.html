@@ -8597,8 +8597,54 @@ function forzarReLogin(msg){
 }
 
 // ── LOAD DATA FROM SHEET ──────────────────────────────────
-async function loadCloudData() {
-  if(!currentUser?.token) return;
+// ── ACTUALIZACIÓN EN VIVO (Supabase Realtime) ─────────────────────
+     // Escucha cambios en las tablas clave y actualiza la pantalla sola,
+     // sin que el usuario tenga que refrescar. Se conecta una vez después
+     // de cargar los datos (loadCloudData). Requiere que las tablas tengan
+     // la Replicación (Realtime) activada en Supabase.
+     let _rtCanales = [];
+     function iniciarRealtime() {
+            if (!cloudMode || !sb || !DB.co) return;
+            // Si ya había canales abiertos (ej: se llamó dos veces), los cerramos
+            // primero para no duplicar eventos.
+            _rtCanales.forEach(ch => { try { sb.removeChannel(ch); } catch(e){} });
+            _rtCanales = [];
+            const tablas = [
+                 { tabla: 'equipos',            arr: 'equipos' },
+                 { tabla: 'compras',            arr: 'compras' },
+                 { tabla: 'solicitudes_soporte',arr: 'solicitudes_soporte' },
+                 { tabla: 'tareas',             arr: 'tareas' },
+                 { tabla: 'asignaciones',       arr: 'asignaciones' },
+                   ];
+            tablas.forEach(({ tabla, arr }) => {
+                     const ch = sb.channel('rt_'+tabla+'_'+DB.co)
+                                .on('postgres_changes', { event: '*', schema: 'public', table: tabla, filter: 'co=eq.'+DB.co }, payload => {
+                                             _aplicarCambioRealtime(arr, payload);
+                                })
+                                .subscribe();
+                     _rtCanales.push(ch);
+            });
+     }
+     // Mezcla el cambio recibido dentro del arreglo local correspondiente,
+     // y vuelve a pintar la pantalla actual si hace falta.
+     function _aplicarCambioRealtime(arr, payload) {
+            const list = DB[arr];
+            if (!Array.isArray(list)) return;
+            if (payload.eventType === 'INSERT') {
+                     if (!list.some(x => x.id === payload.new.id)) list.push(payload.new);
+            } else if (payload.eventType === 'UPDATE') {
+                     const idx = list.findIndex(x => x.id === payload.new.id);
+                     if (idx >= 0) list[idx] = payload.new; else list.push(payload.new);
+            } else if (payload.eventType === 'DELETE') {
+                     const idx = list.findIndex(x => x.id === payload.old.id);
+                     if (idx >= 0) list.splice(idx, 1);
+            } else return;
+            const modActual = document.querySelector('.nav-item.on')?.dataset.m || 'dashboard';
+            if (typeof go === 'function') go(modActual);
+     }
+     
+     async function loadCloudData() {
+if(!currentUser?.token) return;
   showLoadingIndicator(true);
   try {
     const res = await apiFetchWithToken(currentUser.token, 'load');
@@ -8642,6 +8688,7 @@ async function loadCloudData() {
     flushQueue();          // enviar cambios que quedaron offline
     setSyncState(_loadQueue().length ? 'pending' : 'idle');
     toast('Datos cargados ✓');
+       iniciarRealtime();
   } catch(e) {
     showLoadingIndicator(false);
     // En caso de fallo NO mostrar datos de ejemplo de otras empresas: limpiar todo.
