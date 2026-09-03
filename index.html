@@ -7833,14 +7833,18 @@ function abrirFichaEquipo(eqId, usuario) {
      }
      
        let empresaNombre = 'Soporte';
-         try {
-             const { data } = await sb.from('empresas_publico').select('name').eq('id', co).maybeSingle();
-                  if (data?.name) empresaNombre = data.name;
-         } catch(e) {}
-          
-            cont.innerHTML =
-                     '<div style="text-align:center;margin-bottom:24px">'+
-           '<div style="font-size:32px">🖥️</div>'+
+            let empresaLogo = '';
+            try {
+                     const { data } = await sb.from('empresas_publico').select('name,logo').eq('id', co).maybeSingle();
+         if (data?.name) empresaNombre = data.name;
+         if (data?.logo) empresaLogo = data.logo;
+     } catch(e) {}
+
+         cont.innerHTML =
+           '<div style="text-align:center;margin-bottom:24px">'+
+             (empresaLogo
+               ? '<img src="'+escHtml(empresaLogo)+'" style="max-height:56px;max-width:180px;object-fit:contain">'
+               : '<div style="font-size:32px">🖥️</div>')+
            '<h2 style="margin:8px 0 2px;color:var(--t1)">'+escHtml(empresaNombre)+'</h2>'+
                '<div style="color:var(--t2);font-size:13px">Portal de soporte</div>'+
                '</div>'+
