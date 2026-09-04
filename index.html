@@ -7753,64 +7753,59 @@ function abrirFichaEquipo(eqId, usuario) {
     return '<div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin:14px 0 8px;padding-top:10px;border-top:1px solid var(--border)">'+titulo+'</div>';
   }
 
-  // ── TAB EQUIPO ──
-  let tabEq = '';
-  // Identificación
-  tabEq += dr('ID', '<span class="mono" style="color:var(--accent)">'+eq.id+'</span>');
-  tabEq += dr('Tipo', eq.tipo);
-  tabEq += dr('Marca', eq.marca);
-  tabEq += dr('Modelo', eq.modelo);
-  tabEq += dr('N° Serie', '<span class="mono">'+eq.serie+'</span>');
-  tabEq += dr('Estado', estadoBadge(eq.estado));
-  // Garantía — siempre visible, editable inline
-  const dg = diasGarantia(eq);
-  tabEq += '<div class="dr"><span class="dl">Garantía</span>'+
-    '<span class="dv" style="display:flex;align-items:center;gap:8px">'+
-      '<input type="date" id="fichaGarantia" value="'+(eq.garantia||'')+'" '+
-        'style="font-size:12px;padding:3px 7px;width:140px;border:1px solid var(--border);border-radius:var(--r);background:var(--s2);color:var(--t1)" '+
-        'onchange="guardarGarantiaEquipo(\''+eqId+'\',this.value)">'+
-      (eq.garantia ? garantiaBadge(eq) : '<span style="font-size:11px;color:var(--t3)">Sin fecha</span>')+
-    '</span>'+
-  '</div>';
-  if (loc) tabEq += dr('Sede', loc.nombre);
-  if (eq.area) tabEq += dr('Área', eq.area);
-
-  // Specs
-  const specs = eq.specs||{};
-  if (Object.keys(specs).length) {
-    tabEq += section('ESPECIFICACIONES');
-    Object.entries(specs).forEach(([k,v]) => {
-      tabEq += dr(k.charAt(0).toUpperCase()+k.slice(1), v);
-    });
-  }
-
-  // Campos personalizados
-  if (eq.campos?.length) {
-    tabEq += section('CONFIGURACIÓN');
-    eq.campos.forEach(f => {
-      const val = f.prot && !isAdmin
-        ? '<span style="filter:blur(4px);user-select:none;letter-spacing:2px">••••••••</span>'
-        : '<span class="mono">'+escHtml(f.v||'')+'</span>';
-      tabEq += dr(f.k, val);
-    });
-  }
-
-  // Software
-  if (eq.software?.length) {
-    tabEq += section('SOFTWARE INSTALADO');
-    tabEq += '<div style="display:flex;flex-direction:column;gap:5px">';
-    eq.software.forEach(sw => {
-      tabEq += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--s2);border-radius:var(--r)">';
-      tabEq += '<span style="font-size:12.5px;font-weight:500">'+escHtml(sw.nombre||'')+'</span>';
-      tabEq += '<span style="font-size:11.5px;color:var(--t2)">'+escHtml(sw.version||'')+'</span>';
-      tabEq += '</div>';
-    });
-    tabEq += '</div>';
-  }
-
-  if (eq.comentarios) {
-    tabEq += section('COMENTARIOS');
-    tabEq += '<div style="font-size:12.5px;color:var(--t2);line-height:1.5;padding:8px 10px;background:var(--s2);border-radius:var(--r)">'+escHtml(eq.comentarios)+'</div>';
+  // -- TAB EQUIPO (editable) --
+       window._eqEditId = eqId;
+       window._eqEditCampos = (eq.campos||[]).map(f=>({...f}));
+       window._eqEditSw = (eq.software||[]).map(s=>({...s}));
+       let tabEq =
+                  '<div class="fgrid f2" style="gap:10px">'+
+           '<div class="fg"><label>Tipo <span class="req">*</span></label>'+
+                   '<select id="eeT" onchange="onTipoSelectChange(\'eeT\',\'eeTCustom\');actualizarHardwareTab()">'+
+               tiposDisponibles().map(t => '<option'+(eq.tipo===t?' selected':'')+'>'+escHtml(t)+'</option>').join('')+
+                      (tiposDisponibles().includes(eq.tipo)?'':'<option selected>'+escHtml(eq.tipo)+'</option>')+
+                      '<option value="__custom__">+ Escribir otro tipo...</option>'+
+                    '</select>'+
+                    '<input type="text" id="eeTCustom" placeholder="Escribe el tipo" style="margin-top:6px;display:none">'+
+                  '</div>'+
+                  '<div class="fg"><label>Marca <span class="req">*</span></label><input type="text" id="eeMa" value="'+escHtml(eq.marca||'')+'"></div>'+
+                  '<div class="fg"><label>Modelo <span class="req">*</span></label><input type="text" id="eeMo" value="'+escHtml(eq.modelo||'')+'"></div>'+
+                  '<div class="fg"><label>N Serie</label><input type="text" id="eeSerie" value="'+escHtml(eq.serie||'')+'"></div>'+
+                  '<div class="fg" style="grid-column:1/-1"><label>Caracteristicas rapidas</label><input type="text" id="eeCaract" value="'+escHtml(eq.caracteristicas||'')+'"></div>'+
+                  '<div class="fg"><label>Estado</label><select id="eeE">'+
+                    ['Asignado','Disponible','En mantencion','En reparacion','De baja','Extraviado'].map(s=>'<option'+(eq.estado===s?' selected':'')+'>'+s+'</option>').join('')+
+                  '</select></div>'+
+                  '<div class="fg"><label>Sede</label><select id="eeSede" onchange="onSedeEditEq(this.value)">'+
+                    '<option value="">-- Sin sede asignada --</option>'+
+                    ((co()?.sedes)||[]).map(s => '<option value="'+escHtml(s.id)+'"'+(eq.local_id===s.id?' selected':'')+'>'+escHtml(s.nombre)+'</option>').join('')+
+           '</select></div>'+
+               '<div class="fg"><label>Area</label>'+
+             (function(){
+               const sedeSel = getSede(eq.local_id);
+                            const ubis = sedeSel?.ubicaciones || [];
+                            const valActual = eq.area || '';
+                            const enLista = ubis.includes(valActual);
+                            const opts = ubis.map(u => '<option value="'+escHtml(u)+'"'+(u===valActual?' selected':'')+'>'+escHtml(u)+'</option>').join('');
+                            return '<select id="eeArea" onchange="onAreaEqChange(this)">'+
+                                             '<option value="">-- Sin area asignada --</option>'+opts+
+                                             '<option value="__custom__"'+(valActual && !enLista?' selected':'')+'>+ Otra area...</option>'+
+                                           '</select>'+
+                                           '<input type="text" id="eeAreaCustom" placeholder="Nombre de la nueva area" style="margin-top:6px;display:'+(valActual && !enLista?'block':'none')+'" value="'+escHtml(!enLista?valActual:'')+'">';
+             })()+
+                  '</div>'+
+                  '<div class="fg"><label>Fin de garantia</label><input type="date" id="eeGarantia" value="'+(eq.garantia||'')+'"></div>'+
+                  '<div class="fg" style="grid-column:1/-1"><label>Compra origen</label>'+
+                    '<div style="display:flex;gap:6px">'+
+                      '<select id="eeCompra" style="flex:1">'+
+                        '<option value=""'+(!eq.compra_id?' selected':'')+'>Sin informacion de compra</option>'+
+                        coComp().map(c => '<option value="'+escHtml(c.id)+'"'+(eq.compra_id===c.id?' selected':'')+'>'+escHtml(c.id)+' -- '+escHtml(c.proveedor||'--')+'</option>').join('')+
+                      '</select>'+
+                      '<button class="btn btn-secondary btn-sm" onclick="crearCompraRapida(\''+eqId+'\')">+ Nueva</button>'+
+                    '</div>'+
+                  '</div>'+
+                '</div>'+
+                section('ESPECIFICACIONES TECNICAS')+
+                '<div id="eeHwFields" class="fgrid f2" style="gap:10px">'+renderHardwareFields(eq.tipo, eq.specs)+'</div>';
+     
   }
 
   // ── TAB ASIGNACIÓN ──
