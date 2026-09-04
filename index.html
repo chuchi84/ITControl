@@ -487,7 +487,7 @@ body.rol-basico .fin-card { display: none; }
     <div class="nav-item" data-m="soporte" onclick="go('soporte')"><span class="nav-icon">&#127381;</span>Soporte</div>
 
     <div class="nav-sec">Inventario</div>
-    <div class="nav-item" data-m="equipos" onclick="go('equipos')"><span class="nav-icon">&#128187;</span>Equipos<span class="nav-badge blue hide" id="nb-equipos">0</span></div>
+    <div class="nav-item" data-m="equipos" onclick="go('equipos')"><span class="nav-icon">&#128187;</span>span>Equipos</div>div>
     <div class="nav-item" data-m="asignaciones" onclick="go('asignaciones')"><span class="nav-icon">&#128205;</span>Asignaciones</div>
     <div class="nav-item" data-m="personas" onclick="go('personas')"><span class="nav-icon">&#128100;</span>Personas</div>
     <div class="nav-item" data-m="qr" onclick="go('qr')"><span class="nav-icon">&#9646;</span>Etiquetas QR</div>
@@ -1218,8 +1218,7 @@ function go(mod) {
   if(nba){nba.textContent=al.length;nba.classList.toggle('hide',!al.length);}
   const nbc=$('nb-compras');
   if(nbc){const p=coComp().filter(c=>normEstadoPago(c)==='rendicion_pendiente').length;nbc.textContent=p;nbc.classList.toggle('hide',!p);}
-  const nbe=$('nb-equipos');
-  if(nbe){const n=coEq().length;nbe.textContent=n;nbe.classList.toggle('hide',!n);}
+
   const renders={
     dashboard:renderDashboard,compras:renderCompras,equipos:renderEquipos,
     asignaciones:renderAsignaciones,personas:renderPersonas,historial:renderHistorial,
