@@ -733,6 +733,103 @@ const getLocal = id => {
   return null;
 };
 const TIPO_ICON = {PC:'&#128421;',Notebook:'&#128187;',Impresora:'&#128424;',Camara:'&#128247;',Router:'&#128225;',Switch:'&#127856;',BAM:'&#128242;',Server:'&#128220;',NVR:'&#127902;',Monitor:'&#128447;',UPS:'&#9889;',Otro:'&#128230;'};
+     // Campos técnicos según el tipo de equipo (para el tab Hardware del editor).
+     // Cada entrada: {k: clave en specs, l: etiqueta, p: placeholder de ejemplo}.
+     // Los tipos que no aparecen aquí (o "Otro"/personalizados) no muestran
+     // ningún campo técnico fijo — para esos casos existe el tab "Config", que
+     // permite agregar cualquier clave:valor libre.
+     const CAMPOS_POR_TIPO = {
+            'PC': [
+                 {k:'procesador', l:'Procesador', p:'Intel Core i7-1165G7 / Ryzen 5 5600U'},
+                 {k:'ram', l:'Memoria RAM', p:'16GB DDR4 3200MHz'},
+                 {k:'disco', l:'Disco duro', p:'512GB SSD NVMe'},
+                 {k:'so', l:'Sistema Operativo', p:''},
+                 {k:'mac_wifi', l:'MAC Wi-Fi', p:'XX:XX:XX:XX:XX:XX'},
+                 {k:'mac_ethernet', l:'MAC Ethernet', p:'XX:XX:XX:XX:XX:XX'},
+                   ],
+            'Notebook': [
+                 {k:'procesador', l:'Procesador', p:'Intel Core i7-1165G7 / Ryzen 5 5600U'},
+                 {k:'ram', l:'Memoria RAM', p:'16GB DDR4 3200MHz'},
+                 {k:'disco', l:'Disco duro', p:'512GB SSD NVMe'},
+                 {k:'pantalla', l:'Pantalla', p:'15.6 FHD 1920x1080'},
+                 {k:'so', l:'Sistema Operativo', p:''},
+                 {k:'mac_wifi', l:'MAC Wi-Fi', p:'XX:XX:XX:XX:XX:XX'},
+                 {k:'mac_ethernet', l:'MAC Ethernet', p:'XX:XX:XX:XX:XX:XX'},
+                   ],
+            'Server': [
+                 {k:'procesador', l:'Procesador', p:''},
+                 {k:'ram', l:'Memoria RAM', p:''},
+                 {k:'disco', l:'Almacenamiento / RAID', p:''},
+                 {k:'so', l:'Sistema Operativo', p:''},
+                 {k:'mac_ethernet', l:'MAC Ethernet', p:'XX:XX:XX:XX:XX:XX'},
+                   ],
+            'Monitor': [
+                 {k:'pulgadas', l:'Pulgadas', p:'24"'},
+                 {k:'resolucion', l:'Resolución', p:'1920x1080'},
+                 {k:'conexiones', l:'Conexiones', p:'HDMI, VGA, DisplayPort'},
+                   ],
+            'Impresora': [
+                 {k:'ip', l:'IP', p:'192.168.1.50'},
+                 {k:'puerto', l:'Puerto', p:''},
+                 {k:'cola', l:'Cola de impresión', p:''},
+                   ],
+            'Router': [
+                 {k:'ip_admin', l:'IP Admin', p:'192.168.1.1'},
+                 {k:'ssid', l:'SSID', p:''},
+                 {k:'proveedor_internet', l:'Proveedor Internet', p:''},
+                   ],
+            'Switch': [
+                 {k:'puertos', l:'Puertos', p:'24'},
+                 {k:'velocidad', l:'Velocidad', p:'1Gbps'},
+                   ],
+            'Camara': [
+                 {k:'ip', l:'IP', p:'192.168.1.60'},
+                 {k:'resolucion', l:'Resolución', p:''},
+                   ],
+            'NVR': [
+                 {k:'ip', l:'IP', p:''},
+                 {k:'canales', l:'Canales', p:''},
+                 {k:'almacenamiento', l:'Almacenamiento', p:''},
+                   ],
+       'UPS': [
+            {k:'capacidad', l:'Capacidad (VA)', p:''},
+            {k:'autonomia', l:'Autonomía', p:''},
+              ],
+            'BAM': [
+                 {k:'compania', l:'Compañía', p:''},
+                 {k:'numero_linea', l:'N° Línea', p:''},
+                 {k:'plan', l:'Plan', p:''},
+                   ],
+     };
+     // Arma los inputs de specs técnicos según el tipo de equipo. Si el tipo no
+     // tiene campos definidos en CAMPOS_POR_TIPO, no muestra nada aquí (el
+     // tab "Config" sigue disponible para cualquier dato libre que se necesite).
+     function renderHardwareFields(tipo, specs) {
+            const campos = CAMPOS_POR_TIPO[tipo];
+            if (!campos || !campos.length) {
+                     return '<div style="grid-column:1/-1;font-size:12px;color:var(--t3);padding:8px 0">'+
+                                'Este tipo de equipo no tiene campos técnicos predefinidos. Usa el tab "Config" para agregar datos libres si los necesitas.'+
+                              '</div>';
+            }
+            return campos.map(c =>
+                     '<div class="fg"><label>'+escHtml(c.l)+'</label>'+
+                       '<input type="text" id="hw_'+c.k+'" value="'+escHtml(specs?.[c.k]||'')+'" placeholder="'+escHtml(c.p||'')+'"'+
+                       (c.k.indexOf('mac_')===0?' maxlength="17" style="font-family:var(--mono);text-transform:uppercase"':'')+
+                       '>'+
+                     '</div>'
+                   ).join('');
+     }
+     // Se llama al cambiar el select de Tipo en el editor de equipo: refresca
+     // solo los campos del tab Hardware, sin perder lo que ya se escribió en
+     // los otros tabs.
+     function actualizarHardwareTab() {
+            const cont = $('eeHwFields');
+            if (!cont) return;
+            const tipo = leerTipoFromSelect('eeT','eeTCustom');
+            const e = DB.equipos.find(x=>x.id===window._eqEditId);
+            cont.innerHTML = renderHardwareFields(tipo, e?.specs);
+     }
+     
 const getAsigActiva = eqId => DB.asignaciones.find(a=>a.eq_id===eqId&&a.estado==='Activa');
 const getSede = id => { for(const c of Object.values(DB.companies)){const s=c.sedes?.find(x=>x.id===id);if(s)return s;} return null; };
 const daysUntil = d => { if(!d) return null; return Math.ceil((new Date(d+'T12:00')-new Date())/864e5); };
@@ -2369,6 +2466,19 @@ function editEquipo(id) {
   openMo('Editar equipo — '+e.id,
     // Estado + Sede + Área
     '<div class="fgrid f2" style="margin-bottom:14px">'+
+             '<div class="fg"><label>Tipo <span class="req">*</span></label>'+
+               '<select id="eeT" onchange="onTipoSelectChange(\'eeT\',\'eeTCustom\');actualizarHardwareTab()">'+
+                 tiposDisponibles().map(t => '<option'+(e.tipo===t?' selected':'')+'>'+escHtml(t)+'</option>').join('')+
+                 (tiposDisponibles().includes(e.tipo)?'':'<option selected>'+escHtml(e.tipo)+'</option>')+
+                 '<option value="__custom__">+ Escribir otro tipo...</option>'+
+               '</select>'+
+               '<input type="text" id="eeTCustom" placeholder="Escribe el tipo" style="margin-top:6px;display:none">'+
+             '</div>'+
+             '<div class="fg"><label>Marca <span class="req">*</span></label><input type="text" id="eeMa" value="'+escHtml(e.marca||'')+'" placeholder="Dell, HP..."></div>'+
+                     '<div class="fg"><label>Modelo <span class="req">*</span></label><input type="text" id="eeMo" value="'+escHtml(e.modelo||'')+'" placeholder="Latitude 5520"></div>'+
+             '<div class="fg"><label>N Serie</label><input type="text" id="eeSerie" value="'+escHtml(e.serie||'')+'" placeholder="Sin serie si no tiene"></div>'+
+             '<div class="fg" style="grid-column:1/-1"><label>Caracteristicas rapidas</label>'+
+             '<input type="text" id="eeCaract" value="'+escHtml(e.caracteristicas||'')+'" placeholder="Lo que no calce en otro campo (ej: color, accesorios incluidos)"></div>'+
       '<div class="fg"><label>Estado</label><select id="eeE">'+
         ['Asignado','Disponible','En mantencion','En reparacion','De baja','Extraviado']
           .map(s=>'<option '+(e.estado===s?'selected':'')+'>'+s+'</option>').join('')+
@@ -2437,34 +2547,7 @@ function editEquipo(id) {
 
     // Tab Hardware — specs técnicos del equipo (procesador, RAM, MAC, etc.)
     '<div id="eet-hw">'+
-      '<div class="fgrid f2" style="gap:10px">'+
-        '<div class="fg"><label>Procesador</label>'+
-          '<input type="text" id="hwP" value="'+escHtml(e.specs?.procesador||'')+'" placeholder="Intel Core i7-1165G7 / Ryzen 5 5600U">'+
-        '</div>'+
-        '<div class="fg"><label>Memoria RAM</label>'+
-          '<input type="text" id="hwR" value="'+escHtml(e.specs?.ram||'')+'" placeholder="16GB DDR4 3200MHz">'+
-        '</div>'+
-        '<div class="fg"><label>Disco duro</label>'+
-          '<input type="text" id="hwDi" value="'+escHtml(e.specs?.disco||'')+'" placeholder="512GB SSD NVMe">'+
-        '</div>'+
-        '<div class="fg"><label>Pantalla</label>'+
-          '<input type="text" id="hwPa" value="'+escHtml(e.specs?.pantalla||'')+'" placeholder="15.6 FHD 1920x1080">'+
-        '</div>'+
-        '<div class="fg" style="grid-column:1/-1"><label>Sistema Operativo</label>'+
-          '<select id="hwSo">'+
-            ['','Windows 11 Pro','Windows 11 Home','Windows 10 Pro','Windows 10 Home','macOS Sonoma','macOS Ventura','macOS Sequoia','Ubuntu 24.04','Ubuntu 22.04','Debian 12','Chrome OS','Android','iOS','iPadOS','Otro']
-              .map(o => '<option'+((e.specs?.so||'')===o?' selected':'')+'>'+escHtml(o)+'</option>').join('')+
-          '</select>'+
-        '</div>'+
-        '<div class="fg" style="grid-column:1/-1"><label>Dispositivos de red</label>'+
-          '<input type="text" id="hwRed" value="'+escHtml(e.specs?.red||'')+'" placeholder="Wi-Fi 6 + Ethernet Gigabit">'+
-        '</div>'+
-        '<div class="fg"><label>MAC Wi-Fi</label>'+
-          '<input type="text" id="hwMacW" value="'+escHtml(e.specs?.mac_wifi||'')+'" placeholder="XX:XX:XX:XX:XX:XX" maxlength="17" style="font-family:var(--mono);text-transform:uppercase">'+
-        '</div>'+
-        '<div class="fg"><label>MAC Ethernet</label>'+
-          '<input type="text" id="hwMacE" value="'+escHtml(e.specs?.mac_ethernet||'')+'" placeholder="XX:XX:XX:XX:XX:XX" maxlength="17" style="font-family:var(--mono);text-transform:uppercase">'+
-        '</div>'+
+      '<div id="eeHwFields" class="fgrid f2" style="gap:10px">'+renderHardwareFields(e.tipo, e.specs)+'</div>'+
       '</div>'+
       '<div style="font-size:11px;color:var(--t3);margin-top:10px;padding:8px 10px;background:var(--s2);border-radius:var(--r)">'+
         '&#128161; Los datos técnicos ayudan al soporte remoto y al inventario de red. Deja en blanco los que no apliquen (ej: impresoras no tienen procesador ni RAM).'+
@@ -2709,6 +2792,13 @@ function saveNotasConfig(eqId){
 function saveEditEq(id) {
   const e = DB.equipos.find(x=>x.id===id);
   if (!e) return;
+       // Tipo, marca, modelo, serie: datos básicos que antes no se podían editar.
+       const nuevoTipo = leerTipoFromSelect('eeT','eeTCustom');
+       if (nuevoTipo) e.tipo = nuevoTipo;
+       e.marca = $('eeMa')?.value?.trim() || e.marca;
+       e.modelo = $('eeMo')?.value?.trim() || e.modelo;
+       e.serie = $('eeSerie')?.value?.trim() || '';
+       e.caracteristicas = $('eeCaract')?.value?.trim() || '';
   e.estado      = $('eeE')?.value || e.estado;
   // Sede: puede quedar vacía (equipo sin ubicar). Se acepta explícitamente.
   const sedeSel = $('eeSede')?.value;
@@ -2733,14 +2823,11 @@ function saveEditEq(id) {
     if (valor) e.specs[campo] = valor;
     else delete e.specs[campo];
   };
-  asignaSpec('procesador', _lee('hwP'));
-  asignaSpec('ram',        _lee('hwR'));
-  asignaSpec('disco',      _lee('hwDi'));
-  asignaSpec('pantalla',   _lee('hwPa'));
-  asignaSpec('so',         _lee('hwSo'));
-  asignaSpec('red',        _lee('hwRed'));
-  asignaSpec('mac_wifi',     _lee('hwMacW').toUpperCase());
-  asignaSpec('mac_ethernet', _lee('hwMacE').toUpperCase());
+(CAMPOS_POR_TIPO[e.tipo]||[]).forEach(c => {
+         let v = _lee('hw_'+c.k);
+         if (c.k.indexOf('mac_')===0) v = v.toUpperCase();
+         asignaSpec(c.k, v);
+});
   e.campos      = (window._eqEditCampos||[]).filter(f=>f.k);
   e.software    = (window._eqEditSw||[]).filter(s=>s.nombre);
   if (typeof syncEquipo==='function') syncEquipo(e, false);
