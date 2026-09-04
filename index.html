@@ -5787,6 +5787,7 @@ let _wiz = {
 function iniciarWizardCompra() {
   if (!hayEmpresa()) { avisarSinEmpresa(); return; }
   _wiz = { compraId:null, datos:{}, equipos:[], step:1 };
+     _wizRowCount = 0; // reiniciar el contador de filas del asistente
   renderStep1();
 }
 
@@ -5808,6 +5809,7 @@ function avisarSinEmpresa(){
 function ingresarSoloEquipos() {
   if (!hayEmpresa()) { avisarSinEmpresa(); return; }
   _wiz = { compraId:null, datos:{_sin_compra:true}, equipos:[], step:2 };
+     _wizRowCount = 0;
   renderStep2();
 }
 
@@ -5815,6 +5817,7 @@ function irAPaso2Desde(compraId) {
   const comp = DB.compras.find(x=>x.id===compraId);
   if (!comp) return;
   _wiz = { compraId, datos:comp, equipos:[], step:2 };
+     _wizRowCount = 0;
   renderStep2();
 }
 
@@ -6535,7 +6538,8 @@ function guardarEditCompra(id) {
   comp.cobrado_cliente=$('ecCobrado')?.value==='true';
   comp.descripcion =$('ecDesc')?.value||'';
   comp.area        =$('ecArea')?.value||'';
-  addLog('Editó compra','compras',id);
+  if (typeof syncCompra === 'function') syncCompra(comp, false);
+         addLog('Editó compra','compras',id);
   closeMo();toast('Compra actualizada');go('compras');
 }
 
