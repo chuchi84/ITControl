@@ -7831,8 +7831,66 @@ function abrirFichaEquipo(eqId, usuario) {
      // el navegador nunca recibe la clave real, solo un true/false.
 // ── FICHA PÚBLICA DE EQUIPO (?f=<eqId>&co=<empresaId>) ──────────────
                 // (bloque placeholder; se completa en el siguiente commit)
-                                                                                                       async function mostrarFichaPublicaEquipo() {
-       document.body.innerHTML = '<p style="padding:40px;text-align:center;color:#888">Cargando ficha del equipo…</p>';
+                                                                                                       async function mostrarFichaPublicaEquipo() {document.documentElement.style.background = 'var(--bg,#0f1117)';
+       document.body.innerHTML = '<div id="ficha-pub" style="max-width:480px;margin:0 auto;padding:24px 18px;min-height:100vh;box-sizing:border-box"></div>';
+       const cont = $('ficha-pub');
+       const params = new URLSearchParams(location.search);
+       const eqId = params.get('f');
+       const co = params.get('co');
+       if (!eqId || !co) { cont.innerHTML = '<p style="color:var(--t2);text-align:center;margin-top:60px">Link invalido.</p>'; return; }
+                                                                                                                                                     let empresaNombre = ''; let empresaLogo = ''; let sedes = [];
+       try {
+           const { data } = await sb.from('empresas_publico').select('name,logo,sedes').eq('id', co).maybeSingle();
+                                                                                                               if (data && data.name) empresaNombre = data.name;
+         if (data && data.logo) empresaLogo = data.logo;
+             if (data && Array.isArray(data.sedes)) sedes = data.sedes;
+     } catch(e) {}
+       const eqRes = await sb.from('equipos_publico').select('*').eq('id', eqId).eq('co', co).maybeSingle();
+       const eq = eqRes.data;
+         if (eqRes.error || !eq) { cont.innerHTML = '<p style="color:var(--t2);text-align:center;margin-top:60px">No se encontro ese equipo.</p>'; return; }
+                                                                                                                                                     let compra = null;
+       if (eq.compra_id) {
+           const cRes = await sb.from('compras_publico').select('*').eq('id', eq.compra_id).maybeSingle();
+         compra = cRes.data;
+     }
+       const asigRes = await sb.from('asignaciones_publico').select('*').eq('eq_id', eqId).eq('estado', 'Activa').maybeSingle();
+       const asig = asigRes.data;
+       const histRes = await sb.from('historial_publico').select('*').eq('eq_id', eqId).order('fecha', { ascending: false }).limit(5);
+         const hist = histRes.data || [];
+         _renderFichaPublicaEquipo(cont, eq, compra, asig, hist, sedes, co, empresaNombre, empresaLogo);
+     }
+     function _renderFichaPublicaEquipo(cont, eq, compra, asig, hist, sedes, co, empresaNombre, empresaLogo) {
+       function esc(s){ return escHtml(s||''); }
+       function dato(label, valor) {
+         if (!valor && valor !== 0) valor = '<span style="color:var(--t3)">-</span>';
+         return '<div style="margin-bottom:10px"><div style="font-size:10.5px;color:var(--t3);font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:2px">'+label+'</div><div style="font-size:13.5px;color:var(--text)">'+valor+'</div></div>';
+     }
+       function card(titulo, icono, contenido) {
+             return '<div class="card" style="padding:14px 16px;margin-bottom:12px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)"><span style="font-size:16px">'+icono+'</span><span style="font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--t2)">'+titulo+'</span></div>'+contenido+'</div>';
+                                                                                             }
+       const sede = sedes.find(function(s){ return s.id === eq.local_id; });
+            const datosEquipo = dato('Codigo', '<span style="color:var(--accent);font-weight:600">'+esc(eq.id)+'</span>') + dato('Tipo', esc(eq.tipo)) + dato('Marca', esc(eq.marca)) + dato('Modelo', esc(eq.modelo)) + dato('N Serie', esc(eq.serie)) + dato('Estado', esc(eq.estado)) + (eq.garantia ? dato('Garantia hasta', new Date(eq.garantia).toLocaleDateString('es-CL')) : '');
+       const datosCompra = compra ? (dato('Proveedor', esc(compra.proveedor)) + dato('Fecha de compra', compra.fecha ? new Date(compra.fecha).toLocaleDateString('es-CL') : '') + (compra.descripcion ? dato('Descripcion', esc(compra.descripcion)) : '')) : '<div style="font-size:12px;color:var(--t3)">Sin datos de compra registrados.</div>';
+       const datosAsignacion = asig ? (dato('Persona', esc(asig.persona)) + dato('Cargo', esc(asig.cargo)) + (asig.ubicacion ? dato('Ubicacion', esc(asig.ubicacion)) : '') + (asig.fecha ? dato('Desde', new Date(asig.fecha).toLocaleDateString('es-CL')) : '')) : '<div style="font-size:12px;color:var(--t3)">Sin asignacion activa.</div>';
+            const datosUbicacion = dato('Sede', sede ? esc(sede.nombre) : '') + dato('Area', esc(eq.area));
+            const histHtml = (hist && hist.length) ? hist.map(function(h){
+                   return '<div style="background:var(--s2);border-radius:var(--r,8px);padding:10px;margin-bottom:8px">'+
+           '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--t3);margin-bottom:4px"><span>'+esc(h.tipo)+'</span><span>'+(h.fecha ? new Date(h.fecha).toLocaleDateString('es-CL') : '')+'</span></div>'+
+           (h.tecnico ? '<div style="font-size:11.5px;color:var(--t2);margin-bottom:2px">Tecnico: '+esc(h.tecnico)+'</div>' : '')+
+           (h.desc ? '<div style="font-size:12.5px">'+esc(h.desc)+'</div>' : '')+
+                                            '</div>';
+     }).join('') : '<div style="font-size:12px;color:var(--t3)">Sin mantenciones registradas.</div>';
+            cont.innerHTML =
+         '<div style="text-align:center;margin-bottom:20px">'+
+             (empresaLogo ? '<img src="'+esc(empresaLogo)+'" style="max-height:48px;max-width:160px;object-fit:contain">' : '<div style="font-size:28px">-</div>')+
+           '<div style="font-size:12px;color:var(--t3);margin-top:6px">'+esc(empresaNombre)+'</div>'+
+         '</div>'+
+           card('Equipo', '-', datosEquipo) +
+         card('Ubicacion', '-', datosUbicacion) +
+         card('Asignacion', '-', datosAsignacion) +
+             card('Compra', '-', datosCompra) +
+         card('Ultimas mantenciones', '-', histHtml) +
+         '<button class="btn btn-primary" style="width:100%;margin-top:6px" onclick="location.href=\'' + urlSoporteEmpresa(co) + '\'">Reportar una falla</button>';
      }
      
          async function mostrarPortalSoporte() {
