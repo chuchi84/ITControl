@@ -2288,7 +2288,7 @@ function viewEquipo(id){
       '</div>'+
     '</div>',
 
-    '<button class="btn btn-secondary" onclick="closeMo()">Cerrar</button>'+
+    '<button class="btn btn-secondary" onclick="closeMo()">
     (perms.editarEquipo() ? '<button class="btn btn-ghost btn-sm" onclick="closeMo();editEquipo(\''+e.id+'\')">&#9998; Editar</button>' : '')+
     (perms.asignar() ? '<button class="btn btn-ghost btn-sm" onclick="closeMo();asignarEquipo(\''+e.id+'\')">&#128205; Asignar</button>' : '')+
     (perms.registrarMantencion() ? '<button class="btn btn-ghost btn-sm" onclick="closeMo();addHistorialPara(\''+e.id+'\')">&#128203; Historial</button>' : '')+
@@ -5201,7 +5201,7 @@ function verHistorialEquipo(eqId) {
       '</div>'
     ),
 
-    '<button class="btn btn-secondary" onclick="closeMo()">Cerrar</button>'+
+    '<button class="btn btn-secondary" onclick="closeMo()">aimprimirQREquipo
     '<button class="btn btn-ghost btn-sm" onclick="addHistorialPara(\''+eqId+'\')">+ Agregar evento</button>'+
     '<button class="btn btn-primary btn-sm" onclick="exportHistorialPDF(\''+eqId+'\')">&#128196; Exportar PDF</button>',
     'lg'
@@ -7904,6 +7904,7 @@ function abrirFichaEquipo(eqId, usuario) {
     '<div id="fq-hist" class="hide">'+tabHist+'</div>',
 
     '<button class="btn btn-secondary" onclick="closeMo()">Cerrar</button>'+
+             '<button class="btn btn-primary" onclick="saveEditEq(\''+eqId+'\')">Guardar cambios</button>'+
     (isAdmin?'<button class="btn btn-ghost btn-sm" onclick="imprimirQREquipo(\''+eqId+'\')">&#9646; Imprimir QR</button>':''),
     'lg'
   );
