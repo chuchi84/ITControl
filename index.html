@@ -2288,7 +2288,7 @@ function viewEquipo(id){
       '</div>'+
     '</div>',
 
-    '<button class="btn btn-secondary" onclick="closeMo()">
+    '<button class="btn btn-secondary" onclick="closeMo()">Cerrar</button>'+
     (perms.editarEquipo() ? '<button class="btn btn-ghost btn-sm" onclick="closeMo();editEquipo(\''+e.id+'\')">&#9998; Editar</button>' : '')+
     (perms.asignar() ? '<button class="btn btn-ghost btn-sm" onclick="closeMo();asignarEquipo(\''+e.id+'\')">&#128205; Asignar</button>' : '')+
     (perms.registrarMantencion() ? '<button class="btn btn-ghost btn-sm" onclick="closeMo();addHistorialPara(\''+e.id+'\')">&#128203; Historial</button>' : '')+
