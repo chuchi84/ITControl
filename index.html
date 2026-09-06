@@ -7878,7 +7878,41 @@ function abrirFichaEquipo(eqId, usuario) {
     tabHist = '<div class="empty-state"><div class="ei">&#128203;</div>Sin historial registrado</div>';
   }
 
-  openMo(eq.marca+' '+eq.modelo,
+    // TAB CONFIGURACIONES: campos libres + software + comentarios + accesorios
+        let tabCfg =
+         section('CAMPOS / CREDENCIALES') +
+           '<div style="font-size:11px;color:var(--t2);margin-bottom:8px;padding:8px 10px;background:var(--s2);border-radius:var(--r)">'+
+           'Usalos para IP, usuario, contrasena, token, clave de activacion, etc.'+
+         '</div>'+
+         '<div id="eqCampoList">'+renderCampos(window._eqEditCampos)+'</div>'+
+           '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">'+
+           '<button class="btn btn-ghost btn-sm" onclick="eqCampoAdd(\'IP\',\'\',false)">+ IP</button>'+
+           '<button class="btn btn-ghost btn-sm" onclick="eqCampoAdd(\'Usuario\',\'\',true)">+ Usuario</button>'+
+           '<button class="btn btn-ghost btn-sm" onclick="eqCampoAdd(\'Contrasena\',\'\',true)">+ Contrasena</button>'+
+           '<button class="btn btn-ghost btn-sm" onclick="eqCampoAdd(\'Clave licencia\',\'\',true)">+ Clave licencia</button>'+
+                          '<button class="btn btn-ghost btn-sm" onclick="eqCampoAdd(\'\',\'\',false)">+ Otro</button>'+
+         '</div>'+
+         section('SOFTWARE INSTALADO') +
+         '<div id="eqSwList">'+renderSoftware(window._eqEditSw)+'</div>'+
+         '<button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="eqSwAdd()">+ Agregar software</button>'+
+         section('COMENTARIOS') +
+                                                 '<textarea id="eeCo" style="width:100%;min-height:70px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font);background:var(--s1);color:var(--text);font-size:12.5px">'+escHtml(eq.comentarios||'')+'</textarea>'+
+         section('ACCESORIOS') +
+         renderAccesorios(eqId);
+       
+       // -- TAB QR --
+       let tabQR =
+         '<div style="text-align:center;padding:10px">'+
+                                                 '<div style="background:white;padding:14px;border-radius:var(--r);display:inline-block;margin-bottom:12px">'+
+             '<div id="fqQR"></div>'+
+           '</div>'+
+           '<div style="font-family:monospace;font-size:11px;color:#111;margin-top:6px;font-weight:700">'+eq.id+'</div>'+
+               '<div style="font-family:monospace;font-size:9px;color:#555">'+eq.marca+' '+eq.modelo+'</div>'+
+           '<div style="font-size:11px;color:var(--t2);margin-top:10px">Al escanear este codigo, cualquiera ve los datos basicos del equipo sin iniciar sesion.</div>'+
+           '<button class="btn btn-secondary btn-sm" style="margin-top:12px" onclick="imprimirQREquipo(\''+eqId+'\')">&#128424; Imprimir ficha</button>'+
+         '</div>';
+     
+       openMo(eq.marca+' '+eq.modelo,
     // Header
     '<div style="background:var(--s2);border-radius:var(--r);padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px">'+
       '<div style="font-size:36px;line-height:1">'+(TIPO_ICON[eq.tipo]||'&#128230;')+'</div>'+
