@@ -6628,6 +6628,44 @@ function guardarEditCompra(id) {
          addLog('Editó compra','compras',id);
   closeMo();toast('Compra actualizada');go('compras');
 }
+     // Guarda o crea la compra desde el tab "Compra" de la ficha de equipo.
+     // Reutiliza los mismos IDs de campo que editarCompra/guardarEditCompra.
+     function guardarCompraDesdeFicha(eqId) {
+       const eq = DB.equipos.find(e => e.id === eqId);
+       if (!eq) return;
+       const prov = $('ecProv')?.value?.trim();
+       if (!prov) { toast('El proveedor es obligatorio', 'err'); return; }
+       let comp = DB.compras.find(c => c.id === eq.compra_id);
+           const esNueva = !comp;
+       if (esNueva) {
+         comp = { id: genCompraId(), co: DB.co, equipos_ids: [eqId], gar_meses: 0 };
+           DB.compras.push(comp);
+     }
+       comp.local_id = $('ecLocal')?.value || null;
+       comp.area = $('ecArea')?.value || '';
+       comp.proveedor = prov;
+       comp.rut_prov = $('ecRut')?.value || '';
+       comp.tipo_doc = $('ecTDoc')?.value;
+         comp.num_doc = $('ecNDoc')?.value || '';
+       comp.fecha = $('ecFecha')?.value || '';
+       comp.monto = parseInt($('ecMonto')?.value) || 0;
+       comp.financiador = $('ecQuien')?.value || 'yo';
+       comp.quien_pago = $('ecQuien')?.value;
+         comp.forma_pago = $('ecForma')?.value;
+       comp.estado_pago = $('ecEstado')?.value;
+                                                                                                                           comp.cobrado_cliente = $('ecCobrado')?.value === 'true';
+         comp.descripcion = $('ecDesc')?.value || '';
+       if (esNueva) {
+         eq.compra_id = comp.id;
+                     if (typeof syncEquipo === 'function') syncEquipo(eq, false);
+     }
+       if (typeof syncCompra === 'function') syncCompra(comp, esNueva);
+       addLog(esNueva ? 'Creo compra' : 'Edito compra', 'compras', comp.id);
+       toast(esNueva ? 'Compra creada y vinculada' : 'Compra actualizada');
+       closeMo();
+       setTimeout(() => abrirFichaEquipo(eqId, currentUser), 80);
+     }
+     
 
 // ── ADJUNTOS ──────────────────────────────────────────────
 function adjuntarDocCompra(id, tipo) {
@@ -7834,26 +7872,41 @@ function abrirFichaEquipo(eqId, usuario) {
     });
   }
 
-  // ── TAB COMPRA ──
-  let tabComp = '';
-  if (comp) {
-    tabComp += dr('ID Compra', '<span class="mono" style="color:var(--accent)">'+comp.id+'</span>');
-    tabComp += dr('Proveedor', comp.proveedor);
-    tabComp += dr('Documento', '<span class="mono">'+comp.tipo_doc+' '+comp.num_doc+'</span>');
-    tabComp += dr('Fecha', fDate(comp.fecha));
-    if (isAdmin) {
-      tabComp += dr('Monto', '<span class="mono">'+fCLP(comp.monto)+'</span>');
-      tabComp += dr('Estado pago', pagoBadge(comp.estado_pago));
-      tabComp += dr('Quién pagó', quienBadge(comp.quien_pago));
-    } else {
-      tabComp += '<div style="font-size:11.5px;color:var(--t3);padding:10px 0">Datos financieros solo para administradores</div>';
-    }
-    if (comp.descripcion) {
-      tabComp += '<div style="margin-top:10px;padding:9px 11px;background:var(--s2);border-radius:var(--r);font-size:12.5px;color:var(--t2)">'+escHtml(comp.descripcion)+'</div>';
-    }
-  } else {
-    tabComp = '<div class="empty-state"><div class="ei">&#128722;</div>Sin registro de compra</div>';
-  }
+// -- TAB COMPRA (editable) --
+       let tabComp =
+           '<div class="fgrid f2" style="gap:10px">'+
+           '<div class="fg" style="grid-column:1/-1"><label>Proveedor <span class="req">*</span></label><input type="text" id="ecProv" value="'+escHtml(comp?.proveedor||'')+'"></div>'+
+           '<div class="fg"><label>RUT</label><input type="text" id="ecRut" value="'+escHtml(comp?.rut_prov||'')+'"></div>'+
+           '<div class="fg"><label>Tipo doc.</label><select id="ecTDoc">'+
+             ['Factura','Boleta','Nota de Debito','Cotizacion','Sin documento'].map(t=>'<option'+(comp?.tipo_doc===t?' selected':'')+'>'+t+'</option>').join('')+
+           '</select></div>'+
+           '<div class="fg"><label>N Documento</label><input type="text" id="ecNDoc" value="'+escHtml(comp?.num_doc||'')+'"></div>'+
+                               '<div class="fg"><label>Fecha</label><input type="date" id="ecFecha" value="'+(comp?.fecha||'')+'"></div>'+
+           '<div class="fg"><label>Monto (CLP)</label><input type="number" id="ecMonto" value="'+(comp?.monto||0)+'"></div>'+
+           '<div class="fg"><label>Sede</label><select id="ecLocal" onchange="actualizarAreaEditCompra()"><option value="">Sin sede</option>'+
+             coLocales().map(l=>'<option value="'+escHtml(l.id)+'"'+(comp?.local_id===l.id?' selected':'')+'>'+escHtml(l.nombre)+'</option>').join('')+
+             '</select></div>'+
+           '<div class="fg"><label>Area / Oficina</label><select id="ecArea">'+areaOptsForSede(comp?.local_id||'', comp?.area||'')+'</select></div>'+
+           '<div class="fg"><label>Quien pago</label><select id="ecQuien">'+
+               '<option value="yo"'+((!comp||!comp.financiador||comp.financiador==='yo')?' selected':'')+'>Yo financie (me deben reembolsar)</option>'+
+               '<option value="cliente"'+(comp?.financiador==='cliente'?' selected':'')+'>El cliente pago directamente</option>'+
+           '</select></div>'+
+           '<div class="fg"><label>Forma de pago</label><select id="ecForma">'+
+             ['Transferencia','Debito','Credito','Efectivo'].map(f=>'<option'+(comp?.forma_pago===f?' selected':'')+'>'+f+'</option>').join('')+
+           '</select></div>'+
+           '<div class="fg"><label>Estado</label><select id="ecEstado">'+
+             '<option value="pendiente"'+(!comp||!esPagada(comp)?' selected':'')+'>Pendiente de pago</option>'+
+             '<option value="pagado"'+(comp&&esPagada(comp)?' selected':'')+'>Pagado</option>'+
+           '</select></div>'+
+           '<div class="fg"><label>Cobrado al cliente</label><select id="ecCobrado">'+
+             '<option value="false"'+(comp?.cobrado_cliente!==true?' selected':'')+'>No</option>'+
+             '<option value="true"'+(comp?.cobrado_cliente===true?' selected':'')+'>Si</option>'+
+           '</select></div>'+
+           '<div class="fg" style="grid-column:1/-1"><label>Descripcion</label><input type="text" id="ecDesc" value="'+escHtml(comp?.descripcion||'')+'"></div>'+
+         '</div>'+
+         '<button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="guardarCompraDesdeFicha(\''+eqId+'\')">'+(comp?'Guardar cambios de compra':'Crear y vincular compra')+'</button>'+
+         (comp?'':'<div style="font-size:11px;color:var(--t3);margin-top:8px">Este equipo no tiene compra asociada todavia. Completa los datos y guarda para crear una.</div>');
+     
 
   // ── TAB HISTORIAL ──
   let tabHist = '';
