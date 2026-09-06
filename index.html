@@ -7930,18 +7930,23 @@ function abrirFichaEquipo(eqId, usuario) {
       '<div class="tab" onclick="swTab(this,\'fq-asig\')">&#128205; Asignación</div>'+
       '<div class="tab" onclick="swTab(this,\'fq-comp\')">&#128722; Compra</div>'+
       '<div class="tab" onclick="swTab(this,\'fq-hist\')">&#128203; Historial</div>'+
+                    '<div class="tab" onclick="swTab(this,\'fq-cfg\')">&#9881; Config</div>'+
+           '<div class="tab" onclick="swTab(this,\'fq-qr\')">&#9646; QR</div>'+
     '</div>'+
 
     '<div id="fq-eq">'+tabEq+'</div>'+
     '<div id="fq-asig" class="hide">'+tabAsig+'</div>'+
     '<div id="fq-comp" class="hide">'+tabComp+'</div>'+
-    '<div id="fq-hist" class="hide">'+tabHist+'</div>',
+    '<div id="fq-hist" class="hide">'+tabHist+'</div>'+
+         '<div id="fq-cfg" class="hide">'+tabCfg+'</div>'+
+         '<div id="fq-qr" class="hide">'+tabQR+'</div>',
 
     '<button class="btn btn-secondary" onclick="closeMo()">Cerrar</button>'+
              '<button class="btn btn-primary" onclick="saveEditEq(\''+eqId+'\')">Guardar cambios</button>'+
     (isAdmin?'<button class="btn btn-ghost btn-sm" onclick="imprimirQREquipo(\''+eqId+'\')">&#9646; Imprimir QR</button>':''),
     'lg'
   );
+         setTimeout(()=>{ const el=$('fqQR'); if (el && typeof QRCode!=='undefined') new QRCode(el,{text:urlEquipoEmpresa(eq.id,eq.co),width:150,height:150,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.H}); },120);
 }
 
 // ── PORTAL PÚBLICO DE SOPORTE (?soporte=1&co=<empresaId>) ──────────────
