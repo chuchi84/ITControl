@@ -847,15 +847,22 @@ function genEqId_new(offset) {
 // Formato: COMPRA-{año_2_digitos}-{correlativo_3_digitos}, ej: COMPRA-26-001
 // El correlativo reinicia cada año calendario (si el año cambia, arranca en 001).
 const genCompraId = () => {
-  const c = co();
-  const yy = String(new Date().getFullYear()).slice(-2);
-  // Reiniciar el correlativo cuando cambia el año
-  if (c.counterCompraAnio !== yy) {
-    c.counterCompraAnio = yy;
-    c.counterCompra = 0;
-  }
-  c.counterCompra = (c.counterCompra || 0) + 1;
-  return 'COMPRA-' + yy + '-' + String(c.counterCompra).padStart(3, '0');
+       const c = co();
+       const yy = String(new Date().getFullYear()).slice(-2);
+       // Reiniciar el correlativo cuando cambia el año
+       if (c.counterCompraAnio !== yy) {
+                c.counterCompraAnio = yy;
+                c.counterCompra = 0;
+       }
+       // Verifica contra las compras ya cargadas para evitar colisiones si el
+       // contador quedo desincronizado (ej: compras creadas por otra via).
+       let candidato, intentos = 0;
+       do {
+                c.counterCompra = (c.counterCompra || 0) + 1;
+                candidato = 'COMPRA-' + yy + '-' + String(c.counterCompra).padStart(3, '0');
+                intentos++;
+       } while (DB.compras.some(x => x.id === candidato) && intentos < 500);
+       return candidato;
 };
 function genOCId_new() { return genCompraId(); }
 const addLog = (accion,mod,det) => DB.log.unshift({id:'L-'+Date.now(),fecha:new Date().toISOString().slice(0,16).replace('T',' '),usuario:(currentUser?.nombre||currentUser?.email||'—'),accion,modulo:mod,detalle:det});
