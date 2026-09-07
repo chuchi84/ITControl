@@ -8091,6 +8091,8 @@ function abrirFichaEquipo(eqId, usuario) {
      
          async function mostrarPortalSoporte() {
        document.documentElement.style.background = 'var(--bg,#0f1117)';
+                  document.body.style.overflow = 'auto';
+         document.documentElement.style.overflow = 'auto';
          document.body.innerHTML =
          '<div id="portal-pub" style="max-width:420px;margin:0 auto;padding:32px 18px;min-height:100vh;box-sizing:border-box"></div>';
        const cont = $('portal-pub');
