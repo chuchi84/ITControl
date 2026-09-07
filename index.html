@@ -2776,6 +2776,19 @@ function _renderCamposNC(){
     '</div>'
   ).join('');
 }
+     function _renderSoftwareNC(){
+            const arr=window._eqEditSw||[];
+            if(!arr.length) return '<div style="font-size:12px;color:var(--t3);padding:8px 0">Sin software registrado</div>';
+            return arr.map((sw,i)=>
+                     '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">'+
+                       '<input type="text" value="'+escHtml(sw.nombre||'')+'" placeholder="Nombre del programa" style="flex:2;font-size:12px;padding:5px 8px" oninput="eqSwNombre('+i+',this.value)">'+
+                       '<input type="text" value="'+escHtml(sw.version||'')+'" placeholder="Version" style="flex:1;font-size:12px;padding:5px 8px" oninput="eqSwVersion('+i+',this.value)">'+
+                       '<input type="text" value="'+escHtml(sw.notas||'')+'" placeholder="Licencia, clave, nota..." style="flex:2;font-size:12px;padding:5px 8px" oninput="eqSwNotas('+i+',this.value)">'+
+                       '<button onclick="eqSwRemove('+i+')" style="padding:5px 8px;background:transparent;border:1px solid var(--border);border-radius:var(--r);cursor:pointer;color:var(--t3)">&#10005;</button>'+
+                     '</div>'
+        ).join('');
+     }
+               
 function saveNotasConfig(eqId){
   const e=DB.equipos.find(x=>x.id===eqId);
   if(!e) return;
@@ -7937,7 +7950,7 @@ function abrirFichaEquipo(eqId, usuario) {
            '<div style="font-size:11px;color:var(--t2);margin-bottom:8px;padding:8px 10px;background:var(--s2);border-radius:var(--r)">'+
            'Usalos para IP, usuario, contrasena, token, clave de activacion, etc.'+
          '</div>'+
-         '<div id="eqCampoList">'+renderCampos(window._eqEditCampos)+'</div>'+
+         '<div id="eqCampoList">'+_renderCamposNC()+'</div>'+
            '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">'+
            '<button class="btn btn-ghost btn-sm" onclick="eqCampoAdd(\'IP\',\'\',false)">+ IP</button>'+
            '<button class="btn btn-ghost btn-sm" onclick="eqCampoAdd(\'Usuario\',\'\',true)">+ Usuario</button>'+
@@ -7946,7 +7959,7 @@ function abrirFichaEquipo(eqId, usuario) {
                           '<button class="btn btn-ghost btn-sm" onclick="eqCampoAdd(\'\',\'\',false)">+ Otro</button>'+
          '</div>'+
          section('SOFTWARE INSTALADO') +
-         '<div id="eqSwList">'+renderSoftware(window._eqEditSw)+'</div>'+
+         '<div id="eqSwList">'+_renderSoftwareNC()+'</div>'+
          '<button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="eqSwAdd()">+ Agregar software</button>'+
          section('COMENTARIOS') +
                                                  '<textarea id="eeCo" style="width:100%;min-height:70px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font);background:var(--s1);color:var(--text);font-size:12.5px">'+escHtml(eq.comentarios||'')+'</textarea>'+
