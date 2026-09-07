@@ -1856,9 +1856,16 @@ function delEqRow(i){const r=$('eqr'+i);if(r)r.remove();const tb=$('eqRows');if(
 
 
 function genEqId_seq(offset){
-  const c=co();
-  const base=DB.equipos.filter(e=>e.co===DB.co).length+offset+1;
-  return c.prefix+'-'+String(base).padStart(3,'0');
+       const c=co();
+       const base=DB.equipos.filter(e=>e.co===DB.co).length+offset+1;
+       // Verifica contra los equipos ya cargados para evitar colisiones si el
+       // conteo quedo desincronizado (ej: equipos dados de baja o borrados).
+       let candidato, n=base, intentos=0;
+       do {
+                candidato = c.prefix+'-'+String(n).padStart(3,'0');
+                n++; intentos++;
+       } while (DB.equipos.some(e=>e.id===candidato) && intentos<500);
+       return candidato;
 }
 
 
