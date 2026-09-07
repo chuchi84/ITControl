@@ -870,6 +870,12 @@ const addLog = (accion,mod,det) => DB.log.unshift({id:'L-'+Date.now(),fecha:new 
 
 // BADGES
 // ── ESTADO DEL EQUIPO (condición) vs ASIGNACIÓN (a quién) ──
+     // Calcula la lista real de equipos de una compra preguntando a cada equipo
+     // (evita el arreglo compra.equipos_ids, que puede desincronizarse cuando un
+     // equipo se reasigna a otra compra y el arreglo viejo no se limpia).
+     function equiposDeCompra(compraId) {
+            return DB.equipos.filter(e => e.compra_id === compraId);
+     }
 // Son DOS dimensiones independientes. 'estado' es la condición física/operativa;
 // la asignación se DERIVA de si existe una asignación activa (así nunca se
 // contradicen: un equipo puede estar "En mantención" y seguir "Asignado").
@@ -4634,7 +4640,7 @@ function renderRendicion() {
     const diff   = (parseInt(c.monto)||0) - abonoN;
     const pagada = esPagada(c);
     const co     = DB.companies[c.co];
-    const eq_cnt = c.equipos_ids?.length || 0;
+    const eq_cnt = equiposDeCompra(c.id).length;
 
     return '<tr style="border-bottom:1px solid var(--border);transition:background .1s;'+(isSel?'background:rgba(91,141,238,.06)':'')+'">'+
       // Checkbox
@@ -4759,8 +4765,7 @@ function exportarRendicionPDF() {
   // Agrupar equipos de las compras seleccionadas
   const equiposDetalle = [];
   sel.forEach(c => {
-    (c.equipos_ids||[]).forEach(eid => {
-      const eq = getEq(eid);
+    equiposDeCompra(c.id).forEach(eq => {
       if (eq) equiposDetalle.push({ compra_id: c.id, ...eq });
     });
   });
@@ -4876,7 +4881,7 @@ function exportarRendicionPDF() {
         const diff = (parseInt(c.monto)||0) - abonoN;
         const estadoLabel = {pagado:'Pagado',rendicion_pendiente:'Rend. Pend.',pendiente_pago:'Pago Pend.',devolucion:'Devolución'}[est]||est;
         const estadoClass = {pagado:'badge-ok',rendicion_pendiente:'badge-pend',pendiente_pago:'badge-pago'}[est]||'';
-        const eqCount = c.equipos_ids?.length||0;
+        const eqCount = equiposDeCompra(c.id).length;
         return `<tr>
           <td style="color:#666">${i+1}</td>
           <td>${fDate(c.fecha)}</td>
@@ -5490,10 +5495,7 @@ function applyComprasFilters(cp) {
     if (f.desde && c.fecha < f.desde) return false;
     if (f.hasta && c.fecha > f.hasta) return false;
     if (f.q) {
-      const eqTexts = (c.equipos_ids||[]).map(eid=>{
-        const eq = DB.equipos.find(e=>e.id===eid);
-        return eq ? (eq.marca+' '+eq.modelo+' '+eq.tipo+' '+eq.serie) : '';
-      }).join(' ');
+      const eqTexts = equiposDeCompra(c.id).map(eq=>eq.marca+' '+eq.modelo+' '+eq.tipo+' '+eq.serie).join(' ');
       const haystack = [
         c.id, c.proveedor, c.tipo_doc, c.num_doc, c.descripcion, eqTexts
       ].join(' ').toLowerCase();
@@ -5606,7 +5608,7 @@ function renderComprasTable() {
   } else {
     tbody.innerHTML = cp.map(c=>{
       const loc = locs.find(l=>l.id===c.local_id);
-      const eqCount = (c.equipos_ids||[]).length;
+      const eqCount = equiposDeCompra(c.id).length;
       const isPend=!esPagada(c)&&(!c.financiador||c.financiador==='yo');
       return '<tr onclick="verCompra(\''+c.id+'\')">'+
         '<td style="width:28px" onclick="event.stopPropagation()">'+
@@ -5737,7 +5739,7 @@ function renderCompras() {
       :
       cpFiltered.map(c=>{
       const loc = locs.find(l=>l.id===c.local_id);
-      const eqCount = (c.equipos_ids||[]).length;
+      const eqCount = equiposDeCompra(c.id).length;
       const isPend=!esPagada(c)&&(!c.financiador||c.financiador==='yo');
       return '<tr onclick="verCompra(\''+c.id+'\')">'+
         '<td style="width:28px" onclick="event.stopPropagation()">'+
@@ -5800,7 +5802,7 @@ function verCompra(id) {
   if (!comp) return;
   const locs  = coLocales();
   const loc   = locs.find(l=>l.id===comp.local_id);
-  const eqs   = (comp.equipos_ids||[]).map(eid=>DB.equipos.find(e=>e.id===eid)).filter(Boolean);
+  const eqs   = equiposDeCompra(comp.id);
 
   openMo('Compra '+comp.id,
     '<div class="tabs">'+
@@ -12825,7 +12827,7 @@ function exportarExcel(tipo) {
         'Estado pago': c.estado_pago, 'Método pago': c.metodo_pago||'',
         'Fecha pago': c.fecha_pago||'', 'Sede': sede?.nombre||'',
         'Área': c.area||'', 'Descripción': c.descripcion||'',
-        'N° Equipos': (c.equipos_ids||[]).length,
+        'N° Equipos': equiposDeCompra(c.id).length,
       };
     });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Compras');
