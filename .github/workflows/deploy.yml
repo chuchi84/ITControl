@@ -1,0 +1,56 @@
+name: Deploy a Pages (con version.json automatico)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generar version.json con la version real de este deploy
+        run: |
+          VERSION="$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}"
+          SHA_CORTO="${GITHUB_SHA:0:7}"
+          TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          cat > version.json << EOF
+          {
+            "version": "${VERSION}",
+            "commit": "${SHA_CORTO}",
+            "timestamp": "${TIMESTAMP}"
+          }
+          EOF
+          echo "version.json generado:"
+          cat version.json
+
+      - name: Configurar Pages
+        uses: actions/configure-pages@v5
+
+      - name: Subir artefacto (todo el repo, con el version.json nuevo)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy a GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
