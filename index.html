@@ -2020,7 +2020,7 @@ function renderEquiposTable() {
       '<td>'+estadoBadge(e.estado)+'</td>'+
       '<td class="td-muted">'+(emp?escHtml(emp.name):'—')+'</td>'+
       '<td class="td-muted">'+(sede?escHtml(sede.nombre):'—')+(e.area?' / '+escHtml(e.area):'')+'</td>'+
-      '<td class="td-muted">'+(a&&a.persona?escHtml(a.persona):'<span style="color:var(--t3)">Sin asignar</span>')+'</td>'+
+      '<td class="td-muted">'+(a&&a.persona?escHtml(a.persona):'<span style="color:var(--t3);cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();asignarEquipo(\''+e.id+'\')" title="Clic para asignar">Sin asignar</span>')+'</td>'+
       '<td onclick="event.stopPropagation()"><div style="display:flex;gap:4px">'+
         '<button class="btn btn-ghost btn-sm btn-icon" onclick="mostrarFichaQR(\''+e.id+'\')" title="Ver ficha">&#9646;</button>'+
         '<button class="btn btn-ghost btn-sm btn-icon" onclick="editEquipo(\''+e.id+'\')" title="Editar">&#9998;</button>'+
