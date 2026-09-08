@@ -4037,7 +4037,7 @@ function agregarComentarioTa(taId) {
 
 function eliminarTarea(id) {
   if (!confirm('¿Eliminar esta tarea? No se puede deshacer.')) return;
-  DB.tareas = DB.tareas.filter(t=>t.id!==id);
+  DB.tareas = DB.tareas.filter(t=>t.id!==id); if (cloudMode) cloudWrite('tarea_del', { id });
   addLog('Eliminó tarea', 'tareas', id);
   closeMo();
   toast('Tarea eliminada');
