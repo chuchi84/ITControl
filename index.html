@@ -1021,8 +1021,18 @@ const getAlerts = () => {
   // Alertas soporte
   const soportePend = (DB.solicitudes_soporte||[]).filter(s=>s.co===DB.co&&s.estado==='pendiente');
   if(soportePend.length>0) al.push({nivel:'red',titulo:soportePend.length+' solicitud'+(soportePend.length!==1?'es':'')+' de soporte pendiente'+(soportePend.length!==1?'s':''),det:'Sin atender',link:'soporte'});
-  return al;
-};
+  // Alertas de tareas pendientes/vencidas
+       (DB.tareas||[]).filter(t=>t.co===DB.co&&t.estado!=='done'&&t.limite).forEach(t=>{
+                const dias=Math.floor((new Date(t.limite)-Date.now())/86400000);
+                const det=t.titulo+(t.asig?' — '+t.asig:'');
+                if(dias<0) al.push({nivel:'red',titulo:'Tarea vencida',det,link:'tareas'});
+                else if(dias===0) al.push({nivel:'orange',titulo:'Tarea vence hoy',det,link:'tareas'});
+         else if(dias<=3) al.push({nivel:'orange',titulo:'Tarea vence en '+dias+' dia'+(dias!==1?'s':''),det,link:'tareas'});
+                else if(dias<=7) al.push({nivel:'yellow',titulo:'Tarea proxima a vencer ('+dias+'d)',det,link:'tareas'});
+       });
+       return al;
+
+  };
 
 // FINANCIAL SUMMARY
 const getFinancial = () => {
