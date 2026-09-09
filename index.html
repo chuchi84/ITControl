@@ -2178,7 +2178,7 @@ function renderEquipos() {
     (eqColOn('garantia')?'<th style="cursor:pointer;white-space:nowrap" onclick="setEqSort(\'garantia\')">Garantia '+sortIcon('garantia')+'</th>':'')+
     (eqColOn('sede')?'<th onclick="setEqSort(\'local_id\')" style="cursor:pointer">Sede '+sortIcon('local_id')+'</th>':'')+
     (eqColOn('area')?'<th onclick="setEqSort(\'area\')" style="cursor:pointer">Area '+sortIcon('area')+'</th>':'')+
-    (eqColOn('asignado')?'<th>Asignado a</th>':'')++
+    (eqColOn('asignado')?'<th>Asignado a</th>':'')+
     '<th style="width:28px"><input type="checkbox" title="Seleccionar todos" onchange="selTodosEq(this.checked)" style="accent-color:var(--accent);width:auto"></th>'+
     '<th></th>'+
   '</tr></thead>'+
