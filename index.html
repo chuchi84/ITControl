@@ -3155,6 +3155,7 @@ function renderAsignaciones() {
       '<input id="afQ" style="padding-left:30px" type="text" value="'+escHtml(f.q||'')+'" placeholder="Persona, equipo, cargo, ubicación..." oninput="filtrarAsignaciones(this.value)">'+
     '</div>'+
     (hasFilters?'<button class="btn btn-ghost btn-sm" onclick="limpiarFiltrosAsig()">&#10005; Limpiar</button>':'')+
+           '<button class="btn btn-ghost btn-sm" onclick="imprimirAsignacionesPDF()">&#128424; Exportar PDF</button>'+
     '<span style="font-size:11.5px;color:var(--t3);white-space:nowrap">'+asig.length+' asignación'+(asig.length!==1?'es':'')+'</span>'+
   '</div>'+
 
@@ -11044,7 +11045,44 @@ function imprimirMantPDF(cual) {
 function _abrirTablaPDF(emp, titulo, cols, filas, hoy) {
   const logo = emp.logo ? '<img src="'+emp.logo+'" style="height:44px;max-width:150px;object-fit:contain">' : '';
   const html = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>'+titulo+' — '+hoy+'</title><style>'+
-    '*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;color:#1a1a2e;background:#fff}'+
+    // -- EXPORTAR ASIGNACIONES A PDF (respeta los filtros activos) --
+function imprimirAsignacionesPDF() {
+  const emp = co() || {};
+  const hoy = new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'});
+  const f = _asigFiltros;
+  const todas = coAsig().filter(a=>a.estado==='Activa');
+  let asig = todas;
+  if (f.empresa) asig = asig.filter(a => { const eq=getEq(a.eq_id); return eq?.co===f.empresa; });
+  if (f.sede)    asig = asig.filter(a => { const eq=getEq(a.eq_id); return eq?.local_id===f.sede || a.sede_id===f.sede; });
+  if (f.area)    asig = asig.filter(a => { const eq=getEq(a.eq_id); return eq?.area===f.area; });
+  if (f.tipo)    asig = asig.filter(a => { const eq=getEq(a.eq_id); return eq?.tipo===f.tipo; });
+  if (f.q) {
+    const q = f.q.toLowerCase();
+    asig = asig.filter(a => {
+      const eq = getEq(a.eq_id);
+      return [a.eq_id,a.persona||'',a.cargo||'',a.ubicacion||'',eq?.marca||'',eq?.modelo||''].join(' ').toLowerCase().includes(q);
+    });
+  }
+  if (!asig.length) { toast('No hay filas para exportar','err'); return; }
+  const titulo = 'Asignaciones de Equipos';
+  const cols = ['Equipo','Tipo','Sede / Area','Persona','Cargo','Desde'];
+  const filas = asig.map(a=>{
+    const eq = getEq(a.eq_id);
+    const sede = getLocal(eq?.local_id);
+    const sedeArea = (sede?sede.nombre:'—')+(eq?.area?' / '+eq.area:'');
+    return [
+      eq?(eq.marca+' '+eq.modelo+' ('+a.eq_id+')'):(a.eq_id||'—'),
+      eq?.tipo||'—',
+      sedeArea,
+      a.persona||'Sin persona',
+      a.cargo||'—',
+      a.fecha?fDate(a.fecha):'—'
+    ];
+  });
+  _abrirTablaPDF(emp, titulo, cols, filas, hoy);
+}
+
+'*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;color:#1a1a2e;background:#fff}'+
     '.page{padding:26px 30px;max-width:1000px;margin:0 auto}'+
     '.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #1a1a2e}'+
     '.header h1{font-size:18px;font-weight:700}.header .sub{font-size:11px;color:#555;margin-top:2px}'+
