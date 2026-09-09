@@ -11041,11 +11041,7 @@ function imprimirMantPDF(cual) {
   _abrirTablaPDF(emp, titulo, cols, filas, hoy);
 }
 
-// Genera una ventana imprimible con una tabla simple (título + logo + filas).
-function _abrirTablaPDF(emp, titulo, cols, filas, hoy) {
-  const logo = emp.logo ? '<img src="'+emp.logo+'" style="height:44px;max-width:150px;object-fit:contain">' : '';
-  const html = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>'+titulo+' — '+hoy+'</title><style>'+
-    // -- EXPORTAR ASIGNACIONES A PDF (respeta los filtros activos) --
+// -- EXPORTAR ASIGNACIONES A PDF (respeta los filtros activos) --
 function imprimirAsignacionesPDF() {
   const emp = co() || {};
   const hoy = new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'});
@@ -11082,7 +11078,11 @@ function imprimirAsignacionesPDF() {
   _abrirTablaPDF(emp, titulo, cols, filas, hoy);
 }
 
-'*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;color:#1a1a2e;background:#fff}'+
+// Genera una ventana imprimible con una tabla simple (título + logo + filas).
+function _abrirTablaPDF(emp, titulo, cols, filas, hoy) {
+  const logo = emp.logo ? '<img src="'+emp.logo+'" style="height:44px;max-width:150px;object-fit:contain">' : '';
+  const html = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>'+titulo+' — '+hoy+'</title><style>'+
+    '*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;color:#1a1a2e;background:#fff}'+
     '.page{padding:26px 30px;max-width:1000px;margin:0 auto}'+
     '.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #1a1a2e}'+
     '.header h1{font-size:18px;font-weight:700}.header .sub{font-size:11px;color:#555;margin-top:2px}'+
