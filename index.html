@@ -7752,40 +7752,34 @@ function abrirFichaEquipo(eqId, usuario) {
                   '<div class="fg"><label>Estado</label><select id="eeE">'+
                     ['Asignado','Disponible','En mantencion','En reparacion','De baja','Extraviado'].map(s=>'<option'+(eq.estado===s?' selected':'')+'>'+s+'</option>').join('')+
                   '</select></div>'+
-                  '<div class="fg"><label>Sede</label><select id="eeSede" onchange="onSedeEditEq(this.value)">'+
-                    '<option value="">-- Sin sede asignada --</option>'+
-                    ((co()?.sedes)||[]).map(s => '<option value="'+escHtml(s.id)+'"'+(eq.local_id===s.id?' selected':'')+'>'+escHtml(s.nombre)+'</option>').join('')+
-           '</select></div>'+
-               '<div class="fg"><label>Area</label>'+
-             (function(){
-               const sedeSel = getSede(eq.local_id);
-                            const ubis = sedeSel?.ubicaciones || [];
-                            const valActual = eq.area || '';
-                            const enLista = ubis.includes(valActual);
-                            const opts = ubis.map(u => '<option value="'+escHtml(u)+'"'+(u===valActual?' selected':'')+'>'+escHtml(u)+'</option>').join('');
-                            return '<select id="eeArea" onchange="onAreaEqChange(this)">'+
-                                             '<option value="">-- Sin area asignada --</option>'+opts+
-                                             '<option value="__custom__"'+(valActual && !enLista?' selected':'')+'>+ Otra area...</option>'+
-                                           '</select>'+
-                                           '<input type="text" id="eeAreaCustom" placeholder="Nombre de la nueva area" style="margin-top:6px;display:'+(valActual && !enLista?'block':'none')+'" value="'+escHtml(!enLista?valActual:'')+'">';
-             })()+
-                  '</div>'+
-                  '<div class="fg"><label>Fin de garantia</label><input type="date" id="eeGarantia" value="'+(eq.garantia||'')+'"></div>'+
-                  '<div class="fg" style="grid-column:1/-1"><label>Compra origen</label>'+
-                    '<div style="display:flex;gap:6px">'+
-                      '<select id="eeCompra" style="flex:1">'+
-                        '<option value=""'+(!eq.compra_id?' selected':'')+'>Sin informacion de compra</option>'+
-                        coComp().map(c => '<option value="'+escHtml(c.id)+'"'+(eq.compra_id===c.id?' selected':'')+'>'+escHtml(c.id)+' -- '+escHtml(c.proveedor||'--')+'</option>').join('')+
-                      '</select>'+
-                      '<button class="btn btn-secondary btn-sm" onclick="crearCompraRapida(\''+eqId+'\')">+ Nueva</button>'+
-                    '</div>'+
-                  '</div>'+
+                            '<div class="fg"><label>Fin de garantia</label><input type="date" id="eeGarantia" value="'+(eq.garantia||'')+'"></div>'+
                 '</div>'+
                 section('ESPECIFICACIONES TECNICAS')+
                 '<div id="eeHwFields" class="fgrid f2" style="gap:10px">'+renderHardwareFields(eq.tipo, eq.specs)+'</div>';
 
   // ── TAB ASIGNACIÓN ──
-  let tabAsig = '';
+  let tabAsig =
+    section('UBICACION DEL EQUIPO') +
+    '<div class="fgrid f2" style="gap:10px">'+
+      '<div class="fg"><label>Sede</label><select id="eeSede" onchange="onSedeEditEq(this.value)">'+
+        '<option value="">-- Sin sede asignada --</option>'+
+        ((co()?.sedes)||[]).map(s => '<option value="'+escHtml(s.id)+'"'+(eq.local_id===s.id?' selected':'')+'>'+escHtml(s.nombre)+'</option>').join('')+
+      '</select></div>'+
+      '<div class="fg"><label>Area</label>'+
+        (function(){
+          const sedeSel = getSede(eq.local_id);
+          const ubis = sedeSel?.ubicaciones || [];
+          const valActual = eq.area || '';
+          const enLista = ubis.includes(valActual);
+          const opts = ubis.map(u => '<option value="'+escHtml(u)+'"'+(u===valActual?' selected':'')+'>'+escHtml(u)+'</option>').join('');
+          return '<select id="eeArea" onchange="onAreaEqChange(this)">'+
+                   '<option value="">-- Sin area asignada --</option>'+opts+
+                   '<option value="__custom__"'+(valActual && !enLista?' selected':'')+'>+ Otra area...</option>'+
+                 '</select>'+
+                 '<input type="text" id="eeAreaCustom" placeholder="Nombre de la nueva area" style="margin-top:6px;display:'+(valActual && !enLista?'block':'none')+'" value="'+escHtml(!enLista?valActual:'')+'">';
+        })()+
+      '</div>'+
+    '</div>';
   if (asigAct) {
     tabAsig += '<div style="background:var(--adim);border:1px solid var(--accent);border-radius:var(--r);padding:12px;margin-bottom:12px">';
     tabAsig += '<div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.8px;margin-bottom:8px">ASIGNACIÓN ACTIVA</div>';
@@ -7842,7 +7836,7 @@ function abrirFichaEquipo(eqId, usuario) {
              '<option value="false"'+(comp?.cobrado_cliente!==true?' selected':'')+'>No</option>'+
              '<option value="true"'+(comp?.cobrado_cliente===true?' selected':'')+'>Si</option>'+
            '</select></div>'+
-           '<div class="fg" style="grid-column:1/-1"><label>Descripcion</label><input type="text" id="ecDesc" value="'+escHtml(comp?.descripcion||'')+'"></div>'+
+                   '<div class="fg" style="grid-column:1/-1"><label>Comentario</label><input type="text" id="ecDesc" placeholder="Ej: comprado para Juan (secretario)" value="'+escHtml(comp?.descripcion||'')+'"></div>'+
          '</div>'+
          '<button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="guardarCompraDesdeFicha(\''+eqId+'\')">'+(comp?'Guardar cambios de compra':'Crear y vincular compra')+'</button>'+
          (comp?'':'<div style="font-size:11px;color:var(--t3);margin-top:8px">Este equipo no tiene compra asociada todavia. Completa los datos y guarda para crear una.</div>');
