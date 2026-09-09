@@ -10789,7 +10789,7 @@ let _mant = {
   // Tabla de ejecutadas
   eq: '', eqTipo: '', esortCol: 'fecha', esortDir: 'desc',
 };
- / Encabezado de columna ordenable (muestra ▲/▲ según el orden activo).
+   // Encabezado de columna ordenable (muestra ▲/▲ según el orden activo).
 function _thSort(label, col, ctx) {
   const activa = ctx==='ej' ? _mant.esortCol : _mant.sortCol;
   const dir    = ctx==='ej' ? _mant.esortDir : _mant.sortDir;
