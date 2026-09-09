@@ -1993,13 +1993,58 @@ function limpiarFiltrosEquipos() {
   go('equipos');
 }
 
+// ── Columnas personalizables (tabla de Equipos) ──────────────────────
+// El usuario elige que columnas ver; se guarda en este navegador
+// (localStorage), no es una preferencia de empresa ni se sincroniza.
+const EQ_COLUMNAS = [
+  {key:'tipo',     label:'Tipo'},
+  {key:'marca',    label:'Marca'},
+  {key:'modelo',   label:'Modelo'},
+  {key:'serie',    label:'Serie'},
+  {key:'estado',   label:'Estado'},
+  {key:'garantia', label:'Garantia'},
+  {key:'sede',     label:'Sede'},
+  {key:'area',     label:'Area'},
+  {key:'asignado', label:'Asignado a'},
+];
+function getEqColsVisibles() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('itc_eq_cols')||'null');
+    if (Array.isArray(saved) && saved.length) return saved.filter(k=>EQ_COLUMNAS.some(c=>c.key===k));
+  } catch(_) {}
+  return EQ_COLUMNAS.map(c=>c.key);
+}
+function eqColOn(key) { return getEqColsVisibles().includes(key); }
+function setEqColVisible(key, visible) {
+  const cur = getEqColsVisibles();
+  const next = visible ? [...new Set([...cur, key])] : cur.filter(k=>k!==key);
+  localStorage.setItem('itc_eq_cols', JSON.stringify(next));
+  go('equipos');
+}
+function toggleEqColsMenu() {
+  const m = document.getElementById('eqColsMenu');
+  if (m) m.style.display = m.style.display==='none' ? 'block' : 'none';
+}
+function renderEqColsMenu() {
+  const visibles = getEqColsVisibles();
+  return '<div style="position:relative;display:inline-block">'+
+    '<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toggleEqColsMenu()" title="Elegir columnas visibles">⚙ Columnas</button>'+
+    '<div id="eqColsMenu" class="card cp" style="display:none;position:absolute;right:0;top:100%;z-index:50;margin-top:4px;min-width:170px;padding:8px" onclick="event.stopPropagation()">'+
+      EQ_COLUMNAS.map(c=>'<label style="display:flex;align-items:center;gap:6px;padding:4px 2px;font-size:12.5px;cursor:pointer">'+
+        '<input type="checkbox" '+(visibles.includes(c.key)?'checked':'')+' onchange="setEqColVisible(\''+c.key+'\',this.checked)" style="accent-color:var(--accent);width:auto">'+c.label+
+      '</label>').join('')+
+    '</div>'+
+  '</div>';
+}
+
 function renderEquiposTable() {
   const tbody = $('tEq');
   if (!tbody) return;
-  const TICONS={Notebook:'&#128187;',Desktop:'&#128421;',Monitor:'&#128447;','All-in-One':'&#128421;',Servidor:'&#128220;',Impresora:'&#128424;',Red:'&#128225;',Tablet:'&#128242;',Otro:'&#128230;'};
+  const TICONS={Notebook:'💻',Desktop:'🖥',Monitor:'🖧','All-in-One':'🖥',Servidor:'🗄',Impresora:'🖨',Red:'📡',Tablet:'📲',Otro:'📦'};
   const filtered = sortEquipos(applyEquiposFilters(DB.equipos));
+  const vis = getEqColsVisibles();
   if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--t3);padding:24px">Sin resultados para los filtros aplicados</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="'+(3+vis.length)+'" style="text-align:center;color:var(--t3);padding:24px">Sin resultados para los filtros aplicados</td></tr>';
     return;
   }
   const allSedes = Object.values(DB.companies).flatMap(e=>e.sedes||[]);
@@ -2010,20 +2055,21 @@ function renderEquiposTable() {
     // Todos los datos del equipo se escapan porque pueden contener HTML
     // insertado por el usuario (marca/modelo/serie/tipo son campos libres,
     // igual que nombre de empresa/sede/persona asignada). Sin esto un usuario
-    // con permiso de crear equipos podría inyectar <script> que se ejecute
+    // con permiso de crear equipos podria inyectar <script> que se ejecute
     // cuando otro usuario abra la lista.
     return '<tr onclick="viewEquipo(\''+e.id+'\')">'+
-      '<td class="td-id">'+(TICONS[e.tipo]||'&#128230;')+' '+escHtml(e.id)+'</td>'+
-      '<td class="td-muted">'+escHtml(e.tipo||'')+'</td>'+
-      '<td><strong>'+escHtml(e.marca||'')+'</strong> '+escHtml(e.modelo||'')+'</td>'+
-      '<td class="td-muted mono">'+escHtml(e.serie||'')+'</td>'+
-      '<td>'+estadoBadge(e.estado)+'</td>'+
+      '<td class="td-id">'+(TICONS[e.tipo]||'📦')+' '+escHtml(e.id)+'</td>'+
+      (eqColOn('tipo')?'<td class="td-muted">'+escHtml(e.tipo||'')+'</td>':'')+
+      (eqColOn('marca')?'<td><strong>'+escHtml(e.marca||'')+'</strong></td>':'')+
+      (eqColOn('modelo')?'<td class="td-muted">'+escHtml(e.modelo||'')+'</td>':'')+
+      (eqColOn('serie')?'<td class="td-muted mono">'+escHtml(e.serie||'')+'</td>':'')+
+      (eqColOn('estado')?'<td>'+estadoBadge(e.estado)+'</td>':'')+
       '<td class="td-muted">'+(emp?escHtml(emp.name):'—')+'</td>'+
-      '<td class="td-muted">'+(sede?escHtml(sede.nombre):'—')+(e.area?' / '+escHtml(e.area):'')+'</td>'+
-      '<td class="td-muted">'+(a&&a.persona?escHtml(a.persona):'<span style="color:var(--t3);cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();asignarEquipo(\''+e.id+'\')" title="Clic para asignar">Sin asignar</span>')+'</td>'+
+      ((eqColOn('sede')||eqColOn('area'))?'<td class="td-muted">'+(sede?escHtml(sede.nombre):'—')+(e.area?' / '+escHtml(e.area):'')+'</td>':'')+
+      (eqColOn('asignado')?'<td class="td-muted">'+(a&&a.persona?escHtml(a.persona):'<span style="color:var(--t3);cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();asignarEquipo(\''+e.id+'\')" title="Clic para asignar">Sin asignar</span>')+'</td>':'')+
       '<td onclick="event.stopPropagation()"><div style="display:flex;gap:4px">'+
-        '<button class="btn btn-ghost btn-sm btn-icon" onclick="mostrarFichaQR(\''+e.id+'\')" title="Ver ficha">&#9646;</button>'+
-        '<button class="btn btn-ghost btn-sm btn-icon" onclick="editEquipo(\''+e.id+'\')" title="Editar">&#9998;</button>'+
+        '<button class="btn btn-ghost btn-sm btn-icon" onclick="mostrarFichaQR(\''+e.id+'\')" title="Ver ficha">█</button>'+
+        '<button class="btn btn-ghost btn-sm btn-icon" onclick="editEquipo(\''+e.id+'\')" title="Editar">✎</button>'+
       '</div></td>'+
     '</tr>';
   }).join('');
@@ -2115,6 +2161,7 @@ function renderEquipos() {
     '<button class="btn btn-primary btn-sm" onclick="saltarCompraDirecto()">+ Agregar equipo</button>'+
     '<button class="btn btn-ghost btn-sm" onclick="addCompra()">+ Con compra</button>'+
     '<button class="btn btn-ghost btn-sm" onclick="verRegistroBajas()">&#128465; Bajas ('+(DB.bajas||[]).filter(b=>b.co===DB.co).length+')</button>'+
+           renderEqColsMenu()+
     '<div style="flex:1"></div>'+
     '<button id="btnImprimirSel" class="btn btn-ghost btn-sm" style="display:none" onclick="imprimirFichaEquipo([..._eqSel])">&#128424; Imprimir seleccionados</button>'+
   '</div>'+
@@ -2123,22 +2170,22 @@ function renderEquipos() {
   '<div class="card"><div class="tw">'+
   '<table><thead><tr>'+
     '<th onclick="setEqSort(\'id\')" style="cursor:pointer;white-space:nowrap">ID '+sortIcon('id')+'</th>'+
-    '<th onclick="setEqSort(\'tipo\')" style="cursor:pointer">Tipo '+sortIcon('tipo')+'</th>'+
-        '<th onclick="setEqSort(\'marca\')" style="cursor:pointer">Marca '+sortIcon('marca')+'</th>'+
-           '<th onclick="setEqSort(\'modelo\')" style="cursor:pointer">Modelo '+sortIcon('modelo')+'</th>'+
-    '<th>Serie</th>'+
-    '<th onclick="setEqSort(\'estado\')" style="cursor:pointer">Estado '+sortIcon('estado')+'</th>'+
-    '<th style="cursor:pointer;white-space:nowrap" onclick="setEqSort(\'garantia\')">Garantía '+sortIcon('garantia')+'</th>'+
-    '<th onclick="setEqSort(\'local_id\')" style="cursor:pointer">Sede '+sortIcon('local_id')+'</th>'+
-    '<th onclick="setEqSort(\'area\')" style="cursor:pointer">Área '+sortIcon('area')+'</th>'+
-    '<th>Asignado a</th>'+
+           (eqColOn('tipo')?'<th onclick="setEqSort(\'tipo\')" style="cursor:pointer">Tipo '+sortIcon('tipo')+'</th>':'')+
+    (eqColOn('marca')?'<th onclick="setEqSort(\'marca\')" style="cursor:pointer">Marca '+sortIcon('marca')+'</th>':'')+
+    (eqColOn('modelo')?'<th onclick="setEqSort(\'modelo\')" style="cursor:pointer">Modelo '+sortIcon('modelo')+'</th>':'')+
+    (eqColOn('serie')?'<th>Serie</th>':'')+
+    (eqColOn('estado')?'<th onclick="setEqSort(\'estado\')" style="cursor:pointer">Estado '+sortIcon('estado')+'</th>':'')+
+    (eqColOn('garantia')?'<th style="cursor:pointer;white-space:nowrap" onclick="setEqSort(\'garantia\')">Garantia '+sortIcon('garantia')+'</th>':'')+
+    (eqColOn('sede')?'<th onclick="setEqSort(\'local_id\')" style="cursor:pointer">Sede '+sortIcon('local_id')+'</th>':'')+
+    (eqColOn('area')?'<th onclick="setEqSort(\'area\')" style="cursor:pointer">Area '+sortIcon('area')+'</th>':'')+
+    (eqColOn('asignado')?'<th>Asignado a</th>':'')++
     '<th style="width:28px"><input type="checkbox" title="Seleccionar todos" onchange="selTodosEq(this.checked)" style="accent-color:var(--accent);width:auto"></th>'+
     '<th></th>'+
   '</tr></thead>'+
   '<tbody id="tEq">'+
 
   (filtered.length===0?
-    '<tr><td colspan="10" style="text-align:center;color:var(--t3);padding:24px">Sin resultados para los filtros aplicados</td></tr>'
+        '<tr><td colspan="'+(3+getEqColsVisibles().length)+'" style="text-align:center;color:var(--t3);padding:24px">Sin resultados para los filtros aplicados</td></tr>'
     :
     filtered.map(e => {
       const a = getAsigActiva(e.id);
@@ -2147,15 +2194,15 @@ function renderEquipos() {
       const TICONS={Notebook:'&#128187;',Desktop:'&#128421;',Monitor:'&#128447;','All-in-One':'&#128421;',Servidor:'&#128220;',Impresora:'&#128424;',Red:'&#128225;',Tablet:'&#128242;',Otro:'&#128230;'};
       return '<tr onclick="viewEquipo(\''+e.id+'\')" style="'+((e.estado==='De baja'||e.estado==='Dado de baja')?'opacity:0.5;':'')+'">'+
         '<td class="td-id">'+(TICONS[e.tipo]||'&#128230;')+' '+e.id+'</td>'+
-        '<td class="td-muted">'+e.tipo+'</td>'+
-            '<td><strong>'+e.marca+'</strong></td>'+
-               '<td class="td-muted">'+e.modelo+'</td>'+
-        '<td class="td-muted mono">'+e.serie+'</td>'+
-        '<td><div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">'+estadoBadge(e.estado)+asigBadge(e)+'</div></td>'+
-        '<td>'+garantiaBadge(e)+'</td>'+
-        '<td class="td-muted">'+(sede?escHtml(sede.nombre):'<span style="color:var(--t3)">—</span>')+'</td>'+
-        '<td class="td-muted">'+(e.area?escHtml(e.area):'<span style="color:var(--t3)">—</span>')+'</td>'+
-        '<td class="td-muted">'+(a&&a.persona?a.persona:'<span style="color:var(--t3)">—</span>')+'</td>'+
+        (eqColOn('tipo')?'<td class="td-muted">'+e.tipo+'</td>':'')+
+    (eqColOn('marca')?'<td><strong>'+e.marca+'</strong></td>':'')+
+    (eqColOn('modelo')?'<td class="td-muted">'+e.modelo+'</td>':'')+
+    (eqColOn('serie')?'<td class="td-muted mono">'+e.serie+'</td>':'')+
+    (eqColOn('estado')?'<td><div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">'+estadoBadge(e.estado)+asigBadge(e)+'</div></td>':'')+
+    (eqColOn('garantia')?'<td>'+garantiaBadge(e)+'</td>':'')+
+    (eqColOn('sede')?'<td class="td-muted">'+(sede?escHtml(sede.nombre):'<span style="color:var(--t3)">—</span>')+'</td>':'')+
+    (eqColOn('area')?'<td class="td-muted">'+(e.area?escHtml(e.area):'<span style="color:var(--t3)">—</span>')+'</td>':'')+
+    (eqColOn('asignado')?'<td class="td-muted">'+(a&&a.persona?a.persona:'<span style="color:var(--t3)">—</span>')+'</td>':'')+
         '<td onclick="event.stopPropagation()" style="width:28px">'+
           '<input type="checkbox" data-eqid="'+e.id+'" style="accent-color:var(--accent);width:auto" onchange="toggleSelEq(\''+e.id+'\',this.checked)">'+
         '</td>'+
