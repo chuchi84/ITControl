@@ -10907,6 +10907,7 @@ const allSedesMant = Object.values(DB.companies).flatMap(e=>e.sedes||[]);
       '<div style="margin-left:auto;display:flex;gap:6px">'+
         '<button class="btn btn-secondary btn-sm" onclick="imprimirMantPDF(\'programadas\')">&#128424; Exportar PDF</button>'+
         '<button class="btn-primary btn-sm" onclick="abrirNuevoPrograma()">+ Nuevo programa</button>'+
+                    '<button class="btn btn-secondary btn-sm" onclick="abrirMantencionMasiva()">&#128203; Mantención masiva</button>'+
       '</div>'+
     '</div>'+
   '</div>'+
@@ -11115,8 +11116,130 @@ function _abrirTablaPDF(emp, titulo, cols, filas, hoy) {
 }
 
 // ── CRUD PROGRAMAS ───────────────────────────────────────
+// -- MANTENCION MASIVA POR AREA/SEDE --
+function abrirMantencionMasiva() {
+  const allSedes = (co()?.sedes)||[];
+  const hoy = new Date().toISOString().slice(0,10);
+  openMo('Programar mantencion masiva',
+    '<div class="fgrid f2" style="gap:10px">'+
+      '<div class="fg"><label>Sede</label><select id="mmSede" onchange="_actualizarEquiposMasiva()">'+
+        '<option value="">-- Todas las sedes --</option>'+
+        allSedes.map(s=>'<option value="'+escHtml(s.id)+'">'+escHtml(s.nombre)+'</option>').join('')+
+      '</select></div>'+
+      '<div class="fg"><label>Area</label><select id="mmArea" onchange="_actualizarEquiposMasiva()">'+
+        '<option value="">-- Todas las areas --</option>'+
+      '</select></div>'+
+      '<div class="fg"><label>Tipo de equipo</label><select id="mmTipo" onchange="_actualizarEquiposMasiva()">'+
+        '<option value="">-- Todos los tipos --</option>'+
+        tiposDisponibles().map(t=>'<option value="'+escHtml(t)+'">'+escHtml(t)+'</option>').join('')+
+      '</select></div>'+
+      '<div class="fg"><label>Tipo de mantencion</label><select id="mmTipoMant">'+
+        ['Limpieza general','Limpieza interna','Actualizacion software','Actualizacion firmware',
+         'Revision hardware','Cambio pasta termica','Backup datos','Revision completa','Otro']
+        .map(t=>'<option>'+t+'</option>').join('')+
+      '</select></div>'+
+      '<div class="fg"><label>Frecuencia</label><select id="mmFrec" onchange="_actualizarProximaMasiva()">'+
+        ['mensual','bimestral','trimestral','semestral','anual']
+        .map(f=>'<option value="'+f+'">'+getFrecuenciaLabel(f)+'</option>').join('')+
+      '</select></div>'+
+      '<div class="fg"><label>Ultima realizada</label><input type="date" id="mmUltima" value="'+hoy+'" onchange="_actualizarProximaMasiva()"></div>'+
+      '<div class="fg"><label>Proxima programada</label><input type="date" id="mmProxima" value=""></div>'+
+      '<div class="fg" style="grid-column:1/-1"><label>Notas / instrucciones</label><textarea id="mmNotas" style="min-height:60px" placeholder="Pasos, repuestos, notas para el tecnico..."></textarea></div>'+
+    '</div>'+
+    '<div style="margin-top:12px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'+
+        '<label style="font-weight:600;font-size:12.5px">Equipos incluidos</label>'+
+        '<div style="display:flex;gap:10px;font-size:11.5px">'+
+          '<a href="#" onclick="event.preventDefault();_mmSelTodos(true)">Todos</a>'+
+          '<a href="#" onclick="event.preventDefault();_mmSelTodos(false)">Ninguno</a>'+
+        '</div>'+
+      '</div>'+
+      '<div id="mmListaEquipos" style="max-height:220px;overflow:auto;border:1px solid var(--border);border-radius:var(--r);padding:8px"></div>'+
+    '</div>',
+    '<button class="btn-secondary" onclick="closeMo()">Cancelar</button>'+
+    '<button class="btn-primary" onclick="guardarMantencionMasiva()">✓ Programar mantencion</button>',
+    'lg'
+  );
+  setTimeout(()=>{ _actualizarEquiposMasiva(); }, 60);
+}
+
+function _actualizarEquiposMasiva() {
+  const sedeId = $('mmSede')?.value || '';
+  const areaSel = $('mmArea');
+  if (areaSel) {
+    const sede = (co()?.sedes||[]).find(s=>s.id===sedeId);
+    const ubis = sede?.ubicaciones || [];
+    const prevArea = areaSel.value;
+    areaSel.innerHTML = '<option value="">-- Todas las areas --</option>'+
+      ubis.map(u=>'<option value="'+escHtml(u)+'">'+escHtml(u)+'</option>').join('');
+    if (ubis.includes(prevArea)) areaSel.value = prevArea;
+  }
+  const areaId = $('mmArea')?.value || '';
+  const tipoSel = $('mmTipo')?.value || '';
+  const equipos = DB.equipos.filter(e=>
+    e.co===DB.co && e.estado!=='De baja' &&
+    (!sedeId || e.local_id===sedeId) &&
+    (!areaId || e.area===areaId) &&
+    (!tipoSel || e.tipo===tipoSel)
+  );
+  const cont = $('mmListaEquipos');
+  if (!cont) return;
+  if (!equipos.length) {
+    cont.innerHTML = '<div style="color:var(--t3);font-size:12.5px;padding:8px 0">No hay equipos que coincidan con estos filtros.</div>';
+    return;
+  }
+  cont.innerHTML = equipos.map(e=>
+    '<label style="display:flex;align-items:center;gap:8px;padding:5px 2px;font-size:12.5px;cursor:pointer">'+
+      '<input type="checkbox" class="mmChk" value="'+escHtml(e.id)+'" checked style="accent-color:var(--accent);width:auto">'+
+      '<span>'+escHtml(e.id)+' — '+escHtml(e.marca||'')+' '+escHtml(e.modelo||'')+'</span>'+
+    '</label>'
+  ).join('');
+}
+
+function _mmSelTodos(v) {
+  document.querySelectorAll('.mmChk').forEach(cb=>cb.checked=v);
+}
+
+function _actualizarProximaMasiva() {
+  const ultima = $('mmUltima')?.value;
+  const frec = $('mmFrec')?.value || 'trimestral';
+  const proxEl = $('mmProxima');
+  if (proxEl && ultima) proxEl.value = getProximaFecha(ultima, frec);
+}
+
+function guardarMantencionMasiva() {
+  const seleccionados = Array.from(document.querySelectorAll('.mmChk:checked')).map(cb=>cb.value);
+  if (!seleccionados.length) { toast('Selecciona al menos un equipo','err'); return; }
+  const tipoMant = $('mmTipoMant')?.value || 'Revision completa';
+  const frecuencia = $('mmFrec')?.value || 'trimestral';
+  const ultima = $('mmUltima')?.value || '';
+  const proxima = $('mmProxima')?.value || '';
+  const notas = $('mmNotas')?.value || '';
+  if (!DB.programas_mant) DB.programas_mant = [];
+  let creados = 0, omitidos = 0;
+  seleccionados.forEach(eq_id=>{
+    const yaExiste = DB.programas_mant.some(p=>p.eq_id===eq_id && p.tipo_mant===tipoMant);
+    if (yaExiste) { omitidos++; return; }
+    const prog = {
+      id: 'PM-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),
+      co: DB.co, eq_id, tipo_mant: tipoMant, frecuencia, ultima, proxima, notas,
+      creado: new Date().toISOString(),
+    };
+    DB.programas_mant.push(prog);
+    if (typeof apiFetchWithToken==='function' && typeof currentUser!=='undefined' && currentUser?.token) {
+      cloudWrite('programa_mant_add', { programa: prog });
+    }
+    creados++;
+  });
+  addLog('Programo mantencion masiva','mantenimiento', creados+' equipos - '+tipoMant);
+  closeMo();
+  toast(creados+' programa'+(creados!==1?'s':'')+' creado'+(creados!==1?'s':'')+(omitidos?' ('+omitidos+' ya tenian este tipo)':''));
+  go('mantenimiento');
+}
+
+
 function abrirNuevoPrograma(eqIdPreselect) {
-  const equipos = DB.equipos.filter(e=>e.co===DB.co&&e.estado!=='De baja');
+       const equipos = DB.equipos.filter(e=>e.co===DB.co&&e.estado!=='De baja');
   const hoy = new Date().toISOString().slice(0,10);
   openMo('Nuevo programa de mantención',
     '<div class="fgrid f2">'+
