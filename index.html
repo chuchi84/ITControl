@@ -1999,7 +1999,7 @@ function renderEquiposTable() {
   const TICONS={Notebook:'&#128187;',Desktop:'&#128421;',Monitor:'&#128447;','All-in-One':'&#128421;',Servidor:'&#128220;',Impresora:'&#128424;',Red:'&#128225;',Tablet:'&#128242;',Otro:'&#128230;'};
   const filtered = sortEquipos(applyEquiposFilters(DB.equipos));
   if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--t3);padding:24px">Sin resultados para los filtros aplicados</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--t3);padding:24px">Sin resultados para los filtros aplicados</td></tr>';
     return;
   }
   const allSedes = Object.values(DB.companies).flatMap(e=>e.sedes||[]);
@@ -2124,7 +2124,8 @@ function renderEquipos() {
   '<table><thead><tr>'+
     '<th onclick="setEqSort(\'id\')" style="cursor:pointer;white-space:nowrap">ID '+sortIcon('id')+'</th>'+
     '<th onclick="setEqSort(\'tipo\')" style="cursor:pointer">Tipo '+sortIcon('tipo')+'</th>'+
-    '<th onclick="setEqSort(\'marca\')" style="cursor:pointer">Equipo '+sortIcon('marca')+'</th>'+
+        '<th onclick="setEqSort(\'marca\')" style="cursor:pointer">Marca '+sortIcon('marca')+'</th>'+
+           '<th onclick="setEqSort(\'modelo\')" style="cursor:pointer">Modelo '+sortIcon('modelo')+'</th>'+
     '<th>Serie</th>'+
     '<th onclick="setEqSort(\'estado\')" style="cursor:pointer">Estado '+sortIcon('estado')+'</th>'+
     '<th style="cursor:pointer;white-space:nowrap" onclick="setEqSort(\'garantia\')">Garantía '+sortIcon('garantia')+'</th>'+
@@ -2137,7 +2138,7 @@ function renderEquipos() {
   '<tbody id="tEq">'+
 
   (filtered.length===0?
-    '<tr><td colspan="9" style="text-align:center;color:var(--t3);padding:24px">Sin resultados para los filtros aplicados</td></tr>'
+    '<tr><td colspan="10" style="text-align:center;color:var(--t3);padding:24px">Sin resultados para los filtros aplicados</td></tr>'
     :
     filtered.map(e => {
       const a = getAsigActiva(e.id);
@@ -2147,7 +2148,8 @@ function renderEquipos() {
       return '<tr onclick="viewEquipo(\''+e.id+'\')" style="'+((e.estado==='De baja'||e.estado==='Dado de baja')?'opacity:0.5;':'')+'">'+
         '<td class="td-id">'+(TICONS[e.tipo]||'&#128230;')+' '+e.id+'</td>'+
         '<td class="td-muted">'+e.tipo+'</td>'+
-        '<td><strong>'+e.marca+'</strong> '+e.modelo+'</td>'+
+            '<td><strong>'+e.marca+'</strong></td>'+
+               '<td class="td-muted">'+e.modelo+'</td>'+
         '<td class="td-muted mono">'+e.serie+'</td>'+
         '<td><div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">'+estadoBadge(e.estado)+asigBadge(e)+'</div></td>'+
         '<td>'+garantiaBadge(e)+'</td>'+
@@ -10783,12 +10785,11 @@ let _mant = {
   filtroTipo: '',
   eqId: null,
   // Tabla de programadas: búsqueda, filtros y orden
-  q: '', fEstado: '', fTipo: '', sortCol: 'proxima', sortDir: 'asc',
+  q: '', fEstado: '', fTipo: '', sortCol: 'proxima', sortDir: 'asc', fSede: '', fArea: '',
   // Tabla de ejecutadas
   eq: '', eqTipo: '', esortCol: 'fecha', esortDir: 'desc',
 };
-
-// Encabezado de columna ordenable (muestra ▲/▲ según el orden activo).
+ / Encabezado de columna ordenable (muestra ▲/▲ según el orden activo).
 function _thSort(label, col, ctx) {
   const activa = ctx==='ej' ? _mant.esortCol : _mant.sortCol;
   const dir    = ctx==='ej' ? _mant.esortDir : _mant.sortDir;
@@ -10954,6 +10955,8 @@ function _mantProgramasFiltradas(progs) {
   });
   if (_mant.fTipo)   rows = rows.filter(p=>p.tipo_mant===_mant.fTipo);
   if (_mant.fEstado!=='') rows = rows.filter(p=>String(getEstadoMantProgramado(p).nivel)===String(_mant.fEstado));
+       if (_mant.fSede) rows = rows.filter(p=>{ const eq=getEq(p.eq_id); return eq?.local_id===_mant.fSede; });
+       if (_mant.fArea) rows = rows.filter(p=>{ const eq=getEq(p.eq_id); return eq?.area===_mant.fArea; });
   const FREC = { mensual:1,bimestral:2,trimestral:3,semestral:6,anual:12 };
   const key = p => {
     const eq = getEq(p.eq_id);
@@ -10974,13 +10977,25 @@ function _mantProgramasFiltradas(progs) {
 function renderProgramasMant(progs) {
   const rows  = _mantProgramasFiltradas(progs);
   const tipos = [...new Set(progs.map(p=>p.tipo_mant).filter(Boolean))].sort();
-  const hayFiltro = _mant.q || _mant.fTipo || _mant.fEstado!=='';
+  const hayFiltro = _mant.q || _mant.fTipo || _mant.fEstado!=='' || _mant.fSede || _mant.fArea;
 
-  return (
+const allSedesMant = Object.values(DB.companies).flatMap(e=>e.sedes||[]);
+       const curSedeMant = allSedesMant.find(s=>s.id===_mant.fSede);
+       const areasOptsMant = curSedeMant?.ubicaciones || [];
+     
+       return (
   // Toolbar de filtros
   '<div class="card cp" style="padding:12px;margin-bottom:12px">'+
     '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">'+
       '<input type="text" class="inp" style="flex:1;min-width:160px" placeholder="Buscar ticket, equipo o tipo…" value="'+escHtml(_mant.q)+'" oninput="_mant.q=this.value;clearTimeout(window._mq);window._mq=setTimeout(()=>go(\'mantenimiento\'),250)">'+
+                '<select class="inp" id="mfSede" onchange="_mant.fSede=this.value;_mant.fArea=\'\';go(\'mantenimiento\')">'+
+                  '<option value="">Todas las sedes</option>'+
+                  allSedesMant.map(s=>'<option value="'+escHtml(s.id)+'"'+(_mant.fSede===s.id?' selected':'')+'>'+escHtml(s.nombre)+'</option>').join('')+
+                '</select>'+
+                '<select class="inp" id="mfArea" onchange="_mant.fArea=this.value;go(\'mantenimiento\')">'+
+                  '<option value="">Todas las areas</option>'+
+                  areasOptsMant.map(a=>'<option value="'+escHtml(a)+'"'+(_mant.fArea===a?' selected':'')+'>'+escHtml(a)+'</option>').join('')+
+                '</select>'+
       '<select class="inp" onchange="_mant.fEstado=this.value;go(\'mantenimiento\')">'+
         '<option value="">Todos los estados</option>'+
         Object.entries(_NIVEL_LABEL).map(([v,l])=>'<option value="'+v+'"'+(_mant.fEstado===v?' selected':'')+'>'+l+'</option>').join('')+
@@ -10989,7 +11004,7 @@ function renderProgramasMant(progs) {
         '<option value="">Todos los tipos</option>'+
         tipos.map(t=>'<option'+(_mant.fTipo===t?' selected':'')+'>'+escHtml(t)+'</option>').join('')+
       '</select>'+
-      (hayFiltro?'<button class="btn btn-ghost btn-sm" onclick="_mant.q=\'\';_mant.fTipo=\'\';_mant.fEstado=\'\';go(\'mantenimiento\')">&#10005; Limpiar</button>':'')+
+            (hayFiltro?'<button class="btn btn-ghost btn-sm" onclick="_mant.q=\'\';_mant.fTipo=\'\';_mant.fEstado=\'\';_mant.fSede=\'\';_mant.fArea=\'\';go(\'mantenimiento\')">&#10005; Limpiar</button>':'')+
       '<div style="flex-basis:100%;height:0"></div>'+
       '<div style="font-size:12px;color:var(--t2)">'+rows.length+' de '+progs.length+' programa'+(progs.length!==1?'s':'')+'</div>'+
       '<div style="margin-left:auto;display:flex;gap:6px">'+
