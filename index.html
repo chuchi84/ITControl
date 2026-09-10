@@ -496,6 +496,7 @@ body.rol-basico .fin-card { display: none; }
 
     <div class="nav-sec">Operacion</div>
     <div class="nav-item" data-m="mantenimiento" onclick="go('mantenimiento')"><span class="nav-icon">&#9881;</span>Mantenimiento</div>
+           <div class="nav-item" data-m="tinta" onclick="go('tinta')"><span class="nav-icon">&#128167;</span>span>Control de tinta</div>div>
     <div class="nav-item" data-m="historial" onclick="go('historial')"><span class="nav-icon">&#128203;</span>Historial</div>
     <div class="nav-item" data-m="tareas" onclick="go('tareas')"><span class="nav-icon">&#10003;</span>Tareas</div>
     <div class="nav-item" data-m="inventario" onclick="go('inventario')"><span class="nav-icon">&#128203;</span>Inventario fisico</div>
@@ -597,6 +598,8 @@ const DB = {
   personas: [],
   usuarios: [],
   log: [],
+       tinta_compras: [],
+       tinta_recargas: [],
 };
 
 // ============================================================
@@ -1206,6 +1209,8 @@ const MOD_LABELS = {
   licencias:'Licencias',rendicion:'Rendicion',
   tareas:'Tareas',empresas:'Mi empresa',mapas:'Mapas de Sedes',mantenimiento:'Mantenimiento Preventivo',soporte:'Soporte',inventario:'Inventario Físico',reportes:'Reportes',importacion:'Importar',notificaciones:'Notificaciones',
   usuarios:'Usuarios',auditoria:'Auditoria',qr:'Etiquetas QR',alertas:'Alertas',
+       tinta:'Control de Tinta',
+};
 };
 const ADD_FNS = {
   compras:iniciarWizardCompra,equipos:addEquipo,historial:addHistorialNew,
@@ -1246,7 +1251,7 @@ function go(mod) {
     tareas:renderTareas,empresas:renderEmpresas,mapas:renderMapas,mantenimiento:renderMantenimiento,soporte:renderSoporte,inventario:renderInventario,reportes:renderReportes,importacion:renderImportacion,notificaciones:renderNotificaciones,usuarios:renderUsuarios,
     auditoria:renderAuditoria,qr:renderQR,alertas:renderAlertas,
   };
-  $('mc').innerHTML=(renders[mod]||renderTodo)();
+  $('mc').innerHTML=(renders[mod]||renderTodo)();tinta:renderTinta,
   // Post-render: inicializar drag&drop en módulos con kanban.
   // Sortable soporta touch y mouse a la vez; se re-monta cada vez que
   // el render vuelve a dibujar el DOM (que borra las instancias anteriores).
@@ -3504,7 +3509,237 @@ function renderLicencias(){
   const lic=coLic(),v=getView('licencias');
   const getLB=l=>{if(!l.vence)return '<span class="badge bg">Perpetua</span>';const d=daysUntil(l.vence);if(d<0)return '<span class="badge br">Vencida</span>';if(d<=60)return '<span class="badge by">Vence en '+d+'d</span>';return '<span class="badge bg">Vigente</span>';};
   const stats='<div class="g4" style="margin-bottom:16px">'+
-    '<div class="stat blue"><div class="sl">Licencias</div><div class="sv">'+lic.length+'</div></div>'+
+    // ============================================================
+// CONTROL DE TINTA
+// ============================================================
+const TINTA_COLORES = [
+  {key:'negro',    label:'Negro',    color:'#1a1a2e'},
+  {key:'cian',     label:'Cian',     color:'#06b6d4'},
+  {key:'magenta',  label:'Magenta',  color:'#ec4899'},
+  {key:'amarillo', label:'Amarillo', color:'#eab308'},
+];
+const TINTA_TANQUE_ML = 70;
+const TINTA_PARTE_ML = TINTA_TANQUE_ML / 4; // 17.5ml = 1/4 del estanque
+
+const coTintaCompras  = () => (DB.tinta_compras||[]).filter(c=>c.co===DB.co);
+const coTintaRecargas = () => (DB.tinta_recargas||[]).filter(r=>r.co===DB.co);
+
+// ml usados de un color en una recarga: (4 - nivel_antes) * 17.5.
+// nivel_antes = cuanto quedaba en el estanque ANTES de rellenar (0 a 4 cuartos).
+// Si el campo viene vacio/undefined, ese color no se toco en esa recarga.
+function tintaMlUsados(recarga, colorKey) {
+  const v = recarga[colorKey];
+  if (v===null || v===undefined || v==='') return 0;
+  const nivel = Number(v);
+  if (isNaN(nivel)) return 0;
+  return (4 - nivel) * TINTA_PARTE_ML;
+}
+
+function stockTinta(colorKey) {
+  const comprado = coTintaCompras().filter(c=>c.color===colorKey).reduce((s,c)=>s+(Number(c.ml)||0),0);
+  const usado = coTintaRecargas().reduce((s,r)=>s+tintaMlUsados(r,colorKey),0);
+  return comprado - usado;
+}
+
+function partesLabel(v) {
+  if (v===null || v===undefined || v==='') return '<span style="color:var(--t3);font-size:11px">no se rellenó</span>';
+  const n = Number(v);
+  return '<span class="mono" style="font-size:11px">'+n+'/4</span>';
+}
+
+function renderTinta() {
+  if (!hayEmpresa()) { avisarSinEmpresa(); return ''; }
+  const stockCards = TINTA_COLORES.map(c=>{
+    const disp = stockTinta(c.key);
+    return '<div class="stat" style="border-left:4px solid '+c.color+'">'+
+      '<div class="sl">'+c.label+'</div>'+
+      '<div class="sv mono" style="font-size:16px">'+disp.toFixed(1)+' ml</div>'+
+      '<div style="font-size:11px;color:var(--t3)">'+(disp/1000).toFixed(2)+' L disponibles</div>'+
+    '</div>';
+  }).join('');
+
+  const recargas = coTintaRecargas().slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  const compras = coTintaCompras().slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+
+  const tablaRecargas = !recargas.length
+    ? '<div class="empty-state"><div class="ei">&#128167;</div>Sin recargas registradas</div>'
+    : '<div class="card"><div class="tw"><table><thead><tr><th>Fecha</th><th>Impresora</th><th>Negro</th><th>Cian</th><th>Magenta</th><th>Amarillo</th><th>Contador (B/N - Color - Total)</th><th></th></tr></thead><tbody>'+
+      recargas.map(r=>{
+        const eq = getEq(r.eq_id);
+        return '<tr>'+
+          '<td class="td-muted">'+(r.fecha?fDate(r.fecha):'-')+'</td>'+
+          '<td>'+(eq?escHtml((eq.marca||'')+' '+(eq.modelo||'')):escHtml(r.eq_id))+
+            '<div class="td-muted mono" style="font-size:10.5px">'+escHtml(r.eq_id)+'</div></td>'+
+          '<td>'+partesLabel(r.negro)+'</td>'+
+          '<td>'+partesLabel(r.cian)+'</td>'+
+          '<td>'+partesLabel(r.magenta)+'</td>'+
+          '<td>'+partesLabel(r.amarillo)+'</td>'+
+          '<td class="mono td-muted" style="font-size:11px">'+(r.cont_bn||0)+' / '+(r.cont_color||0)+' / '+(r.cont_total||0)+'</td>'+
+          '<td><button class="btn btn-ghost btn-sm btn-icon" onclick="eliminarRecargaTinta(\''+r.id+'\')" title="Eliminar">&#10005;</button></td>'+
+        '</tr>';
+      }).join('')+
+    '</tbody></table></div></div>';
+
+  const tablaCompras = !compras.length
+    ? '<div class="empty-state"><div class="ei">&#128722;</div>Sin compras registradas</div>'
+    : '<div class="card"><div class="tw"><table><thead><tr><th>Fecha</th><th>Color</th><th>Cantidad</th><th>Proveedor</th><th>Monto</th><th></th></tr></thead><tbody>'+
+      compras.map(c=>{
+        const ci = TINTA_COLORES.find(t=>t.key===c.color);
+        return '<tr>'+
+          '<td class="td-muted">'+(c.fecha?fDate(c.fecha):'-')+'</td>'+
+          '<td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+(ci?ci.color:'#999')+';margin-right:6px"></span>'+(ci?ci.label:c.color)+'</td>'+
+          '<td class="mono">'+(c.ml||0)+' ml</td>'+
+          '<td class="td-muted">'+escHtml(c.proveedor||'-')+'</td>'+
+          '<td class="mono">'+(c.monto?fCLP(c.monto):'-')+'</td>'+
+          '<td><button class="btn btn-ghost btn-sm btn-icon" onclick="eliminarCompraTinta(\''+c.id+'\')" title="Eliminar">&#10005;</button></td>'+
+        '</tr>';
+      }).join('')+
+    '</tbody></table></div></div>';
+
+  return (
+    '<div class="g4" style="margin-bottom:16px">'+stockCards+'</div>'+
+    '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">'+
+      '<button class="btn btn-primary btn-sm" onclick="abrirRecargaTinta()">+ Registrar recarga</button>'+
+      '<button class="btn btn-secondary btn-sm" onclick="abrirCompraTinta()">+ Registrar compra de tinta</button>'+
+    '</div>'+
+    '<div style="font-size:13px;font-weight:600;margin-bottom:8px">Recargas recientes</div>'+
+    tablaRecargas+
+    '<div style="font-size:13px;font-weight:600;margin:20px 0 8px">Compras de tinta</div>'+
+    tablaCompras
+  );
+}
+
+function abrirRecargaTinta() {
+  if (!hayEmpresa()) { avisarSinEmpresa(); return; }
+  const impresoras = DB.equipos.filter(e=>e.co===DB.co && /impresora/i.test(e.tipo||'') && e.estado!=='De baja' && e.estado!=='Dado de baja');
+  const hoy = new Date().toISOString().slice(0,10);
+  const nivelOpts = '<option value="">No se rellenó esta vez</option>'+
+    '<option value="0">Vacío (0/4)</option>'+
+    '<option value="1">1/4</option>'+
+    '<option value="2">2/4 (mitad)</option>'+
+    '<option value="3">3/4</option>'+
+    '<option value="4">Ya estaba lleno (4/4)</option>';
+  openMo('Registrar recarga de tinta',
+    '<div class="fgrid f2">'+
+      '<div class="fg" style="grid-column:1/-1"><label>Impresora <span class="req">*</span></label><select id="rtEq">'+
+        (impresoras.length? impresoras.map(e=>'<option value="'+e.id+'">'+e.id+' - '+escHtml(e.marca||'')+' '+escHtml(e.modelo||'')+'</option>').join('') : '<option value="">Sin impresoras registradas</option>')+
+      '</select></div>'+
+      '<div class="fg"><label>Fecha</label><input type="date" id="rtFecha" value="'+hoy+'"></div>'+
+    '</div>'+
+    '<div style="margin:14px 0 6px;font-size:12.5px;font-weight:600">Nivel del estanque ANTES de rellenar (se calcula solo cuánto usaste para dejarlo lleno)</div>'+
+    '<div class="fgrid f2" style="gap:10px">'+
+      TINTA_COLORES.map(c=>
+        '<div class="fg"><label><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+c.color+';margin-right:5px"></span>'+c.label+'</label>'+
+        '<select id="rt_'+c.key+'" onchange="_actualizarMlTinta(\''+c.key+'\')">'+nivelOpts+'</select>'+
+        '<div id="rt_'+c.key+'_ml" style="font-size:11px;color:var(--t3);margin-top:3px"></div>'+
+        '</div>'
+      ).join('')+
+    '</div>'+
+    '<div style="margin:14px 0 6px;font-size:12.5px;font-weight:600">Contador de impresiones de la impresora (al momento de la recarga)</div>'+
+    '<div class="fgrid f2" style="gap:10px">'+
+      '<div class="fg"><label>Blanco y negro</label><input type="number" id="rtBn" min="0" placeholder="0"></div>'+
+      '<div class="fg"><label>Color</label><input type="number" id="rtColor" min="0" placeholder="0"></div>'+
+      '<div class="fg" style="grid-column:1/-1"><label>Total</label><input type="number" id="rtTotal" min="0" placeholder="0"></div>'+
+    '</div>'+
+    '<div class="fg" style="margin-top:10px"><label>Notas</label><textarea id="rtNotas" style="min-height:50px"></textarea></div>',
+    '<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button>'+
+    '<button class="btn btn-primary" onclick="guardarRecargaTinta()">Guardar</button>',
+    'lg'
+  );
+}
+
+function _actualizarMlTinta(colorKey) {
+  const sel = $('rt_'+colorKey);
+  const out = $('rt_'+colorKey+'_ml');
+  if (!sel || !out) return;
+  if (sel.value==='') { out.textContent=''; return; }
+  const ml = (4-Number(sel.value))*TINTA_PARTE_ML;
+  out.textContent = '~'+ml+'ml usados para dejarlo lleno';
+}
+
+function guardarRecargaTinta() {
+  const eqId = $('rtEq')?.value;
+  if (!eqId) { toast('Selecciona una impresora','err'); return; }
+  const recarga = {
+    id: 'RT-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),
+    co: DB.co, eq_id: eqId,
+    fecha: $('rtFecha')?.value || new Date().toISOString().slice(0,10),
+    negro: $('rt_negro')?.value ?? '',
+    cian: $('rt_cian')?.value ?? '',
+    magenta: $('rt_magenta')?.value ?? '',
+    amarillo: $('rt_amarillo')?.value ?? '',
+    cont_bn: parseInt($('rtBn')?.value)||0,
+    cont_color: parseInt($('rtColor')?.value)||0,
+    cont_total: parseInt($('rtTotal')?.value)||0,
+    notas: $('rtNotas')?.value || '',
+  };
+  if (!DB.tinta_recargas) DB.tinta_recargas = [];
+  DB.tinta_recargas.push(recarga);
+  if (cloudMode) cloudWrite('tinta_recarga_add', { tinta_recarga: recarga });
+  addLog('Registró recarga de tinta','tinta', eqId);
+  closeMo();
+  toast('Recarga registrada');
+  go('tinta');
+}
+
+function eliminarRecargaTinta(id) {
+  DB.tinta_recargas = (DB.tinta_recargas||[]).filter(r=>r.id!==id);
+  if (cloudMode) cloudWrite('tinta_recarga_del', { id });
+  toast('Recarga eliminada');
+  go('tinta');
+}
+
+function abrirCompraTinta() {
+  if (!hayEmpresa()) { avisarSinEmpresa(); return; }
+  const hoy = new Date().toISOString().slice(0,10);
+  openMo('Registrar compra de tinta',
+    '<div class="fgrid f2">'+
+      '<div class="fg"><label>Color <span class="req">*</span></label><select id="ctColor">'+
+        TINTA_COLORES.map(c=>'<option value="'+c.key+'">'+c.label+'</option>').join('')+
+      '</select></div>'+
+      '<div class="fg"><label>Cantidad (ml)</label><input type="number" id="ctMl" value="1000" min="1"></div>'+
+      '<div class="fg"><label>Fecha</label><input type="date" id="ctFecha" value="'+hoy+'"></div>'+
+      '<div class="fg"><label>Proveedor</label><input type="text" id="ctProv" placeholder="..."></div>'+
+      '<div class="fg"><label>Monto (CLP)</label><input type="number" id="ctMonto" placeholder="0"></div>'+
+    '</div>'+
+    '<div class="fg" style="margin-top:10px"><label>Notas</label><input type="text" id="ctNotas"></div>',
+    '<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button>'+
+    '<button class="btn btn-primary" onclick="guardarCompraTinta()">Guardar</button>'
+  );
+}
+
+function guardarCompraTinta() {
+  const compra = {
+    id: 'CT-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),
+    co: DB.co, color: $('ctColor')?.value || 'negro',
+    ml: parseInt($('ctMl')?.value)||0,
+    fecha: $('ctFecha')?.value || new Date().toISOString().slice(0,10),
+    proveedor: $('ctProv')?.value || '',
+    monto: parseInt($('ctMonto')?.value)||0,
+    notas: $('ctNotas')?.value || '',
+  };
+  if (!compra.ml) { toast('Ingresa una cantidad válida','err'); return; }
+  if (!DB.tinta_compras) DB.tinta_compras = [];
+  DB.tinta_compras.push(compra);
+  if (cloudMode) cloudWrite('tinta_compra_add', { tinta_compra: compra });
+  addLog('Registró compra de tinta','tinta', compra.color+' '+compra.ml+'ml');
+  closeMo();
+  toast('Compra registrada');
+  go('tinta');
+}
+
+function eliminarCompraTinta(id) {
+  DB.tinta_compras = (DB.tinta_compras||[]).filter(c=>c.id!==id);
+  if (cloudMode) cloudWrite('tinta_compra_del', { id });
+  toast('Compra eliminada');
+  go('tinta');
+}
+
+function renderLicencias(){
+       const lic=coLic(),v=getView('licencias');
+       const getLB=l=>{if(!l.vence)return '<span class="badge bg">Perpetua</span>';const d=daysUntil(l.vence);if(d<0)return '<span class="badge br">Vencida</span>';if(d<=60)return '<span class="badge by">Vence en '+d+'d</span>';return '<span class="badge bg">Vigente</span>';};
+       const stats='<div class="g4" style="margin-bottom:16px">'+
+                '<div class="stat blue"><div class="sl">Licencias</div><div class="sv">'+lic.length+'</div></div>'+
     '<div class="stat red"><div class="sl">Vencidas</div><div class="sv">'+lic.filter(l=>l.vence&&daysUntil(l.vence)<0).length+'</div></div>'+
     '<div class="stat yellow"><div class="sl">Vencen 60d</div><div class="sv">'+lic.filter(l=>l.vence&&daysUntil(l.vence)>=0&&daysUntil(l.vence)<=60).length+'</div></div>'+
     '<div class="stat purple"><div class="sl">Costo anual</div><div class="sv mono" style="font-size:16px">'+fCLP(lic.reduce((s,l)=>s+l.costo,0))+'</div></div>'+
@@ -8353,6 +8588,7 @@ const _TABLA = {
 // Columnas válidas por tabla (espejo del schema). Filtra props que no son
 // columnas para que PostgREST no rechace el insert/upsert.
 const _COLS = {
+       tinta_compra:{t:'tinta_compras',k:'tinta_compra'}, tinta_recarga:{t:'tinta_recargas',k:'tinta_recarga'},
   empresas:['id','name','rut','prefix','counter','counterCompra','counterCompraAnio','giro','contacto','email','tel','dir','sedes','logo','url_base','clave_soporte'],
     equipos:['id','co','local_id','area','compra_id','tipo','marca','modelo','serie','estado','caracteristicas','specs','campos','software','comentarios','garantia','gar_meses','fecha_recepcion','baja_id','baja_fecha','baja_motivo'],
   compras:['id','co','local_id','proveedor','rut_prov','tipo_doc','num_doc','fecha','financiador','quien_pago','forma_pago','monto','estado_pago','metodo_pago','fecha_pago','cobrado_cliente','descripcion','area','equipos_ids','adjunto','adjunto_nombre'],
@@ -8371,6 +8607,8 @@ const _COLS = {
 function _pick(tabla, row){
   const cols = _COLS[tabla]; if(!cols || !row) return row||{};
   const out = {}; cols.forEach(c=>{ if(row[c] !== undefined) out[c] = row[c]; }); return out;
+       tinta_compras:['id','co','color','ml','fecha','proveedor','monto','notas'],
+              tinta_recargas:['id','co','eq_id','fecha','negro','cian','magenta','amarillo','cont_bn','cont_color','cont_total','notas'],
 }
 function _b64ToBytes(b64){ const bin=atob(b64); const a=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) a[i]=bin.charCodeAt(i); return a; }
 
