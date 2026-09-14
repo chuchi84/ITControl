@@ -11618,6 +11618,7 @@ function guardarEditPrograma(id) {
 function eliminarPrograma(id) {
   if (!confirm('¿Eliminar este programa de mantención?')) return;
   DB.programas_mant = (DB.programas_mant||[]).filter(p=>p.id!==id);
+       if (cloudMode) cloudWrite('programa_mant_del', { id });
   addLog('Eliminó programa mantención','mantenimiento', id);
   toast('Programa eliminado');
   go('mantenimiento');
