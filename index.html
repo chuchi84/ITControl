@@ -8643,7 +8643,7 @@ async function apiFetchWithToken(_token, action, body={}) {
 // ── Lectura masiva (equivale a 'load') ──
 async function _supaLoad(){
   const tablas = ['empresas','equipos','compras','historial','asignaciones','licencias',
-    'tareas','usuarios','bajas','programas_mant','solicitudes_soporte','sesiones_inventario','accesorios','personas'];
+    'tareas','usuarios','bajas','programas_mant','solicitudes_soporte','sesiones_inventario','accesorios','personas','tinta_compras','tinta_recargas'];
   const results = await Promise.all(tablas.map(t=> sb.from(t).select('*')));
   const conError = results.find(r=>r.error);
   if(conError) return { ok:false, error:conError.error.message };
@@ -8663,6 +8663,7 @@ async function _supaLoad(){
     licencias:byT.licencias, tareas:byT.tareas, usuarios:byT.usuarios, bajas:byT.bajas,
     programas_mant:byT.programas_mant, solicitudes_soporte:byT.solicitudes_soporte,
     sesiones_inventario:byT.sesiones_inventario, accesorios:byT.accesorios, personas:byT.personas, log:logRows,
+       tinta_compras:byT.tinta_compras, tinta_recargas:byT.tinta_recargas,
   };
 }
 
@@ -9083,6 +9084,8 @@ if(!currentUser?.token) return;
     DB.accesorios          = res.accesorios          || [];
     DB.personas            = res.personas            || [];
     DB.log                 = res.log                  || [];
+       DB.tinta_compras  = res.tinta_compras  || [];
+     DB.tinta_recargas = res.tinta_recargas || [];
 
     // Empresa activa: la del usuario (o la primera visible para el superadmin).
     if (res.user) currentUser = { ...currentUser, ...res.user };
@@ -9106,7 +9109,7 @@ if(!currentUser?.token) return;
     if (cloudMode) {
       DB.companies={}; DB.equipos=[]; DB.compras=[]; DB.historial=[]; DB.asignaciones=[];
       DB.licencias=[]; DB.tareas=[]; DB.usuarios=[]; DB.bajas=[]; DB.programas_mant=[];
-      DB.solicitudes_soporte=[]; DB.sesiones_inventario=[]; DB.accesorios=[]; DB.personas=[]; DB.log=[];
+      DB.solicitudes_soporte=[]; DB.sesiones_inventario=[]; DB.accesorios=[]; DB.personas=[]; DB.log=[]; DB.tinta_compras=[]; DB.tinta_recargas=[];
       aplicarAlcanceEmpresa();
     }
     toast('Error cargando datos: ' + e.message, 'err');
