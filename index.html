@@ -3573,20 +3573,21 @@ function renderTinta() {
     '</tbody></table></div></div>';
 
   const tablaCompras = !compras.length
-    ? '<div class="empty-state"><div class="ei">&#128722;</div>Sin compras registradas</div>'
-    : '<div class="card"><div class="tw"><table><thead><tr><th>Fecha</th><th>Color</th><th>Cantidad</th><th>Proveedor</th><th>Monto</th><th></th></tr></thead><tbody>'+
-      compras.map(c=>{
-        const ci = TINTA_COLORES.find(t=>t.key===c.color);
-        return '<tr>'+
-          '<td class="td-muted">'+(c.fecha?fDate(c.fecha):'-')+'</td>'+
-          '<td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+(ci?ci.color:'#999')+';margin-right:6px"></span>'+(ci?ci.label:c.color)+'</td>'+
-          '<td class="mono">'+(c.ml||0)+' ml</td>'+
-          '<td class="td-muted">'+escHtml(c.proveedor||'-')+'</td>'+
-          '<td class="mono">'+(c.monto?fCLP(c.monto):'-')+'</td>'+
-          '<td><button class="btn btn-ghost btn-sm btn-icon" onclick="eliminarCompraTinta(\''+c.id+'\')" title="Eliminar">&#10005;</button></td>'+
-        '</tr>';
-      }).join('')+
-    '</tbody></table></div></div>';
+         ? '<div class="empty-state"><div class="ei">&#128722;</div>Sin compras registradas</div>'
+           : '<div class="card"><div class="tw"><table><thead><tr><th>Fecha</th><th>Color</th><th>Cantidad</th><th>Proveedor</th><th>Monto</th><th>Compra</th><th></th></tr></thead><tbody>'+
+             compras.map(c=>{
+                          const ci = TINTA_COLORES.find(t=>t.key===c.color);
+                          return '<tr>'+
+                                         '<td class="td-muted">'+(c.fecha?fDate(c.fecha):'-')+'</td>'+
+                                         '<td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+(ci?ci.color:'#999')+';margin-right:6px"></span>'+(ci?ci.label:c.color)+'</td>'+
+                                         '<td class="mono">'+(c.ml||0)+' ml</td>'+
+                                         '<td class="td-muted">'+escHtml(c.proveedor||'-')+'</td>'+
+                                         '<td class="mono">'+(c.monto?fCLP(c.monto):'-')+'</td>'+
+                                         '<td class="td-muted mono" style="font-size:11px">'+(c.compra_id?escHtml(c.compra_id):'-')+'</td>'+
+                                         '<td><button class="btn btn-ghost btn-sm btn-icon" onclick="eliminarCompraTinta(\''+c.id+'\')" title="Eliminar">&#10005;</button></td>'+
+                                       '</tr>';
+             }).join('')+
+           '</tbody></table></div></div>';
 
   return (
     '<div class="g4" style="margin-bottom:16px">'+stockCards+'</div>'+
@@ -3701,32 +3702,60 @@ function abrirCompraTinta() {
 }
 
 function guardarCompraTinta() {
-  const compra = {
-    id: 'CT-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),
-    co: DB.co, color: $('ctColor')?.value || 'negro',
-    ml: parseInt($('ctMl')?.value)||0,
-    fecha: $('ctFecha')?.value || new Date().toISOString().slice(0,10),
-    proveedor: $('ctProv')?.value || '',
-    monto: parseInt($('ctMonto')?.value)||0,
-    notas: $('ctNotas')?.value || '',
-  };
-  if (!compra.ml) { toast('Ingresa una cantidad válida','err'); return; }
-  if (!DB.tinta_compras) DB.tinta_compras = [];
-  DB.tinta_compras.push(compra);
-  if (cloudMode) cloudWrite('tinta_compra_add', { tinta_compra: compra });
-  addLog('Registró compra de tinta','tinta', compra.color+' '+compra.ml+'ml');
-  closeMo();
-  toast('Compra registrada');
-  go('tinta');
+       const color = $('ctColor')?.value || 'negro';
+       const ml = parseInt($('ctMl')?.value)||0;
+       if (!ml) { toast('Ingresa una cantidad válida','err'); return; }
+       const fecha = $('ctFecha')?.value || new Date().toISOString().slice(0,10);
+       const proveedor = $('ctProv')?.value || '';
+       const monto = parseInt($('ctMonto')?.value)||0;
+       const notas = $('ctNotas')?.value || '';
+       const colorLabel = (TINTA_COLORES.find(c=>c.key===color)||{}).label || color;
+
+       // La compra de tinta es una compra más: se registra también en el módulo
+       // Compras (aparece en rendición y reportes), igual que "Nueva compra rápida".
+       const compraId = genCompraId();
+       const compraNormal = {
+                id: compraId, co: DB.co,
+                proveedor, rut_prov: '',
+                tipo_doc: 'Sin documento', num_doc: '',
+                fecha, monto,
+                financiador: 'yo', quien_pago: 'yo',
+                forma_pago: 'Transferencia',
+                estado_pago: 'rendicion_pendiente',
+                cobrado_cliente: false,
+                descripcion: 'Tinta '+colorLabel+' — '+ml+' ml',
+                equipos_ids: [],
+       };
+       DB.compras.push(compraNormal);
+       syncCompra(compraNormal, true);
+
+       const compra = {
+                id: 'CT-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),
+                co: DB.co, color, ml, fecha, proveedor, monto, notas,
+                compra_id: compraId,
+       };
+       if (!DB.tinta_compras) DB.tinta_compras = [];
+       DB.tinta_compras.push(compra);
+       if (cloudMode) cloudWrite('tinta_compra_add', { tinta_compra: compra });
+       addLog('Registró compra de tinta','tinta', compra.color+' '+compra.ml+'ml');
+       closeMo();
+       toast('Compra registrada (también en Compras) ✓');
+       go('tinta');
 }
 
-function eliminarCompraTinta(id) {
-  DB.tinta_compras = (DB.tinta_compras||[]).filter(c=>c.id!==id);
-  if (cloudMode) cloudWrite('tinta_compra_del', { id });
-  toast('Compra eliminada');
-  go('tinta');
-}
-
+     function eliminarCompraTinta(id) {
+            const c = (DB.tinta_compras||[]).find(x=>x.id===id);
+            DB.tinta_compras = (DB.tinta_compras||[]).filter(c=>c.id!==id);
+            if (cloudMode) cloudWrite('tinta_compra_del', { id });
+            // Si esta compra de tinta tenía su compra normal vinculada, se borra también,
+            // para no dejar un registro huérfano en Compras/rendición.
+            if (c && c.compra_id) {
+                     DB.compras = (DB.compras||[]).filter(x=>x.id!==c.compra_id);
+                     if (cloudMode) cloudWrite('compra_del', { id: c.compra_id });
+            }
+            toast('Compra eliminada');
+            go('tinta');
+     }
 // ============================================================
      // LICENCIAS
      // ============================================================
@@ -8598,7 +8627,7 @@ const _COLS = {
   sesiones_inventario:['id','co','fecha','estado','sede_filtro','area_filtro','total','eq_scope','encontrados','discrepancias','no_encontrados','iniciado_en','cerrado_en'],
   accesorios:['id','eq_padre','co','tipo','marca','modelo','serie','estado','notas','creado'],
   usuarios:['id','co','nombre','email','rol','activo'],
-     tinta_compras:['id','co','color','ml','fecha','proveedor','monto','notas'],
+     tinta_compras:['id','co','color','ml','fecha','proveedor','monto','notas','compra_id'],
      tinta_recargas:['id','co','eq_id','fecha','negro','cian','magenta','amarillo','cont_bn','cont_color','cont_total','notas'],
 };
 function _pick(tabla, row){
