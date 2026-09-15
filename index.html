@@ -6246,23 +6246,10 @@ function renderStep1() {
       '</div>'+
     '</div>'+
 
-    // Marcar como compra de tinta (se guarda directo, sin pasar por Equipos)
-    '<div class="card cp" style="margin-top:16px">'+
-      '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">'+
-        '<input type="checkbox" id="fEsTinta" '+(d.tinta_color?'checked':'')+' onchange="_toggleTintaWizard()"> Es una compra de tinta'+
-      '</label>'+
-      '<div style="font-size:11.5px;color:var(--t3);margin-top:4px">La tinta no es un equipo, así que si marcas esto la compra se guarda aquí mismo y no pasa por el paso "Equipos".</div>'+
-      '<div id="fTintaFields" class="fgrid f2" style="margin-top:10px;'+(d.tinta_color?'':'display:none')+'">'+
-        '<div class="fg"><label>Color</label><select id="fTintaColor">'+
-          TINTA_COLORES.map(c=>'<option value="'+c.key+'"'+(d.tinta_color===c.key?' selected':'')+'>'+c.label+'</option>').join('')+
-        '</select></div>'+
-        '<div class="fg"><label>Cantidad (ml)</label><input type="number" id="fTintaMl" value="'+(d.tinta_ml||1000)+'" min="1"></div>'+
       '</div>'+
-    '</div>'+
-  '</div>'+
 
-  // PANEL DERECHO — ayuda y botones
-  '<div>'+
+       // PANEL DERECHO — ayuda y botones
+    '<div>'+
     '<div class="card cp" style="margin-bottom:12px;position:sticky;top:70px">'+
       '<div style="font-size:13px;font-weight:600;margin-bottom:12px">Acciones</div>'+
       '<div style="display:flex;flex-direction:column;gap:8px">'+
@@ -6323,35 +6310,9 @@ function guardarStep1YSeguir() {
   };
   stopCam();
 
-  // La tinta no es un equipo: si está marcada, se guarda aquí mismo y no
-  // pasa por el paso "Equipos" (que es solo para activos de inventario).
-  if ($('fEsTinta')?.checked) {
-    const color = $('fTintaColor')?.value || 'negro';
-    const ml = parseInt($('fTintaMl')?.value) || 0;
-    if (!ml) { toast('Ingresa una cantidad de ml válida','err'); return; }
-    const compra = {
-      id: genCompraId(), co: DB.co,
-      equipos_ids: [],
-      ..._wiz.datos,
-      tinta_color: color,
-      tinta_ml: ml,
-    };
-    DB.compras.push(compra);
-    syncCompra(compra, true);
-    addLog('Registró compra de tinta','compras', compra.id);
-    toast('Compra de tinta registrada ✓');
-    go('compras');
-    return;
-  }
-
   renderStep2();
 }
 
-function _toggleTintaWizard() {
-  const chk = $('fEsTinta');
-  const box = $('fTintaFields');
-  if (box) box.style.display = chk?.checked ? '' : 'none';
-}
 
 
 // ── PASO 2: Equipos ───────────────────────────────────────
@@ -6841,28 +6802,13 @@ function editarCompra(id) {
             '<div class="fg" style="grid-column:1/-1"><label>Descripción</label>'+
         '<input type="text" id="ecDesc" value="'+(comp.descripcion||'')+'"></div>'+
     '</div>'+
-    '<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">'+
-      '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">'+
-        '<input type="checkbox" id="ecEsTinta" '+(comp.tinta_color?'checked':'')+' onchange="_toggleTintaEditCompra()"> Es una compra de tinta'+
-      '</label>'+
-      '<div id="ecTintaFields" class="fgrid f2" style="margin-top:10px;'+(comp.tinta_color?'':'display:none')+'">'+
-        '<div class="fg"><label>Color</label><select id="ecTintaColor">'+
-          TINTA_COLORES.map(c=>'<option value="'+c.key+'"'+(comp.tinta_color===c.key?' selected':'')+'>'+c.label+'</option>').join('')+
-        '</select></div>'+
-        '<div class="fg"><label>Cantidad (ml)</label><input type="number" id="ecTintaMl" value="'+(comp.tinta_ml||'')+'" min="1"></div>'+
-      '</div>'+
-    '</div>',
-'<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button>'+
+        '</div>',
+         '<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button>'+
     '<button class="btn btn-primary" onclick="guardarEditCompra(\''+id+'\')">Guardar cambios</button>',
     'lg'
   );
 }
 
-function _toggleTintaEditCompra() {
-  const chk = $('ecEsTinta');
-  const box = $('ecTintaFields');
-  if (box) box.style.display = chk?.checked ? '' : 'none';
-}
 
 function actualizarAreaEditCompra() {
   const sedeId = $('ecLocal')?.value||'';
@@ -6886,14 +6832,7 @@ function guardarEditCompra(id) {
   comp.cobrado_cliente=$('ecCobrado')?.value==='true';
   comp.descripcion =$('ecDesc')?.value||'';
   comp.area        =$('ecArea')?.value||'';
-  if ($('ecEsTinta')?.checked) {
-    comp.tinta_color = $('ecTintaColor')?.value || 'negro';
-    comp.tinta_ml    = parseInt($('ecTintaMl')?.value) || 0;
-  } else {
-    comp.tinta_color = null;
-    comp.tinta_ml    = null;
-  }
-  if (typeof syncCompra === 'function') syncCompra(comp, false);
+    if (typeof syncCompra === 'function') syncCompra(comp, false);
          addLog('Editó compra','compras',id);
   closeMo();toast('Compra actualizada');go('compras');
 }
