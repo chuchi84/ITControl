@@ -3593,11 +3593,11 @@ const tablaCompras = !compras.length
 
   return (
     '<div class="g4" style="margin-bottom:16px">'+stockCards+'</div>'+
-    '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">'+
+        '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">'+
       '<button class="btn btn-primary btn-sm" onclick="abrirRecargaTinta()">+ Registrar recarga</button>'+
-      '<button class="btn btn-secondary btn-sm" onclick="abrirCompraTinta()">+ Registrar compra de tinta</button>'+
+      '<span style="font-size:11.5px;color:var(--t3)">Las compras de tinta se registran en Compras, marcándolas como tinta al editarlas.</span>'+
     '</div>'+
-    '<div style="font-size:13px;font-weight:600;margin-bottom:8px">Recargas recientes</div>'+
+        '<div style="font-size:13px;font-weight:600;margin-bottom:8px">Recargas recientes</div>'+
     tablaRecargas+
     '<div style="font-size:13px;font-weight:600;margin:20px 0 8px">Compras de tinta</div>'+
     tablaCompras
@@ -3684,61 +3684,7 @@ function eliminarRecargaTinta(id) {
   go('tinta');
 }
 
-function abrirCompraTinta() {
-  if (!hayEmpresa()) { avisarSinEmpresa(); return; }
-  const hoy = new Date().toISOString().slice(0,10);
-  openMo('Registrar compra de tinta',
-    '<div class="fgrid f2">'+
-      '<div class="fg"><label>Color <span class="req">*</span></label><select id="ctColor">'+
-        TINTA_COLORES.map(c=>'<option value="'+c.key+'">'+c.label+'</option>').join('')+
-      '</select></div>'+
-      '<div class="fg"><label>Cantidad (ml)</label><input type="number" id="ctMl" value="1000" min="1"></div>'+
-      '<div class="fg"><label>Fecha</label><input type="date" id="ctFecha" value="'+hoy+'"></div>'+
-      '<div class="fg"><label>Proveedor</label><input type="text" id="ctProv" placeholder="..."></div>'+
-      '<div class="fg"><label>Monto (CLP)</label><input type="number" id="ctMonto" placeholder="0"></div>'+
-    '</div>'+
-    '<div class="fg" style="margin-top:10px"><label>Notas</label><input type="text" id="ctNotas"></div>',
-    '<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button>'+
-    '<button class="btn btn-primary" onclick="guardarCompraTinta()">Guardar</button>'
-  );
-}
-
-function guardarCompraTinta() {
-       const color = $('ctColor')?.value || 'negro';
-       const ml = parseInt($('ctMl')?.value)||0;
-       if (!ml) { toast('Ingresa una cantidad válida','err'); return; }
-       const fecha = $('ctFecha')?.value || new Date().toISOString().slice(0,10);
-       const proveedor = $('ctProv')?.value || '';
-       const monto = parseInt($('ctMonto')?.value)||0;
-       const notas = $('ctNotas')?.value || '';
-       const colorLabel = (TINTA_COLORES.find(c=>c.key===color)||{}).label || color;
-
-       // La compra de tinta ES una compra normal (aparece en Compras, rendición y
-       // reportes); solo se marca con tinta_color/tinta_ml para que el módulo de
-       // tinta la reconozca y la sume al stock. No hay tabla ni registro aparte.
-       const compra = {
-                id: genCompraId(), co: DB.co,
-                proveedor, rut_prov: '',
-                tipo_doc: 'Sin documento', num_doc: '',
-                fecha, monto,
-                financiador: 'yo', quien_pago: 'yo',
-                forma_pago: 'Transferencia',
-                estado_pago: 'rendicion_pendiente',
-                cobrado_cliente: false,
-                descripcion: notas || ('Tinta '+colorLabel+' — '+ml+' ml'),
-                equipos_ids: [],
-                tinta_color: color,
-                tinta_ml: ml,
-       };
-       DB.compras.push(compra);
-       syncCompra(compra, true);
-       addLog('Registró compra de tinta','tinta', colorLabel+' '+ml+'ml');
-       closeMo();
-       toast('Compra registrada en Compras ✓');
-       go('tinta');
-}
-
-     function eliminarCompraTinta(id) {
+function eliminarCompraTinta(id) {
             DB.compras = (DB.compras||[]).filter(c=>c.id!==id);
             if (cloudMode) cloudWrite('compra_del', { id });
             toast('Compra eliminada');
@@ -6019,6 +5965,7 @@ function renderCompras() {
       '<div style="display:flex;flex-direction:column;gap:7px">'+
         '<button class="btn btn-primary" onclick="iniciarWizardCompra()">+ Nueva compra</button>'+
         '<button class="btn btn-ghost btn-sm" onclick="ingresarSoloEquipos()">+ Solo equipos (sin compra)</button>'+
+        '<button class="btn btn-ghost btn-sm" onclick="abrirPlantillaTinta()">&#128167; Plantilla: Compra de tinta</button>'+
       '</div>'+
     '</div>'+
   '</div>'+
@@ -6028,6 +5975,62 @@ function renderCompras() {
 }
 
 
+
+// ── PLANTILLA: COMPRA DE TINTA ─────────────────────────────
+// Atajo para no tener que llenar manualmente el checkbox "Es una compra de
+// tinta" en editarCompra() cada vez. Crea una compra NORMAL (misma tabla,
+// mismo genCompraId/syncCompra que cualquier otra compra) ya pre-llenada y
+// marcada con tinta_color/tinta_ml. No existe registro aparte.
+function abrirPlantillaTinta() {
+  if (!hayEmpresa()) { avisarSinEmpresa(); return; }
+  const hoy = new Date().toISOString().slice(0,10);
+  openMo('Plantilla: Compra de tinta',
+    '<div class="fgrid f2">'+
+      '<div class="fg"><label>Color <span class="req">*</span></label><select id="ptColor">'+
+        TINTA_COLORES.map(c=>'<option value="'+c.key+'">'+c.label+'</option>').join('')+
+      '</select></div>'+
+      '<div class="fg"><label>Cantidad (ml)</label><input type="number" id="ptMl" value="1000" min="1"></div>'+
+      '<div class="fg"><label>Fecha</label><input type="date" id="ptFecha" value="'+hoy+'"></div>'+
+      '<div class="fg"><label>Proveedor</label><input type="text" id="ptProv" placeholder="..."></div>'+
+      '<div class="fg"><label>Monto (CLP)</label><input type="number" id="ptMonto" placeholder="0"></div>'+
+    '</div>'+
+    '<div class="fg" style="margin-top:10px"><label>Notas</label><input type="text" id="ptNotas"></div>',
+    '<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button>'+
+    '<button class="btn btn-primary" onclick="guardarPlantillaTinta()">Crear compra</button>'
+  );
+}
+
+function guardarPlantillaTinta() {
+  const color = $('ptColor')?.value || 'negro';
+  const ml = parseInt($('ptMl')?.value)||0;
+  if (!ml) { toast('Ingresa una cantidad válida','err'); return; }
+  const fecha = $('ptFecha')?.value || new Date().toISOString().slice(0,10);
+  const proveedor = $('ptProv')?.value || '';
+  const monto = parseInt($('ptMonto')?.value)||0;
+  const notas = $('ptNotas')?.value || '';
+  const colorLabel = (TINTA_COLORES.find(c=>c.key===color)||{}).label || color;
+
+  const compra = {
+    id: genCompraId(), co: DB.co,
+    proveedor, rut_prov: '',
+    tipo_doc: 'Sin documento', num_doc: '',
+    fecha, monto,
+    financiador: 'yo', quien_pago: 'yo',
+    forma_pago: 'Transferencia',
+    estado_pago: 'rendicion_pendiente',
+    cobrado_cliente: false,
+    descripcion: notas || ('Tinta '+colorLabel+' — '+ml+' ml'),
+    equipos_ids: [],
+    tinta_color: color,
+    tinta_ml: ml,
+  };
+  DB.compras.push(compra);
+  syncCompra(compra, true);
+  addLog('Registró compra de tinta','compras', colorLabel+' '+ml+'ml');
+  closeMo();
+  toast('Compra creada ✓');
+  go('compras');
+}
 
 // ── VER DETALLE COMPRA ────────────────────────────────────
 function verCompra(id) {
@@ -6849,13 +6852,30 @@ function editarCompra(id) {
         '<option value="false"'+(comp.cobrado_cliente!==true?' selected':'')+'>No</option>'+
         '<option value="true"'+(comp.cobrado_cliente===true?' selected':'')+'>Sí</option>'+
       '</select></div>'+
-      '<div class="fg" style="grid-column:1/-1"><label>Descripción</label>'+
+            '<div class="fg" style="grid-column:1/-1"><label>Descripción</label>'+
         '<input type="text" id="ecDesc" value="'+(comp.descripcion||'')+'"></div>'+
+    '</div>'+
+    '<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">'+
+      '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">'+
+        '<input type="checkbox" id="ecEsTinta" '+(comp.tinta_color?'checked':'')+' onchange="_toggleTintaEditCompra()"> Es una compra de tinta'+
+      '</label>'+
+      '<div id="ecTintaFields" class="fgrid f2" style="margin-top:10px;'+(comp.tinta_color?'':'display:none')+'">'+
+        '<div class="fg"><label>Color</label><select id="ecTintaColor">'+
+          TINTA_COLORES.map(c=>'<option value="'+c.key+'"'+(comp.tinta_color===c.key?' selected':'')+'>'+c.label+'</option>').join('')+
+        '</select></div>'+
+        '<div class="fg"><label>Cantidad (ml)</label><input type="number" id="ecTintaMl" value="'+(comp.tinta_ml||'')+'" min="1"></div>'+
+      '</div>'+
     '</div>',
-    '<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button>'+
+'<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button>'+
     '<button class="btn btn-primary" onclick="guardarEditCompra(\''+id+'\')">Guardar cambios</button>',
     'lg'
   );
+}
+
+function _toggleTintaEditCompra() {
+  const chk = $('ecEsTinta');
+  const box = $('ecTintaFields');
+  if (box) box.style.display = chk?.checked ? '' : 'none';
 }
 
 function actualizarAreaEditCompra() {
@@ -6880,6 +6900,13 @@ function guardarEditCompra(id) {
   comp.cobrado_cliente=$('ecCobrado')?.value==='true';
   comp.descripcion =$('ecDesc')?.value||'';
   comp.area        =$('ecArea')?.value||'';
+  if ($('ecEsTinta')?.checked) {
+    comp.tinta_color = $('ecTintaColor')?.value || 'negro';
+    comp.tinta_ml    = parseInt($('ecTintaMl')?.value) || 0;
+  } else {
+    comp.tinta_color = null;
+    comp.tinta_ml    = null;
+  }
   if (typeof syncCompra === 'function') syncCompra(comp, false);
          addLog('Editó compra','compras',id);
   closeMo();toast('Compra actualizada');go('compras');
