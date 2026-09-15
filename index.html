@@ -4248,12 +4248,22 @@ function eliminarTarea(id) {
 function editarTarea(id) {
   const t = DB.tareas.find(x=>x.id===id);
   if (!t) return;
+  const personas = _persScope();
+  const nombresPersonas = personas.map(p=>nombrePersona(p));
+  const asigActualNoListado = t.asig && !nombresPersonas.includes(t.asig);
   openMo('Editar tarea',
     '<div class="fg"><label>Título</label><input type="text" id="teTit" value="'+escHtml(t.titulo||'')+'"></div>'+
     '<div class="fg"><label>Descripción</label><textarea id="teDesc" style="min-height:80px">'+escHtml(t.desc||'')+'</textarea></div>'+
     '<div class="fgrid f2">'+
       '<div class="fg"><label>Categoría</label><input type="text" id="teCat" value="'+escHtml(t.cat||'')+'" placeholder="Ej: Instalación, Configuración"></div>'+
-      '<div class="fg"><label>Asignado a</label><input type="text" id="teAsig" value="'+escHtml(t.asig||'')+'"></div>'+
+      '<div class="fg"><label>Asignado a</label><select id="teAsig">'+
+        '<option value="">Sin asignar</option>'+
+        (asigActualNoListado ? '<option value="'+escHtml(t.asig)+'" selected>'+escHtml(t.asig)+' (fuera de Personas)</option>' : '')+
+        personas.map(p=>{
+          const nom = nombrePersona(p);
+          return '<option value="'+escHtml(nom)+'"'+(t.asig===nom?' selected':'')+'>'+escHtml(nom)+'</option>';
+        }).join('')+
+      '</select></div>'+
       '<div class="fg"><label>Prioridad</label>'+
         '<select id="tePrio">'+
           ['baja','media','alta'].map(p=>'<option value="'+p+'"'+(t.prio===p?' selected':'')+'>'+
@@ -4331,12 +4341,21 @@ function chgTa(id, s) {
 }
 
 function addTarea(){
+  const personas = _persScope();
+  const defNom = currentUser?.nombre || '';
   openMo('Nueva Tarea',
     '<div class="fgrid f2">'+
       '<div class="fg" style="grid-column:1/-1"><label>Titulo <span class="req">*</span></label><input type="text" id="tT" placeholder="Descripcion de la tarea"></div>'+
       '<div class="fg" style="grid-column:1/-1"><label>Descripcion</label><textarea id="tD"></textarea></div>'+
       '<div class="fg"><label>Categoria</label><select id="tC"><option>Inventario</option><option>Software</option><option>Red</option><option>Hardware</option><option>Licencias</option><option>Otro</option></select></div>'+
       '<div class="fg"><label>Prioridad</label><select id="tP"><option value="high">Alta</option><option value="medium" selected>Media</option><option value="low">Baja</option></select></div>'+
+      '<div class="fg"><label>Asignado a</label><select id="tAsig">'+
+        '<option value="">Sin asignar</option>'+
+        personas.map(p=>{
+          const nom = nombrePersona(p);
+          return '<option value="'+escHtml(nom)+'"'+(defNom===nom?' selected':'')+'>'+escHtml(nom)+'</option>';
+        }).join('')+
+      '</select></div>'+
       '<div class="fg"><label>Fecha limite</label><input type="date" id="tF"></div>'+
     '</div>',
     '<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button>'+
@@ -4352,7 +4371,7 @@ function saveTarea(){
     cat:    $('tC')?.value,
     prio:   $('tP')?.value,
     estado: 'pending',
-    asig:   currentUser?.nombre || '',  // era 'Cristobal R.' hardcoded
+    asig:   $('tAsig')?.value || '',
     limite: $('tF')?.value,
     creada: new Date().toISOString(),   // para el historial
     autor:  currentUser?.nombre || currentUser?.email || 'Yo',
