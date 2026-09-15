@@ -3858,6 +3858,7 @@ function filtrarTareas(campo, valor) {
 function renderTareas() {
   const ta = _taFiltradas();
   const asignados = Array.from(new Set(coTa().map(t=>t.asig).filter(Boolean))).sort();
+  const v = getView('tareas');
 
   const pend = ta.filter(t => t.estado === 'pending');
   const inp  = ta.filter(t => t.estado === 'in_progress');
@@ -3873,15 +3874,13 @@ function renderTareas() {
   });
   ordenar(pend); ordenar(inp); ordenar(done);
 
-  return (
-    // Header
+  // Header + filtros: se comparten entre las 3 vistas.
+  const header =
     '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">'+
       '<div class="srch-wrap" style="flex:1;min-width:200px"><span class="si">&#128269;</span>'+
         '<input id="taQ" type="text" placeholder="Buscar tarea..." value="'+escHtml(_taFiltros.q)+'" oninput="filtrarTareas(\'q\',this.value)"></div>'+
       '<button class="btn btn-primary" onclick="addTarea()">+ Nueva tarea</button>'+
     '</div>'+
-
-    // Filtros
     '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">'+
       '<select style="width:auto" onchange="filtrarTareas(\'prio\',this.value)">'+
         ['','alta','media','baja'].map(p => {
@@ -3899,7 +3898,57 @@ function renderTareas() {
         ? '<button class="btn btn-ghost btn-sm" onclick="_taFiltros={q:\'\',prio:\'\',asignado:\'\'};go(\'tareas\')">&#10005; Limpiar</button>'
         : '')+
       '<span style="margin-left:auto;font-size:11.5px;color:var(--t3)">'+ta.length+' tarea'+(ta.length!==1?'s':'')+'</span>'+
-    '</div>'+
+    '</div>';
+
+  const ESTLBL = { pending:'Por hacer', in_progress:'En progreso', done:'Hecho' };
+  const ESTCOLOR = { pending:'#94a3b8', in_progress:'#3b82f6', done:'#10b981' };
+  const PRIOLBL = { alta:'Urgente', media:'Normal', baja:'Baja' };
+  const PRIOCOLOR = { alta:'#ef4444', media:'#f59e0b', baja:'#10b981' };
+
+  // ── Vista LISTA: filas compactas, una por tarea ──
+  if (v === 'list') {
+    const lista = ordenar(ta.slice());
+    return header + (
+      !lista.length
+      ? '<div class="empty-state"><div class="ei">&#10003;</div>Sin tareas</div>'
+      : '<div class="card">'+
+        lista.map(t=>
+          '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer" onclick="viewTarea(\''+t.id+'\')">'+
+            '<span style="width:8px;height:8px;border-radius:50%;background:'+(PRIOCOLOR[t.prio]||'#94a3b8')+';flex-shrink:0" title="'+(PRIOLBL[t.prio]||'Sin prioridad')+'"></span>'+
+            '<span style="flex:1;font-size:12.5px'+(t.estado==='done'?';text-decoration:line-through;color:var(--t3)':'')+'">'+escHtml(t.titulo||'(sin título)')+'</span>'+
+            (t.asig ? '<span style="font-size:11px;color:var(--t3);white-space:nowrap">'+escHtml(t.asig)+'</span>' : '')+
+            (t.limite ? '<span style="font-size:11px;color:var(--t3);white-space:nowrap">&#128197; '+fDate(t.limite)+'</span>' : '')+
+            '<span class="badge" style="background:'+ESTCOLOR[t.estado]+'22;color:'+ESTCOLOR[t.estado]+';white-space:nowrap">'+(ESTLBL[t.estado]||t.estado)+'</span>'+
+          '</div>'
+        ).join('')+
+        '</div>'
+    );
+  }
+
+  // ── Vista TABLA ──
+  if (v === 'table') {
+    const lista = ordenar(ta.slice());
+    return header + (
+      !lista.length
+      ? '<div class="empty-state"><div class="ei">&#10003;</div>Sin tareas</div>'
+      : '<div class="card"><div class="tw"><table><thead><tr><th>Título</th><th>Categoría</th><th>Estado</th><th>Prioridad</th><th>Asignado</th><th>Límite</th></tr></thead><tbody>'+
+        lista.map(t=>
+          '<tr style="cursor:pointer" onclick="viewTarea(\''+t.id+'\')">'+
+            '<td'+(t.estado==='done'?' style="text-decoration:line-through;color:var(--t3)"':'')+'>'+escHtml(t.titulo||'(sin título)')+'</td>'+
+            '<td class="td-muted">'+escHtml(t.cat||'-')+'</td>'+
+            '<td class="td-muted">'+(ESTLBL[t.estado]||t.estado)+'</td>'+
+            '<td class="td-muted">'+(PRIOLBL[t.prio]||'Sin prioridad')+'</td>'+
+            '<td class="td-muted">'+escHtml(t.asig||'-')+'</td>'+
+            '<td class="td-muted">'+(t.limite?fDate(t.limite):'-')+'</td>'+
+          '</tr>'
+        ).join('')+
+        '</tbody></table></div></div>'
+    );
+  }
+
+  // ── Vista KANBAN (default) ──
+  return (
+    header +
 
     // Kanban con 3 columnas
     '<div class="ta-kanban">'+
