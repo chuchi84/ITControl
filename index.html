@@ -735,7 +735,7 @@ const getLocal = id => {
   }
   return null;
 };
-const TIPO_ICON = {PC:'&#128421;',Notebook:'&#128187;',Impresora:'&#128424;',Camara:'&#128247;',Router:'&#128225;',Switch:'&#127856;',BAM:'&#128242;',Server:'&#128220;',NVR:'&#127902;',Monitor:'&#128447;',UPS:'&#9889;',Otro:'&#128230;'};
+const TIPO_ICON = {PC:'&#128421;',Notebook:'&#128187;',Impresora:'&#128424;',Camara:'&#128247;',Router:'&#128225;',Switch:'&#127856;',BAM:'&#128242;',Server:'&#128220;',NVR:'&#127902;',Monitor:'&#128447;',UPS:'&#9889;',Tinta:'&#128167;',Otro:'&#128230;'};
      // Campos técnicos según el tipo de equipo (para el tab Hardware del editor).
      // Cada entrada: {k: clave en specs, l: etiqueta, p: placeholder de ejemplo}.
      // Los tipos que no aparecen aquí (o "Otro"/personalizados) no muestran
@@ -6403,6 +6403,7 @@ function renderStep2() {
           ['Cámara','IP,Resolución,Ubicación'],
           ['Switch','Puertos,Velocidad'],
           ['BAM','Compañía,N° Línea,Plan'],
+                       ['Tinta',''],
         ].map(([tipo,specs])=>
           '<button class="btn btn-ghost btn-xs" style="text-align:left;justify-content:flex-start" onclick="agregarFilaEquipo(\''+tipo+'\',\''+specs+'\')">'+
             '+ '+(TIPO_ICON[tipo]||'📦')+' '+tipo+
@@ -6439,57 +6440,79 @@ function agregarFilaEquipo(tipo, specsTemplate) {
   const tbody = $('eqWizRows');
   if (!tbody) return;
 
-  const locs = coLocales();
-  const d = _wiz.datos;
-  const locOpts = '<option value="">Sin sede</option>'+
-    locs.map(l=>'<option value="'+escHtml(l.id)+'"'+(d.local_id===l.id?' selected':'')+'>'+escHtml(l.nombre)+'</option>').join('');
-
   const tr = document.createElement('tr');
   tr.id = 'ewr'+i;
   tr.style.cssText = 'border-bottom:1px solid var(--border)';
+  tr.innerHTML = _filaEquipoCells(i, tipo, specsTemplate, tbody.children.length+1);
 
-  const suggestedId = genEqId_new(tbody.children.length);
-  tr.innerHTML =
-    '<td style="padding:5px 8px;color:var(--t3);font-size:11px;font-weight:600;width:24px">'+(tbody.children.length+1)+'</td>'+
+  tbody.appendChild(tr);
+  updateWizCount();
+  setTimeout(()=>{ (tipo==='Tinta' ? $('ewTintaColor'+i) : $('ewMa'+i))?.focus(); }, 50);
+}
+
+// Construye las celdas de una fila del paso "Equipos". La tinta no es un
+// equipo (no tiene marca/modelo/serie), así que su fila muestra Color y
+// Cantidad (ml) en una celda combinada en vez de los campos habituales.
+function _filaEquipoCells(i, tipo, specsTemplate, numero) {
+  const esTinta = tipo === 'Tinta';
+  const suggestedId = esTinta ? '' : genEqId_new(numero-1);
+  return (
+    '<td style="padding:5px 8px;color:var(--t3);font-size:11px;font-weight:600;width:24px">'+numero+'</td>'+
     '<td style="padding:4px 5px">'+
-      '<input type="text" id="ewId'+i+'" value="'+suggestedId+'" placeholder="Sin ID/QR" '+
+      '<input type="text" id="ewId'+i+'" value="'+suggestedId+'" placeholder="'+(esTinta?'—':'Sin ID/QR')+'" '+
         'style="font-size:11px;padding:5px 7px;width:90px;font-family:var(--mono)" '+
-        'oninput="checkDuplicateId('+i+')">'+
+        (esTinta ? 'disabled' : 'oninput="checkDuplicateId('+i+')"')+'>'+
     '</td>'+
     '<td style="padding:4px 5px;width:100px">'+
       '<select id="ewT'+i+'" onchange="actualizarTipoFila('+i+')" style="font-size:12px;padding:5px 6px">'+
-        ['PC','Notebook','Monitor','Impresora','Camara','Router','Switch','BAM','Server','Tablet','UPS','Teclado','Mouse','Accesorio','Otro']
+        ['PC','Notebook','Monitor','Impresora','Camara','Router','Switch','BAM','Server','Tablet','UPS','Teclado','Mouse','Accesorio','Tinta','Otro']
           .map(t=>'<option'+(t===tipo?' selected':'')+'>'+t+'</option>').join('')+
       '</select>'+
     '</td>'+
-    '<td style="padding:4px 5px"><input type="text" id="ewMa'+i+'" placeholder="Dell, HP..." style="font-size:12px;padding:5px 7px;min-width:80px"></td>'+
-    '<td style="padding:4px 5px"><input type="text" id="ewMo'+i+'" placeholder="Latitude 5520" style="font-size:12px;padding:5px 7px;min-width:100px"></td>'+
-    '<td style="padding:4px 5px">'+
-      '<input type="text" id="ewSn'+i+'" placeholder="SN o vacío" '+
-        'style="font-size:12px;padding:5px 7px;min-width:100px;font-family:var(--mono)" '+
-        'oninput="checkDuplicates()">'+
-    '</td>'+
-    '<td style="padding:4px 5px"><input type="text" id="ewSp'+i+'" placeholder="'+(specsTemplate||'RAM, disco...')+'" style="font-size:12px;padding:5px 7px;min-width:120px"></td>'+
+    (esTinta ?
+      '<td colspan="4" style="padding:4px 5px">'+
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+          '<label style="font-size:11px;color:var(--t3)">Color</label>'+
+          '<select id="ewTintaColor'+i+'" style="font-size:12px;padding:5px 6px">'+
+            TINTA_COLORES.map(c=>'<option value="'+c.key+'">'+c.label+'</option>').join('')+
+          '</select>'+
+          '<label style="font-size:11px;color:var(--t3)">Cantidad (ml)</label>'+
+          '<input type="number" id="ewTintaMl'+i+'" value="1000" min="1" style="font-size:12px;padding:5px 7px;width:90px">'+
+        '</div>'+
+      '</td>'
+    :
+      '<td style="padding:4px 5px"><input type="text" id="ewMa'+i+'" placeholder="Dell, HP..." style="font-size:12px;padding:5px 7px;min-width:80px"></td>'+
+      '<td style="padding:4px 5px"><input type="text" id="ewMo'+i+'" placeholder="Latitude 5520" style="font-size:12px;padding:5px 7px;min-width:100px"></td>'+
+      '<td style="padding:4px 5px">'+
+        '<input type="text" id="ewSn'+i+'" placeholder="SN o vacío" '+
+          'style="font-size:12px;padding:5px 7px;min-width:100px;font-family:var(--mono)" '+
+          'oninput="checkDuplicates()">'+
+      '</td>'+
+      '<td style="padding:4px 5px"><input type="text" id="ewSp'+i+'" placeholder="'+(specsTemplate||'RAM, disco...')+'" style="font-size:12px;padding:5px 7px;min-width:120px"></td>'
+    )+
     '<td style="padding:4px 5px">'+
       '<button onclick="eliminarFilaEquipo(\'ewr'+i+'\')" '+
         'style="background:none;border:none;color:var(--t3);cursor:pointer;padding:4px 7px;border-radius:4px;font-size:14px" '+
         'onmouseover="this.style.color=\'var(--red)\'" onmouseout="this.style.color=\'var(--t3)\'">&#10005;</button>'+
-    '</td>';
-
-  tbody.appendChild(tr);
-  updateWizCount();
-  setTimeout(()=>$('ewMa'+i)?.focus(), 50);
+    '</td>'
+  );
 }
 
 function _agregarFila(eq) {
   agregarFilaEquipo(eq.tipo, '');
   const i = _wizRowCount - 1;
+  if (eq.tipo === 'Tinta') {
+    if ($('ewTintaColor'+i)) $('ewTintaColor'+i).value = eq.tinta_color||'negro';
+    if ($('ewTintaMl'+i))    $('ewTintaMl'+i).value    = eq.tinta_ml||1000;
+    return;
+  }
   if ($('ewMa'+i)) $('ewMa'+i).value = eq.marca||'';
   if ($('ewMo'+i)) $('ewMo'+i).value = eq.modelo||'';
   if ($('ewSn'+i)) $('ewSn'+i).value = eq.serie||'';
   if ($('ewSp'+i)) $('ewSp'+i).value = eq._specs_raw||'';
   if ($('ewEst'+i)) $('ewEst'+i).value = eq.estado||'Disponible';
   if ($('ewLoc'+i)) $('ewLoc'+i).value = eq.local_id||'';
+}
 }
 
 function eliminarFilaEquipo(rowId) {
@@ -6566,7 +6589,12 @@ function checkDuplicates() {
 }
 
 function actualizarTipoFila(i) {
-  // Nada extra por ahora, placeholder para futuro
+       const sel = $('ewT'+i);
+       const tr = $('ewr'+i);
+       if (!sel || !tr) return;
+       const numero = Array.from(tr.parentElement.children).indexOf(tr) + 1;
+       tr.innerHTML = _filaEquipoCells(i, sel.value, '', numero);
+       setTimeout(()=>{ (sel.value==='Tinta' ? $('ewTintaColor'+i) : $('ewMa'+i))?.focus(); }, 30);
 }
 
 // ── GUARDAR TODO ──────────────────────────────────────────
@@ -6574,14 +6602,24 @@ function guardarTodo() {
   const tbody = $('eqWizRows');
   const rows = tbody ? Array.from(tbody.children) : [];
 
-  // Recopilar equipos
+    // Recopilar equipos (y, aparte, las filas de tinta: no son equipos,
+  // van directo a marcar la compra con tinta_color/tinta_ml)
   const equiposData = [];
+  const tintaData = [];
   let rowIdx = 0;
   while (rowIdx < _wizRowCount) {
-    const t=$('ewT'+rowIdx), ma=$('ewMa'+rowIdx), mo=$('ewMo'+rowIdx),
+    const t = $('ewT'+rowIdx);
+    if (!t) { rowIdx++; continue; }
+    if (t.value === 'Tinta') {
+      const ml = parseInt($('ewTintaMl'+rowIdx)?.value) || 0;
+      if (ml > 0) tintaData.push({ color: $('ewTintaColor'+rowIdx)?.value || 'negro', ml });
+      rowIdx++;
+      continue;
+    }
+    const ma=$('ewMa'+rowIdx), mo=$('ewMo'+rowIdx),
           sn=$('ewSn'+rowIdx), sp=$('ewSp'+rowIdx),
           eid=$('ewId'+rowIdx);
-    if (t && ma && ma.value.trim()) {
+    if (ma && ma.value.trim()) {
       // Parsear specs rápidas (coma separadas)
       const specs={};
       if(sp?.value) sp.value.split(',').forEach(s=>{
@@ -6604,7 +6642,7 @@ function guardarTodo() {
     rowIdx++;
   }
 
-  if (equiposData.length===0 && !confirm('¿Guardar sin equipos? Podrás agregarlos después.')) return;
+  if (equiposData.length===0 && tintaData.length===0 && !confirm('¿Guardar sin equipos? Podrás agregarlos después.')) return;
 
   // Crear / actualizar compra
   let ocId = _wiz.compraId;
@@ -6676,6 +6714,19 @@ function guardarTodo() {
   addLog('Registró compra+equipos','compras',
     (ocId||'sin compra')+' · '+eqIds.length+' equipo'+(eqIds.length!==1?'s':''));
 
+  // La tinta no crea un equipo: marca la compra con tinta_color/tinta_ml
+  // (ver coTintaCompras/stockTinta en el módulo Control de tinta).
+  if (ocId && tintaData.length > 0) {
+    const comp = DB.compras.find(x=>x.id===ocId);
+    if (comp) {
+      comp.tinta_color = tintaData[0].color;
+      comp.tinta_ml = tintaData[0].ml;
+      if (tintaData.length > 1) {
+        toast('Solo se guardó el primer color de tinta; agrega los demás colores en otra compra.','info');
+      }
+    }
+  }
+
   // ── SYNC CON CLOUD ──
   if (typeof syncCompra === 'function' && ocId) {
     const compGuardada = DB.compras.find(x=>x.id===ocId);
@@ -6689,8 +6740,9 @@ function guardarTodo() {
   }
 
   // Mensaje final
+  const tintaMsg = tintaData.length ? ' + tinta' : '';
   const msg = ocId
-    ? 'Compra '+ocId+' guardada con '+eqIds.length+' equipo'+(eqIds.length!==1?'s':'')
+    ? 'Compra '+ocId+' guardada'+(eqIds.length?' con '+eqIds.length+' equipo'+(eqIds.length!==1?'s':''):'')+tintaMsg
     : eqIds.length+' equipo'+(eqIds.length!==1?'s':'')+' registrado'+(eqIds.length!==1?'s':'')+' sin compra';
 
   toast(msg);
