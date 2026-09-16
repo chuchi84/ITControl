@@ -11780,11 +11780,26 @@ function confirmarEjecucion(progId) {
 
 // Umbrales de SLA en horas por prioridad. Si (ahora - creación) supera el
 // umbral 'warning', se pinta amarillo; si supera 'critical', rojo.
-const SLA_UMBRALES = {
+// Estos son los valores por defecto; cada empresa puede fijar los suyos
+// propios desde Soporte → Configurar SLA (se guardan en co().sla_umbrales).
+const SLA_UMBRALES_DEFAULT = {
        alta:  { warn: 4,  crit: 8 },
        media: { warn: 24, crit: 48 },
        baja:  { warn: 72, crit: 120 },
 };
+// Umbrales efectivos: los de la empresa activa si los configuró, si no los
+// por defecto. Se recalcula cada vez (no se cachea) para reflejar cambios
+// recién guardados sin tener que recargar la página.
+function slaUmbralesActivos() {
+  const custom = co()?.sla_umbrales;
+  if (!custom) return SLA_UMBRALES_DEFAULT;
+  const out = {};
+  ['alta','media','baja'].forEach(p => {
+    out[p] = (custom[p] && custom[p].warn > 0 && custom[p].crit > 0)
+      ? custom[p] : SLA_UMBRALES_DEFAULT[p];
+  });
+  return out;
+}
 
 // Devuelve horas transcurridas desde 'fecha' hasta ahora.
 function _horasDesde(fecha) {
@@ -11797,12 +11812,64 @@ function _horasDesde(fecha) {
 // Los tickets resueltos siempre son 'ok' (ya no cuenta el tiempo).
 function slaNivel(s) {
   if (s.estado === 'resuelta') return 'ok';
-  const u = SLA_UMBRALES[s.prioridad] || SLA_UMBRALES.media;
+  const u = slaUmbralesActivos()[s.prioridad] || slaUmbralesActivos().media;
   const h = _horasDesde(s.fecha);
   if (h >= u.crit) return 'crit';
   if (h >= u.warn) return 'warn';
   return 'ok';
 }
+
+// ── CONFIGURAR SLA (por empresa) ──────────────────────────
+// Los umbrales se guardan en co().sla_umbrales = {alta:{warn,crit}, ...}
+// (mismo objeto/flujo que cualquier otro dato de la empresa: se sincroniza
+// con syncEmpresa/cloudWrite('empresa_edit'), no hay tabla aparte).
+function abrirConfigSla() {
+  if (!hayEmpresa()) { avisarSinEmpresa(); return; }
+  const u = slaUmbralesActivos();
+  const fila = (prio, label) => (
+    '<div class="fg" style="grid-column:1/-1;border-top:1px solid var(--border);padding-top:10px;margin-top:4px">'+
+      '<label style="font-weight:600">'+label+'</label>'+
+    '</div>'+
+    '<div class="fg"><label>Aviso (amarillo) después de (horas)</label>'+
+      '<input type="number" id="sla'+prio+'Warn" value="'+u[prio].warn+'" min="1"></div>'+
+    '<div class="fg"><label>Vencido (rojo) después de (horas)</label>'+
+      '<input type="number" id="sla'+prio+'Crit" value="'+u[prio].crit+'" min="1"></div>'
+  );
+  openMo('Configurar SLA',
+    '<div style="font-size:11.5px;color:var(--t3);margin-bottom:10px">'+
+      'Define cuánto tiempo puede pasar un ticket sin atención antes de marcarse '+
+      'en amarillo (aviso) y en rojo (vencido), por prioridad.'+
+    '</div>'+
+    '<div class="fgrid f2">'+
+      fila('alta','Urgente')+
+      fila('media','Normal')+
+      fila('baja','Baja')+
+    '</div>',
+    '<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button>'+
+    '<button class="btn btn-primary" onclick="guardarConfigSla()">Guardar</button>',
+    'lg'
+  );
+}
+
+function guardarConfigSla() {
+  const out = {};
+  for (const p of ['alta','media','baja']) {
+    const warn = parseInt($('sla'+p+'Warn')?.value) || 0;
+    const crit = parseInt($('sla'+p+'Crit')?.value) || 0;
+    if (warn <= 0 || crit <= 0) { toast('Todos los valores deben ser mayores a 0','err'); return; }
+    if (crit <= warn) { toast('El umbral "Vencido" debe ser mayor que "Aviso" ('+p+')','err'); return; }
+    out[p] = { warn, crit };
+  }
+  const emp = co();
+  emp.sla_umbrales = out;
+  if (typeof syncEmpresa === 'function') syncEmpresa(emp);
+  else if (cloudMode) cloudWrite('empresa_edit', { empresa: emp });
+  addLog('Configuró umbrales de SLA','soporte','');
+  closeMo();
+  toast('SLA actualizado ✓');
+  go('soporte');
+}
+
 
 // Texto legible del tiempo transcurrido ("hace 2h", "hace 3d").
 function tiempoDesde(fecha) {
@@ -11961,13 +12028,14 @@ function renderSoporte() {
     '</div>'+
 
     // Filtro por prioridad
-    '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">'+
+        '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">'+
       '<span style="font-size:11px;color:var(--t3);font-weight:600">FILTRAR:</span>'+
       ['','alta','media','baja'].map(p => {
         const lbl = { '':'Todas','alta':'Urgente','media':'Normal','baja':'Baja' }[p];
         const sel = _sop.verFiltroPrio === p;
         return '<button class="btn-'+(sel?'primary':'ghost')+' btn-xs" onclick="filtrarSoportePrio(\''+p+'\')">'+lbl+'</button>';
       }).join('') +
+             '<button class="btn btn-ghost btn-xs" style="margin-left:auto" onclick="abrirConfigSla()">⚙️ Configurar SLA</button>'+
     '</div>'+
 
     // Kanban
