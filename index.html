@@ -3092,6 +3092,49 @@ function delPersona(id){
   closeMo(); toast('Persona eliminada'); go('personas');
 }
 
+// ── Columnas personalizables (tabla de Asignaciones) ─────────────────
+// El usuario elige qué columnas ver; se guarda en este navegador
+// (localStorage), no es una preferencia de empresa ni se sincroniza.
+const ASIG_COLUMNAS = [
+  {key:'tipo',    label:'Tipo'},
+  {key:'empresa', label:'Empresa'},
+  {key:'sede',    label:'Sede'},
+  {key:'area',    label:'Área'},
+  {key:'persona', label:'Persona'},
+  {key:'cargo',   label:'Cargo'},
+  {key:'desde',   label:'Desde'},
+];
+function getAsigColsVisibles() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('itc_asig_cols')||'null');
+    if (Array.isArray(saved) && saved.length) return saved.filter(k=>ASIG_COLUMNAS.some(c=>c.key===k));
+  } catch(_) {}
+  return ASIG_COLUMNAS.map(c=>c.key);
+}
+function asigColOn(key) { return getAsigColsVisibles().includes(key); }
+function setAsigColVisible(key, visible) {
+  const cur = getAsigColsVisibles();
+  const next = visible ? [...new Set([...cur, key])] : cur.filter(k=>k!==key);
+  localStorage.setItem('itc_asig_cols', JSON.stringify(next));
+  go('asignaciones');
+}
+function toggleAsigColsMenu() {
+  const m = document.getElementById('asigColsMenu');
+  if (m) m.style.display = m.style.display==='none' ? 'block' : 'none';
+}
+function renderAsigColsMenu(multiEmpresa) {
+  const visibles = getAsigColsVisibles();
+  const cols = multiEmpresa ? ASIG_COLUMNAS : ASIG_COLUMNAS.filter(c=>c.key!=='empresa');
+  return '<div style="position:relative;display:inline-block">'+
+    '<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toggleAsigColsMenu()" title="Elegir columnas visibles">&#9881; Columnas</button>'+
+    '<div id="asigColsMenu" class="card cp" style="display:none;position:absolute;right:0;top:100%;z-index:50;margin-top:4px;min-width:170px;padding:8px" onclick="event.stopPropagation()">'+
+      cols.map(c=>'<label style="display:flex;align-items:center;gap:6px;padding:4px 2px;font-size:12.5px;cursor:pointer">'+
+        '<input type="checkbox" '+(visibles.includes(c.key)?'checked':'')+' onchange="setAsigColVisible(\''+c.key+'\',this.checked)" style="accent-color:var(--accent);width:auto">'+c.label+
+      '</label>').join('')+
+    '</div>'+
+  '</div>';
+}
+
 function renderAsignaciones() {
   const f = _asigFiltros;
   const todas = coAsig().filter(a=>a.estado==='Activa');
@@ -3158,19 +3201,28 @@ function renderAsignaciones() {
       '<input id="afQ" style="padding-left:30px" type="text" value="'+escHtml(f.q||'')+'" placeholder="Persona, equipo, cargo, ubicación..." oninput="filtrarAsignaciones(this.value)">'+
     '</div>'+
     (hasFilters?'<button class="btn btn-ghost btn-sm" onclick="limpiarFiltrosAsig()">&#10005; Limpiar</button>':'')+
-           '<button class="btn btn-ghost btn-sm" onclick="imprimirAsignacionesPDF()">&#128424; Exportar PDF</button>'+
+                   '<button class="btn btn-ghost btn-sm" onclick="imprimirAsignacionesPDF()">&#128424; Exportar PDF</button>'+
+           renderAsigColsMenu(empresas.length>1)+
     '<span style="font-size:11.5px;color:var(--t3);white-space:nowrap">'+asig.length+' asignación'+(asig.length!==1?'es':'')+'</span>'+
   '</div>'+
 
-  // Tabla. Columna Empresa solo aparece con múltiples empresas.
+  // Tabla. Columna Empresa solo aparece con múltiples empresas; el resto
+  // de las columnas se muestran u ocultan según getAsigColsVisibles().
   '<div class="card"><div class="tw">'+
   '<table><thead><tr>'+
-    '<th>Equipo</th><th>Tipo</th>'+(empresas.length>1?'<th>Empresa</th>':'')+'<th>Sede / Área</th>'+
-    '<th>Persona</th><th>Cargo</th><th>Desde</th><th></th>'+
+    '<th>Equipo</th>'+
+    (asigColOn('tipo')?'<th>Tipo</th>':'')+
+    (empresas.length>1 && asigColOn('empresa')?'<th>Empresa</th>':'')+
+    (asigColOn('sede')?'<th>Sede</th>':'')+
+    (asigColOn('area')?'<th>Área</th>':'')+
+    (asigColOn('persona')?'<th>Persona</th>':'')+
+    (asigColOn('cargo')?'<th>Cargo</th>':'')+
+    (asigColOn('desde')?'<th>Desde</th>':'')+
+    '<th></th>'+
   '</tr></thead>'+
   '<tbody>'+
   (asig.length===0?
-    '<tr><td colspan="'+(empresas.length>1?8:7)+'" style="text-align:center;color:var(--t3);padding:24px">Sin resultados</td></tr>'
+    '<tr><td colspan="'+(2+ASIG_COLUMNAS.filter(c=>c.key!=='empresa'||empresas.length>1).length)+'" style="text-align:center;color:var(--t3);padding:24px">Sin resultados</td></tr>'
     :
     asig.map(a => {
       const eq = getEq(a.eq_id);
@@ -3178,12 +3230,13 @@ function renderAsignaciones() {
       const emp = DB.companies[eq?.co];
       return '<tr onclick="viewEquipo(\''+a.eq_id+'\')">'+
         '<td><div class="td-id">'+escHtml(a.eq_id)+'</div><div style="font-size:11.5px;color:var(--t2)">'+(eq?escHtml(eq.marca+' '+eq.modelo):'—')+'</div></td>'+
-        '<td class="td-muted">'+escHtml(eq?.tipo||'—')+'</td>'+
-        (empresas.length>1?'<td class="td-muted">'+escHtml(emp?.name||'—')+'</td>':'')+
-        '<td class="td-muted">'+(sede?escHtml(sede.nombre):'—')+(eq?.area?' <span style="color:var(--t3)">/ '+escHtml(eq.area)+'</span>':'')+'</td>'+
-        '<td style="font-size:12.5px;font-weight:500">'+(a.persona?escHtml(a.persona):'<span style="color:var(--t3)">Sin persona</span>')+'</td>'+
-        '<td class="td-muted">'+escHtml(a.cargo||'—')+'</td>'+
-        '<td class="td-muted">'+fDate(a.fecha)+'</td>'+
+        (asigColOn('tipo')?'<td class="td-muted">'+escHtml(eq?.tipo||'—')+'</td>':'')+
+        (empresas.length>1 && asigColOn('empresa')?'<td class="td-muted">'+escHtml(emp?.name||'—')+'</td>':'')+
+        (asigColOn('sede')?'<td class="td-muted">'+(sede?escHtml(sede.nombre):'—')+'</td>':'')+
+        (asigColOn('area')?'<td class="td-muted">'+(eq?.area?escHtml(eq.area):'—')+'</td>':'')+
+        (asigColOn('persona')?'<td style="font-size:12.5px;font-weight:500">'+(a.persona?escHtml(a.persona):'<span style="color:var(--t3)">Sin persona</span>')+'</td>':'')+
+        (asigColOn('cargo')?'<td class="td-muted">'+escHtml(a.cargo||'—')+'</td>':'')+
+        (asigColOn('desde')?'<td class="td-muted">'+fDate(a.fecha)+'</td>':'')+
         '<td onclick="event.stopPropagation()">'+
           '<button class="btn btn-ghost btn-sm btn-icon" onclick="asignarEquipo(\''+a.eq_id+'\')" title="Reasignar">&#8596;</button>'+
         '</td>'+
