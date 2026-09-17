@@ -24,6 +24,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="ITControl">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+     <!-- jsQR: lectura de códigos QR 100% en el navegador (sin backend, sin API key). -->
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
 <!-- Sortable.js: drag&drop con soporte táctil nativo (móvil/tablet).
      El API HTML5 draggable no funciona con dedo, esta librería sí. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
@@ -12926,7 +12928,7 @@ function renderInventarioActivo(sesion) {
         '<input type="text" id="invScanInput" placeholder="Escanea QR o ingresa ID manualmente..." '+
           'style="flex:1;font-family:var(--mono);font-size:14px" '+
           'oninput="invInputChanged(this.value)" onkeydown="if(event.key===\'Enter\')registrarEscaneo(this.value)">'+
-        '<button class="btn-primary" onclick="registrarEscaneo($\'invScanInput\'.value)">&#10003; Verificar</button>'+
+                '<button class="btn-primary" onclick="registrarEscaneo($(\'invScanInput\').value)">✓ Verificar</button>'+
       '</div>'+
       // Camera
       '<div style="display:flex;gap:6px;margin-bottom:10px">'+
@@ -13092,24 +13094,32 @@ function invStopCam() {
 
 function invCapturar() {
   const v=$('invCamVid');
-  if(!v)return;
-  const cv=document.createElement('canvas');
+      const cv=document.createElement('canvas');
   cv.width=v.videoWidth;cv.height=v.videoHeight;
-  cv.getContext('2d').drawImage(v,0,0);
-  cv.toBlob(blob=>{
-    // Lectura de QR vía proxy IA en el backend (sin API key en el cliente)
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const txt = (await iaScanImage(e.target.result,
-          'Read the QR code in this image. Reply with ONLY the text content of the QR code, nothing else. If no QR code found, reply with "NO_QR".',
-          100)).trim();
-        if(txt&&txt!=='NO_QR') registrarEscaneo(txt);
-        else toast('No se pudo leer el QR — intenta de nuevo','err');
-      } catch(ex) { toast('Error leyendo QR: '+ex.message,'err'); }
-    };
-    reader.readAsDataURL(blob);
-  },'image/jpeg',0.9);
+  const ctx=cv.getContext('2d');
+  ctx.drawImage(v,0,0);
+  // Lectura de QR 100% en el navegador (jsQR): no depende de ningún backend
+  // ni API key, funciona incluso sin conexión al servidor.
+  if (typeof jsQR !== 'function') { toast('No se pudo cargar el lector de QR','err'); return; }
+  const imgData = ctx.getImageData(0,0,cv.width,cv.height);
+  const resultado = jsQR(imgData.data, imgData.width, imgData.height);
+  if (resultado && resultado.data) {
+    registrarEscaneo(_idDesdeTextoQR(resultado.data));
+  } else {
+    toast('No se detectó ningún QR — acércate más y vuelve a intentar','err');
+  }
+}
+
+// El QR de un equipo puede codificar el ID solo ("KES-083") o, si la empresa
+// tiene URL pública configurada, la ficha completa ("https://.../?f=KES-083&co=...").
+// Esto extrae el ID en ambos casos.
+function _idDesdeTextoQR(txt) {
+  try {
+    const u = new URL(txt);
+    const f = u.searchParams.get('f');
+    if (f) return f;
+  } catch(_) {}
+  return txt;
 }
 
 // ── FINALIZAR ────────────────────────────────────────────
