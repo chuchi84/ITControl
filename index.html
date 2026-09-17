@@ -1224,6 +1224,13 @@ function go(mod) {
     toast('Tu perfil solo permite consultar equipos por QR', 'warn');
     mod = 'dashboard';
   }
+       // Reportes Excel y Auditoría: solo super admin (no admin de empresa ni técnico).
+       // Se valida acá también (no solo ocultando el link) para que no se pueda
+       // entrar escribiendo la ruta a mano.
+       if ((mod === 'reportes' || mod === 'auditoria') && !_esSuperUsuario()) {
+                toast('Solo el super admin puede acceder a este módulo', 'warn');
+                mod = 'dashboard';
+       }
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('on',el.dataset.m===mod));
   $('pgTitle').textContent=MOD_LABELS[mod]||mod;
   const ab=$('addBtn');
@@ -1303,11 +1310,15 @@ function aplicarAlcanceEmpresa(){
       else wrap.style.display = '';
     }
   }
-  // Módulos de administración (usuarios, auditoría): superadmin y admin de empresa.
+    // Módulos de administración (usuarios): superadmin y admin de empresa.
   const rol = (currentUser?.rol||'').toLowerCase();
   const puedeAdmin = !cloudMode || currentUser?.scopeAll || rol==='admin_empresa';
-  document.querySelectorAll('[data-m="usuarios"],[data-m="auditoria"]').forEach(el=>{
+  document.querySelectorAll('[data-m="usuarios"]').forEach(el=>{
     el.style.display = puedeAdmin ? '' : 'none';
+  });
+  // Reportes Excel y Auditoría: solo super admin.
+  document.querySelectorAll('[data-m="reportes"],[data-m="auditoria"]').forEach(el=>{
+    el.style.display = _esSuperUsuario() ? '' : 'none';
   });
 }
 function toggleSb(){$('sb').classList.toggle('open');$('sbOv').classList.toggle('on');}
