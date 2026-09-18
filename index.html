@@ -2817,6 +2817,45 @@ function saveSoftware(eqId){const e=DB.equipos.find(x=>x.id===eqId);e.software.p
 // ============================================================
 // ── Estado filtros Asignaciones ──
 let _asigFiltros = { empresa:'', sede:'', area:'', tipo:'', q:'' };
+let _asigSort = { col:'', dir:'asc' };
+
+// Ordena asignaciones. Como varias columnas (tipo, empresa, sede, área) no
+// viven en la propia asignación sino en el equipo, resuelve cada valor por
+// fila en vez de leer un campo fijo. allSedes se recibe para no recalcularlo.
+function sortAsignaciones(lista, allSedes) {
+  const { col, dir } = _asigSort;
+  if (!col) return lista;
+  return [...lista].sort((a,b) => {
+    const eqA = getEq(a.eq_id), eqB = getEq(b.eq_id);
+    let va, vb;
+    switch (col) {
+      case 'eq_id':   va = a.eq_id||'';  vb = b.eq_id||'';  break;
+      case 'tipo':    va = eqA?.tipo||''; vb = eqB?.tipo||''; break;
+      case 'empresa': va = DB.companies[eqA?.co]?.name||''; vb = DB.companies[eqB?.co]?.name||''; break;
+      case 'sede': {
+        const sA = allSedes.find(s=>s.id===(eqA?.local_id||a.sede_id));
+        const sB = allSedes.find(s=>s.id===(eqB?.local_id||b.sede_id));
+        va = sA?.nombre||''; vb = sB?.nombre||''; break;
+      }
+      case 'area':    va = eqA?.area||''; vb = eqB?.area||''; break;
+      case 'persona': va = a.persona||''; vb = b.persona||''; break;
+      case 'cargo':   va = a.cargo||'';   vb = b.cargo||'';   break;
+      case 'fecha':   va = a.fecha||'';   vb = b.fecha||'';   break;
+      default: return 0;
+    }
+    const r = va<vb?-1:va>vb?1:0;
+    return dir==='asc'?r:-r;
+  });
+}
+function setAsigSort(col) {
+  if (_asigSort.col===col) _asigSort.dir = _asigSort.dir==='asc'?'desc':'asc';
+  else { _asigSort.col=col; _asigSort.dir='asc'; }
+  go('asignaciones');
+}
+function sortIconAsig(col) {
+  if (_asigSort.col!==col) return '<span style="color:var(--t3);font-size:9px">&#8597;</span>';
+  return _asigSort.dir==='asc'?'<span style="font-size:9px">&#8593;</span>':'<span style="font-size:9px">&#8595;</span>';
+}
 
 function filtrarAsignaciones(q) {
   if (q !== undefined) _asigFiltros.q = q;
@@ -2881,6 +2920,29 @@ function limpiarFiltrosAsig() {
 // MÓDULO PERSONAS — directorio por empresa
 // ============================================================
 let _persQ = '';
+let _persSort = { col:'nombre', dir:'asc' };
+
+function sortPersonas(lista) {
+  const {col,dir} = _persSort;
+  return [...lista].sort((a,b) => {
+    let va, vb;
+    if (col==='nombre')       { va = nombrePersona(a)||''; vb = nombrePersona(b)||''; }
+    else if (col==='sedes')   { va = (a.sedes||[]).length; vb = (b.sedes||[]).length; }
+    else if (col==='estado')  { va = a.activo!==false?1:0; vb = b.activo!==false?1:0; }
+    else                      { va = a[col]||''; vb = b[col]||''; }
+    const r = va<vb?-1:va>vb?1:0;
+    return dir==='asc'?r:-r;
+  });
+}
+function setPersSort(col) {
+  if (_persSort.col===col) _persSort.dir = _persSort.dir==='asc'?'desc':'asc';
+  else { _persSort.col=col; _persSort.dir='asc'; }
+  go('personas');
+}
+function sortIconPers(col) {
+  if (_persSort.col!==col) return '<span style="color:var(--t3);font-size:9px">&#8597;</span>';
+  return _persSort.dir==='asc'?'<span style="font-size:9px">&#8593;</span>':'<span style="font-size:9px">&#8595;</span>';
+}
 let _persFiltroSede = '';
 let _persFiltroCargo = '';
 function _persScope(){ return (DB.personas||[]).filter(p=>p.co===DB.co); }
@@ -2961,7 +3023,7 @@ function renderPersonas(){
   const c = co();
   const sedes = c.sedes||[];
   const scope = _persScope();
-  const lista = _personasFiltradas();
+      const lista = sortPersonas(_personasFiltradas());
   // Cargos únicos existentes (para el select del filtro)
   const cargos = Array.from(new Set(scope.map(p => p.cargo).filter(Boolean))).sort();
   const sedeNom = id => sedes.find(s=>s.id===id)?.nombre || id;
@@ -3000,7 +3062,13 @@ function renderPersonas(){
         (!hayFiltros?'<button class="btn btn-secondary btn-sm" style="margin-top:12px" onclick="addPersona()">+ Crear la primera</button>':'')+
       '</div>'
     : '<div class="card"><div class="tw"><table><thead><tr>'+
-        '<th>Nombre</th><th>Cargo</th><th>Correo</th><th>Celular</th><th>Sedes</th><th>Estado</th><th></th>'+
+                '<th onclick="setPersSort(\'nombre\')" style="cursor:pointer">Nombre '+sortIconPers('nombre')+'</th>'+
+           '<th onclick="setPersSort(\'cargo\')" style="cursor:pointer">Cargo '+sortIconPers('cargo')+'</th>'+
+           '<th onclick="setPersSort(\'email\')" style="cursor:pointer">Correo '+sortIconPers('email')+'</th>'+
+           '<th onclick="setPersSort(\'celular\')" style="cursor:pointer">Celular '+sortIconPers('celular')+'</th>'+
+           '<th onclick="setPersSort(\'sedes\')" style="cursor:pointer">Sedes '+sortIconPers('sedes')+'</th>'+
+           '<th onclick="setPersSort(\'estado\')" style="cursor:pointer">Estado '+sortIconPers('estado')+'</th>'+
+           '<th></th>'+
       '</tr></thead><tbody>'+
       lista.map(p=>'<tr>'+
         '<td><div style="display:flex;align-items:center;gap:8px"><div class="av">'+escHtml((nombrePersona(p)||'?').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase())+'</div><span style="font-weight:500">'+escHtml(nombrePersona(p)||'—')+'</span></div></td>'+
@@ -3175,6 +3243,7 @@ function renderAsignaciones() {
   }
 
   const hasFilters = f.empresa||f.sede||f.area||f.tipo||f.q;
+       asig = sortAsignaciones(asig, allSedes);
 
   return (
   // Stats
@@ -3223,14 +3292,14 @@ function renderAsignaciones() {
   // de las columnas se muestran u ocultan según getAsigColsVisibles().
   '<div class="card"><div class="tw">'+
   '<table><thead><tr>'+
-    '<th>Equipo</th>'+
-    (asigColOn('tipo')?'<th>Tipo</th>':'')+
-    (empresas.length>1 && asigColOn('empresa')?'<th>Empresa</th>':'')+
-    (asigColOn('sede')?'<th>Sede</th>':'')+
-    (asigColOn('area')?'<th>Área</th>':'')+
-    (asigColOn('persona')?'<th>Persona</th>':'')+
-    (asigColOn('cargo')?'<th>Cargo</th>':'')+
-    (asigColOn('desde')?'<th>Desde</th>':'')+
+        '<th onclick="setAsigSort(\'eq_id\')" style="cursor:pointer">Equipo '+sortIconAsig('eq_id')+'</th>'+
+    (asigColOn('tipo')?'<th onclick="setAsigSort(\'tipo\')" style="cursor:pointer">Tipo '+sortIconAsig('tipo')+'</th>':'')+
+    (empresas.length>1 && asigColOn('empresa')?'<th onclick="setAsigSort(\'empresa\')" style="cursor:pointer">Empresa '+sortIconAsig('empresa')+'</th>':'')+
+    (asigColOn('sede')?'<th onclick="setAsigSort(\'sede\')" style="cursor:pointer">Sede '+sortIconAsig('sede')+'</th>':'')+
+    (asigColOn('area')?'<th onclick="setAsigSort(\'area\')" style="cursor:pointer">Área '+sortIconAsig('area')+'</th>':'')+
+    (asigColOn('persona')?'<th onclick="setAsigSort(\'persona\')" style="cursor:pointer">Persona '+sortIconAsig('persona')+'</th>':'')+
+    (asigColOn('cargo')?'<th onclick="setAsigSort(\'cargo\')" style="cursor:pointer">Cargo '+sortIconAsig('cargo')+'</th>':'')+
+    (asigColOn('desde')?'<th onclick="setAsigSort(\'fecha\')" style="cursor:pointer">Desde '+sortIconAsig('fecha')+'</th>':'')+
     '<th></th>'+
   '</tr></thead>'+
   '<tbody>'+
