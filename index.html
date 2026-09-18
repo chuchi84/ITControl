@@ -3676,6 +3676,42 @@ function partesLabel(v) {
   return '<span class="mono" style="font-size:11px">'+n+'/4</span>';
 }
 
+let _tintaRecSort = { col:'', dir:'asc' };
+function sortTintaRecargas(lista) {
+  const { col, dir } = _tintaRecSort;
+  if (!col) return lista;
+  const val = (r) => {
+    switch (col) {
+      case 'fecha': return r.fecha||'';
+      case 'impresora': {
+        const eq = getEq(r.eq_id);
+        return (eq?((eq.marca||'')+' '+(eq.modelo||'')):(r.eq_id||'')).toLowerCase();
+      }
+      case 'negro':    return (r.negro===null||r.negro===undefined||r.negro==='')?-1:Number(r.negro);
+      case 'cian':     return (r.cian===null||r.cian===undefined||r.cian==='')?-1:Number(r.cian);
+      case 'magenta':  return (r.magenta===null||r.magenta===undefined||r.magenta==='')?-1:Number(r.magenta);
+      case 'amarillo': return (r.amarillo===null||r.amarillo===undefined||r.amarillo==='')?-1:Number(r.amarillo);
+      case 'contador': return Number(r.cont_total)||0;
+      default: return 0;
+    }
+  };
+  return [...lista].sort((a,b) => {
+    const va = val(a), vb = val(b);
+    const r = va<vb?-1:va>vb?1:0;
+    return dir==='asc'?r:-r;
+  });
+}
+function setTintaRecSort(col) {
+  if (_tintaRecSort.col===col) _tintaRecSort.dir = _tintaRecSort.dir==='asc'?'desc':'asc';
+  else { _tintaRecSort.col=col; _tintaRecSort.dir='asc'; }
+  go('tinta');
+}
+function sortIconTintaRec(col) {
+  if (_tintaRecSort.col!==col) return '<span style="color:var(--t3);font-size:9px">&#8597;</span>';
+  return _tintaRecSort.dir==='asc'?'<span style="font-size:9px">&#8593;</span>':'<span style="font-size:9px">&#8595;</span>';
+}
+
+
 function renderTinta() {
   if (!hayEmpresa()) { avisarSinEmpresa(); return ''; }
   const stockCards = TINTA_COLORES.map(c=>{
@@ -3687,12 +3723,12 @@ function renderTinta() {
     '</div>';
   }).join('');
 
-  const recargas = coTintaRecargas().slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+      const recargas = sortTintaRecargas(coTintaRecargas().slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')));
   const compras = coTintaCompras().slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
 
   const tablaRecargas = !recargas.length
     ? '<div class="empty-state"><div class="ei">&#128167;</div>Sin recargas registradas</div>'
-    : '<div class="card"><div class="tw"><table><thead><tr><th>Fecha</th><th>Impresora</th><th>Negro</th><th>Cian</th><th>Magenta</th><th>Amarillo</th><th>Contador (B/N - Color - Total)</th><th></th></tr></thead><tbody>'+
+    : '<div class="card"><div class="tw"><table><thead><tr><th onclick="setTintaRecSort(\'fecha\')" style="cursor:pointer">Fecha '+sortIconTintaRec('fecha')+'</th><th onclick="setTintaRecSort(\'impresora\')" style="cursor:pointer">Impresora '+sortIconTintaRec('impresora')+'</th><th onclick="setTintaRecSort(\'negro\')" style="cursor:pointer">Negro '+sortIconTintaRec('negro')+'</th><th onclick="setTintaRecSort(\'cian\')" style="cursor:pointer">Cian '+sortIconTintaRec('cian')+'</th><th onclick="setTintaRecSort(\'magenta\')" style="cursor:pointer">Magenta '+sortIconTintaRec('magenta')+'</th><th onclick="setTintaRecSort(\'amarillo\')" style="cursor:pointer">Amarillo '+sortIconTintaRec('amarillo')+'</th><th onclick="setTintaRecSort(\'contador\')" style="cursor:pointer">Contador (B/N - Color - Total) '+sortIconTintaRec('contador')+'</th><th></th></tr></thead><tbody>'+
       recargas.map(r=>{
         const eq = getEq(r.eq_id);
         return '<tr>'+
