@@ -8325,13 +8325,21 @@ function abrirFichaEquipo(eqId, usuario) {
      // Sin login. La clave se verifica en Supabase (función verificar_clave_soporte);
      // el navegador nunca recibe la clave real, solo un true/false.
 // ── FICHA PÚBLICA DE EQUIPO (?f=<eqId>&co=<empresaId>) ──────────────
-                // (bloque placeholder; se completa en el siguiente commit)
-                                                                                                       async function mostrarFichaPublicaEquipo() {document.documentElement.style.background = 'var(--bg,#0f1117)';
+                // ── FICHA DE EQUIPO POR QR (?f=<eqId>&co=<empresaId>) ──────────────
+// Requiere haber iniciado sesión (Google/Microsoft), igual que el resto de
+// la app: init() deja pasar el flujo normal de login y, recién cuando
+// _onSupaSession() confirma la sesión, llama acá con los datos ya listos.
+async function mostrarFichaPublicaEquipo(eqId, co) {
+       document.documentElement.style.background = 'var(--bg,#0f1117)';
+       // El <body> normal de la app usa overflow:hidden (su propio scroll interno
+       // vive en otros contenedores); acá reemplazamos todo el body por esta
+       // ficha, así que hay que habilitar el scroll de la página o queda "pegada"
+       // (no se puede bajar) en pantallas chicas / celulares.
+       document.body.style.overflow = 'auto';
+       document.documentElement.style.overflow = 'auto';
+       document.body.style.display = 'block';
        document.body.innerHTML = '<div id="ficha-pub" style="max-width:480px;margin:0 auto;padding:24px 18px;min-height:100vh;box-sizing:border-box"></div>';
        const cont = $('ficha-pub');
-       const params = new URLSearchParams(location.search);
-       const eqId = params.get('f');
-       const co = params.get('co');
        if (!eqId || !co) { cont.innerHTML = '<p style="color:var(--t2);text-align:center;margin-top:60px">Link invalido.</p>'; return; }
                                                                                                                                                      let empresaNombre = ''; let empresaLogo = ''; let sedes = [];
        try {
@@ -9019,6 +9027,7 @@ async function actualizarBadgeApp(){
 function showLoginScreen() {
   const el = document.getElementById('login-overlay');
   if(el) el.style.display = 'flex';
+       else location.reload();
 }
 function hideLoginScreen() {
   const el = document.getElementById('login-overlay');
@@ -9036,7 +9045,7 @@ function showLoadingIndicator(show) {
 // ── LOGIN CON SUPABASE (Google / Microsoft) ──────────────
 async function loginProveedor(provider){   // 'google' | 'azure'
   if(!sb){ showLoginError('Falta configurar SUPABASE_URL y ANON_KEY en el código.'); return; }
-  const redirectTo = window.location.href.split('#')[0].split('?')[0];
+    const redirectTo = window.location.href.split('#')[0];
   const { error } = await sb.auth.signInWithOAuth({ provider, options:{ redirectTo } });
   if(error) showLoginError('No se pudo iniciar sesión: '+error.message);
 }
@@ -9052,6 +9061,23 @@ async function _onSupaSession(session){
     aplicarClaseRolBody();
     hideLoginScreen();
     showLoadingIndicator(false);
+
+    // ¿Se entró escaneando el QR de un equipo (?f=<eqId>&co=<empresaId>)?
+    // Si es así, mostrar esa ficha en vez del dashboard normal — solo si el
+    // equipo es de la misma empresa del usuario (o es super admin).
+    const _params = new URLSearchParams(window.location.search);
+    const _eqId = _params.get('f'), _co = _params.get('co');
+    if (_eqId && _co) {
+      if (currentUser.co === _co || currentUser.scopeAll) {
+        await mostrarFichaPublicaEquipo(_eqId, _co);
+      } else {
+        document.body.style.overflow = 'auto';
+        document.documentElement.style.overflow = 'auto';
+        document.body.innerHTML = '<div style="max-width:420px;margin:80px auto;padding:0 18px;text-align:center;color:var(--t2);font-size:14px">Tu cuenta no tiene acceso a este equipo.</div>';
+      }
+      return;
+    }
+
     await loadCloudData();
     _pushAutoActivar();   // re-suscribe al super admin si ya dio permiso antes
     actualizarBadgeApp(); // pone el número de pendientes en el ícono
@@ -9635,12 +9661,11 @@ async function instalarApp(){
                 mostrarPortalSoporte();
                 return;
        }
-     // Ficha pública de equipo (?f=<eqId>&co=<empresaId>), leyendo el QR: tampoco requiere sesión.
-       if (new URLSearchParams(window.location.search).has('f')) {
-                mostrarFichaPublicaEquipo();
-                return;
-       }
-     
+            // Ficha de equipo por QR (?f=<eqId>&co=<empresaId>): ahora SÍ requiere
+            // iniciar sesión (Google/Microsoft), igual que el resto de la app —
+            // no se resuelve acá. El flujo normal de login más abajo (onAuthStateChange)
+            // pide login si hace falta y, apenas hay sesión, _onSupaSession() se
+            // encarga de mostrar esta ficha en vez del dashboard.
      
   // El botón de borrar información ahora vive en "Mi empresa"
   // (renderEmpresas), gatillado por rol titular/super_admin.
