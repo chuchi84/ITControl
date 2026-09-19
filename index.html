@@ -852,22 +852,23 @@ function genEqId_new(offset) {
 // Formato: COMPRA-{año_2_digitos}-{correlativo_3_digitos}, ej: COMPRA-26-001
 // El correlativo reinicia cada año calendario (si el año cambia, arranca en 001).
 const genCompraId = () => {
-       const c = co();
-       const yy = String(new Date().getFullYear()).slice(-2);
-       // Reiniciar el correlativo cuando cambia el año
-       if (c.counterCompraAnio !== yy) {
-                c.counterCompraAnio = yy;
-                c.counterCompra = 0;
-       }
-       // Verifica contra las compras ya cargadas para evitar colisiones si el
-       // contador quedo desincronizado (ej: compras creadas por otra via).
-       let candidato, intentos = 0;
-       do {
-                c.counterCompra = (c.counterCompra || 0) + 1;
-                candidato = 'COMPRA-' + yy + '-' + String(c.counterCompra).padStart(3, '0');
-                intentos++;
-       } while (DB.compras.some(x => x.id === candidato) && intentos < 500);
-       return candidato;
+	const c = co();
+	const now = new Date();
+	const yyyymm = String(now.getFullYear()) + String(now.getMonth() + 1).padStart(2, '0');
+	// Reiniciar el correlativo cuando cambia el año-mes
+	if (c.counterCompraPeriodo !== yyyymm) {
+		c.counterCompraPeriodo = yyyymm;
+		c.counterCompra = 0;
+	}
+	// Verifica contra las compras ya cargadas para evitar colisiones si el
+	// contador quedo desincronizado (ej: compras creadas por otra via).
+	let candidato, intentos = 0;
+	do {
+		c.counterCompra = (c.counterCompra || 0) + 1;
+		candidato = 'COMPRA-' + yyyymm + '-' + String(c.counterCompra).padStart(2, '0');
+		intentos++;
+	} while (DB.compras.some(x => x.id === candidato) && intentos < 500);
+	return candidato;
 };
 function genOCId_new() { return genCompraId(); }
 const addLog = (accion,mod,det) => DB.log.unshift({id:'L-'+Date.now(),fecha:new Date().toISOString().slice(0,16).replace('T',' '),usuario:(currentUser?.nombre||currentUser?.email||'—'),accion,modulo:mod,detalle:det});
@@ -3687,6 +3688,15 @@ function sortTintaRecargas(lista) {
         const eq = getEq(r.eq_id);
         return (eq?((eq.marca||'')+' '+(eq.modelo||'')):(r.eq_id||'')).toLowerCase();
       }
+      case 'sede': {
+        const eq = getEq(r.eq_id);
+        const loc = coLocales().find(l=>l.id===eq?.local_id);
+        return (loc?.nombre||'').toLowerCase();
+      }
+      case 'area': {
+        const eq = getEq(r.eq_id);
+        return (eq?.area||'').toLowerCase();
+      }
       case 'negro':    return (r.negro===null||r.negro===undefined||r.negro==='')?-1:Number(r.negro);
       case 'cian':     return (r.cian===null||r.cian===undefined||r.cian==='')?-1:Number(r.cian);
       case 'magenta':  return (r.magenta===null||r.magenta===undefined||r.magenta==='')?-1:Number(r.magenta);
@@ -3728,13 +3738,15 @@ function renderTinta() {
 
   const tablaRecargas = !recargas.length
     ? '<div class="empty-state"><div class="ei">&#128167;</div>Sin recargas registradas</div>'
-    : '<div class="card"><div class="tw"><table><thead><tr><th onclick="setTintaRecSort(\'fecha\')" style="cursor:pointer">Fecha '+sortIconTintaRec('fecha')+'</th><th onclick="setTintaRecSort(\'impresora\')" style="cursor:pointer">Impresora '+sortIconTintaRec('impresora')+'</th><th onclick="setTintaRecSort(\'negro\')" style="cursor:pointer">Negro '+sortIconTintaRec('negro')+'</th><th onclick="setTintaRecSort(\'cian\')" style="cursor:pointer">Cian '+sortIconTintaRec('cian')+'</th><th onclick="setTintaRecSort(\'magenta\')" style="cursor:pointer">Magenta '+sortIconTintaRec('magenta')+'</th><th onclick="setTintaRecSort(\'amarillo\')" style="cursor:pointer">Amarillo '+sortIconTintaRec('amarillo')+'</th><th onclick="setTintaRecSort(\'contador\')" style="cursor:pointer">Contador (B/N - Color - Total) '+sortIconTintaRec('contador')+'</th><th></th></tr></thead><tbody>'+
+        : '<div class="card"><div class="tw"><table><thead><tr><th onclick="setTintaRecSort(\'fecha\')" style="cursor:pointer">Fecha '+sortIconTintaRec('fecha')+'</th><th onclick="setTintaRecSort(\'impresora\')" style="cursor:pointer">Impresora '+sortIconTintaRec('impresora')+'</th><th onclick="setTintaRecSort(\'sede\')" style="cursor:pointer">Sede '+sortIconTintaRec('sede')+'</th><th onclick="setTintaRecSort(\'area\')" style="cursor:pointer">Área '+sortIconTintaRec('area')+'</th><th onclick="setTintaRecSort(\'negro\')" style="cursor:pointer">Negro '+sortIconTintaRec('negro')+'</th><th onclick="setTintaRecSort(\'cian\')" style="cursor:pointer">Cian '+sortIconTintaRec('cian')+'</th><th onclick="setTintaRecSort(\'magenta\')" style="cursor:pointer">Magenta '+sortIconTintaRec('magenta')+'</th><th onclick="setTintaRecSort(\'amarillo\')" style="cursor:pointer">Amarillo '+sortIconTintaRec('amarillo')+'</th><th onclick="setTintaRecSort(\'contador\')" style="cursor:pointer">Contador (B/N - Color - Total) '+sortIconTintaRec('contador')+'</th><th></th></tr></thead><tbody>'+
       recargas.map(r=>{
         const eq = getEq(r.eq_id);
         return '<tr>'+
           '<td class="td-muted">'+(r.fecha?fDate(r.fecha):'-')+'</td>'+
           '<td>'+(eq?escHtml((eq.marca||'')+' '+(eq.modelo||'')):escHtml(r.eq_id))+
             '<div class="td-muted mono" style="font-size:10.5px">'+escHtml(r.eq_id)+'</div></td>'+
+          '<td class="td-muted">'+(coLocales().find(l=>l.id===eq?.local_id)?.nombre?escHtml(coLocales().find(l=>l.id===eq?.local_id).nombre):'—')+'</td>'+
+          '<td class="td-muted">'+(eq?.area?escHtml(eq.area):'—')+'</td>'+
           '<td>'+partesLabel(r.negro)+'</td>'+
           '<td>'+partesLabel(r.cian)+'</td>'+
           '<td>'+partesLabel(r.magenta)+'</td>'+
@@ -3756,7 +3768,7 @@ const tablaCompras = !compras.length
                                        '<td class="mono">'+(c.tinta_ml||0)+' ml</td>'+
                                        '<td class="td-muted">'+escHtml(c.proveedor||'-')+'</td>'+
                                        '<td class="mono">'+(c.monto?fCLP(c.monto):'-')+'</td>'+
-                                       '<td class="td-muted mono" style="font-size:11px">'+escHtml(c.id)+'</td>'+
+                                                                              '<td class="mono" style="font-size:11px"><span style="color:var(--accent);text-decoration:underline;cursor:pointer" onclick="verCompra(\'' +c.id+ '\')">'+escHtml(c.id)+'</span></td>'+
                                        '<td><button class="btn btn-ghost btn-sm btn-icon" onclick="eliminarCompraTinta(\''+c.id+'\')" title="Eliminar compra">&#10005;</button></td>'+
                                      '</tr>';
            }).join('')+
