@@ -3677,6 +3677,13 @@ function partesLabel(v) {
   return '<span class="mono" style="font-size:11px">'+n+'/4</span>';
 }
 
+function mlUsadosLabel(recarga, colorKey) {
+  const v = recarga[colorKey];
+  if (v===null || v===undefined || v==='') return '<span style="color:var(--t3);font-size:11px">no se rellenó</span>';
+  const ml = tintaMlUsados(recarga, colorKey);
+  return '<span class="mono" style="font-size:11px">'+ml.toFixed(1)+' ml</span>';
+}
+
 let _tintaRecSort = { col:'', dir:'asc' };
 function sortTintaRecargas(lista) {
   const { col, dir } = _tintaRecSort;
@@ -3747,10 +3754,10 @@ function renderTinta() {
             '<div class="td-muted mono" style="font-size:10.5px">'+escHtml(r.eq_id)+'</div></td>'+
           '<td class="td-muted">'+(coLocales().find(l=>l.id===eq?.local_id)?.nombre?escHtml(coLocales().find(l=>l.id===eq?.local_id).nombre):'—')+'</td>'+
           '<td class="td-muted">'+(eq?.area?escHtml(eq.area):'—')+'</td>'+
-          '<td>'+partesLabel(r.negro)+'</td>'+
-          '<td>'+partesLabel(r.cian)+'</td>'+
-          '<td>'+partesLabel(r.magenta)+'</td>'+
-          '<td>'+partesLabel(r.amarillo)+'</td>'+
+                    '<td>'+mlUsadosLabel(r,'negro')+'</td>'+
+          '<td>'+mlUsadosLabel(r,'cian')+'</td>'+
+          '<td>'+mlUsadosLabel(r,'magenta')+'</td>'+
+          '<td>'+mlUsadosLabel(r,'amarillo')+'</td>'+
           '<td class="mono td-muted" style="font-size:11px">'+(r.cont_bn||0)+' / '+(r.cont_color||0)+' / '+(r.cont_total||0)+'</td>'+
           '<td><button class="btn btn-ghost btn-sm btn-icon" onclick="eliminarRecargaTinta(\''+r.id+'\')" title="Eliminar">&#10005;</button></td>'+
         '</tr>';
