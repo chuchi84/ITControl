@@ -3704,10 +3704,10 @@ function sortTintaRecargas(lista) {
         const eq = getEq(r.eq_id);
         return (eq?.area||'').toLowerCase();
       }
-      case 'negro':    return (r.negro===null||r.negro===undefined||r.negro==='')?-1:Number(r.negro);
-      case 'cian':     return (r.cian===null||r.cian===undefined||r.cian==='')?-1:Number(r.cian);
-      case 'magenta':  return (r.magenta===null||r.magenta===undefined||r.magenta==='')?-1:Number(r.magenta);
-      case 'amarillo': return (r.amarillo===null||r.amarillo===undefined||r.amarillo==='')?-1:Number(r.amarillo);
+            case 'negro':    return (r.negro===null||r.negro===undefined||r.negro==='')?-1:tintaMlUsados(r,'negro');
+      case 'cian':     return (r.cian===null||r.cian===undefined||r.cian==='')?-1:tintaMlUsados(r,'cian');
+      case 'magenta':  return (r.magenta===null||r.magenta===undefined||r.magenta==='')?-1:tintaMlUsados(r,'magenta');
+      case 'amarillo': return (r.amarillo===null||r.amarillo===undefined||r.amarillo==='')?-1:tintaMlUsados(r,'amarillo');
       case 'contador': return Number(r.cont_total)||0;
       default: return 0;
     }
