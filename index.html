@@ -8680,8 +8680,7 @@ async function mostrarFichaPublicaEquipo(eqId, co) {
                                         if (!ticket || !email) { res.innerHTML = '<span style="color:#e55;font-size:13px">Completa ambos campos.</span>'; return; }
          res.innerHTML = '<span style="font-size:13px;color:var(--t2)">Buscando…</span>';
          try {
-             const { data, error } = await sb.from('solicitudes_soporte').select('*')
-                                                             .eq('id', ticket).eq('email', email).eq('co', co).maybeSingle();
+const { data, error } = await sb.rpc('consultar_ticket_publico', { p_id: ticket, p_email: email, p_co: co });
            if (error || !data) {
              res.innerHTML = '<span style="font-size:13px;color:#e55">No se encontró ningún ticket con esos datos.</span>';
                  return;
