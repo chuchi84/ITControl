@@ -2363,7 +2363,7 @@ function onSedeEditEq(sedeId){
   sel.innerHTML = '<option value="">— Sin área asignada —</option>' +
     areas.map(a => '<option value="'+escHtml(a)+'">'+escHtml(a)+'</option>').join('') +
     '<option value="__custom__">+ Otra área…</option>';
-  if (inp) { inp.style.display = 'none'; inp.value = ''; }
+  if (inp) { inp.style.display = 'none'; inp.value = ''; }const pSel = document.getElementById('eeAsigPersona');if (pSel) { pSel.innerHTML = '<option value="">-- Sin persona (solo ubicacion) --</option>' + personasDeSede(sedeId).map(p => '<option value="'+escHtml(p.id)+'">'+escHtml(nombrePersona(p))+'</option>').join(''); }
 }
 function editEquipo(id) {
   if(!perms.editarEquipo()){toast('No tienes permiso para editar equipos','err');return;}
@@ -2752,7 +2752,7 @@ function saveNotasConfig(eqId){
 function saveEditEq(id) {
   const e = DB.equipos.find(x=>x.id===id);
   if (!e) return;
-       // Tipo, marca, modelo, serie: datos básicos que antes no se podían editar.
+const estadoAntes = e.estado;const sedeAntes = e.local_id;const areaAntes = e.area;const asigActual = DB.asignaciones.find(a=>a.eq_id===id && a.estado==='Activa');const personaAntesId = (asigActual && asigActual.persona_id) || '';       // Tipo, marca, modelo, serie: datos básicos que antes no se podían editar.
        const nuevoTipo = leerTipoFromSelect('eeT','eeTCustom');
        if (nuevoTipo) e.tipo = nuevoTipo;
        e.marca = $('eeMa')?.value?.trim() || e.marca;
@@ -2791,7 +2791,7 @@ function saveEditEq(id) {
   e.campos      = (window._eqEditCampos||[]).filter(f=>f.k);
   e.software    = (window._eqEditSw||[]).filter(s=>s.nombre);
   if (typeof syncEquipo==='function') syncEquipo(e, false);
-  addLog('Editó equipo','equipos', id);
+  addLog('Editó equipo','equipos', id);if (e.estado !== estadoAntes) {const histEstado = {id:'H-'+String(DB.historial.length+1).padStart(3,'0'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Estado: '+estadoAntes+' → '+e.estado,prox:null};DB.historial.push(histEstado);if (typeof syncHistorial==='function') syncHistorial(histEstado);}const personaSelId = $('eeAsigPersona')?.value || '';const huboCambioAsig = (e.local_id !== sedeAntes) || (e.area !== areaAntes) || (personaSelId !== personaAntesId);if (huboCambioAsig) {if (asigActual) {asigActual.estado = 'Devuelta';asigActual.fecha_dev = new Date().toISOString().slice(0,10);if (cloudMode) cloudWrite('asignacion_edit', { asignacion: asigActual });}let destino = 'sin ubicación';let sedeNombre = '';if (e.local_id) {const persona = personaSelId ? getPersona(personaSelId) : null;const nomPersona = persona ? nombrePersona(persona) : '';sedeNombre = getSede(e.local_id)?.nombre || '';const nuevaAsig = {id:'A-'+String(DB.asignaciones.length+1).padStart(3,'0'),eq_id:id,co:DB.co,sede_id:e.local_id,ubicacion:e.area||'',persona:nomPersona,persona_id:personaSelId||null,cargo:(asigActual?.cargo)||'',fecha:new Date().toISOString().slice(0,10),fecha_dev:null,estado:'Activa',obs:''};DB.asignaciones.push(nuevaAsig);if (cloudMode) cloudWrite('asignacion_add', { asignacion: nuevaAsig });destino = nomPersona || e.area || 'ubicación';}const histAsig = {id:'H-'+String(DB.historial.length+1).padStart(3,'0'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Asignación actualizada: '+destino+(sedeNombre?' en '+sedeNombre+' / '+(e.area||''):''),prox:null};DB.historial.push(histAsig);if (typeof syncHistorial==='function') syncHistorial(histAsig);}
   closeMo();
   toast('Equipo actualizado');
   go('equipos');
@@ -8285,7 +8285,7 @@ function abrirFichaEquipo(eqId, usuario) {
                    '<option value="">-- Sin area asignada --</option>'+opts+
                    '<option value="__custom__"'+(valActual && !enLista?' selected':'')+'>+ Otra area...</option>'+
                  '</select>'+
-                 '<input type="text" id="eeAreaCustom" placeholder="Nombre de la nueva area" style="margin-top:6px;display:'+(valActual && !enLista?'block':'none')+'" value="'+escHtml(!enLista?valActual:'')+'">';
+                 '<input type="text" id="eeAreaCustom" placeholder="Nombre de la nueva area" style="margin-top:6px;display:'+(valActual && !enLista?'block':'none')+'" value="'+escHtml(!enLista?valActual:'')+'">'+'<div class="fg" style="margin-top:10px"><label>Persona (opcional)</label><select id="eeAsigPersona"><option value="">-- Sin persona (solo ubicacion) --</option>'+personasDeSede(eq.local_id).map(p => '<option value="'+escHtml(p.id)+'"'+(asigAct?.persona_id===p.id?' selected':'')+'>'+escHtml(nombrePersona(p))+'</option>').join('')+'</select><div style="font-size:11px;color:var(--t3);margin-top:4px">Hay equipos compartidos que no tienen una persona unica asignada.</div></div>';
         })()+
       '</div>'+
     '</div>';
