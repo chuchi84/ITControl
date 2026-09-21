@@ -7711,7 +7711,7 @@ function previsualizarEtiquetas(autoprint) {
     return '';
   };
 
-  const qrSzMm = Math.min(sz.w-3, sz.h*0.52);
+  const qrSzMm = Math.min(sz.w-2, sz.h*0.68);
   const qrSzPx = Math.round(qrSzMm*3.7795);
   const isMono  = k => k==='id'||k==='serie';
   const isBold  = k => k==='id';
@@ -7740,7 +7740,7 @@ function previsualizarEtiquetas(autoprint) {
   const qrInits = sel.map((eq,i)=>{
     const text = genQRText(eq);
     return 'new QRCode(document.getElementById("q'+i+'"),{text:'+JSON.stringify(text)+
-      ',width:'+qrSzPx+',height:'+qrSzPx+',colorDark:"#000",colorLight:"#fff",correctLevel:QRCode.CorrectLevel.H});';
+      ',width:'+qrSzPx+',height:'+qrSzPx+',colorDark:"#000",colorLight:"#fff",correctLevel:QRCode.CorrectLevel.L});';
   }).join('\n');
 
   const css = [
