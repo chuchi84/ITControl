@@ -8467,22 +8467,22 @@ async function mostrarFichaPublicaEquipo(eqId, co) {
        if (!eqId || !co) { cont.innerHTML = '<p style="color:var(--t2);text-align:center;margin-top:60px">Link invalido.</p>'; return; }
                                                                                                                                                      let empresaNombre = ''; let empresaLogo = ''; let sedes = [];
        try {
-           const { data } = await sb.from('empresas_publico').select('name,logo,sedes').eq('id', co).maybeSingle();
+           const { data } = await sb.rpc('empresa_publica_info', { p_id: co }).maybeSingle();
                                                                                                                if (data && data.name) empresaNombre = data.name;
          if (data && data.logo) empresaLogo = data.logo;
              if (data && Array.isArray(data.sedes)) sedes = data.sedes;
      } catch(e) {}
-       const eqRes = await sb.from('equipos_publico').select('*').eq('id', eqId).eq('co', co).maybeSingle();
+       const eqRes = await sb.rpc('equipo_publico_ficha', { p_id: eqId, p_co: co }).maybeSingle();
        const eq = eqRes.data;
          if (eqRes.error || !eq) { cont.innerHTML = '<p style="color:var(--t2);text-align:center;margin-top:60px">No se encontro ese equipo.</p>'; return; }
                                                                                                                                                      let compra = null;
        if (eq.compra_id) {
-           const cRes = await sb.from('compras_publico').select('*').eq('id', eq.compra_id).maybeSingle();
+           const cRes = await sb.rpc('compra_publica_info', { p_id: eq.compra_id, p_co: eq.co }).maybeSingle();
          compra = cRes.data;
      }
-       const asigRes = await sb.from('asignaciones_publico').select('*').eq('eq_id', eqId).eq('estado', 'Activa').maybeSingle();
+       const asigRes = await sb.rpc('asignacion_publica_activa', { p_eq_id: eqId, p_co: co }).maybeSingle();
        const asig = asigRes.data;
-       const histRes = await sb.from('historial_publico').select('*').eq('eq_id', eqId).order('fecha', { ascending: false }).limit(5);
+       const histRes = await sb.rpc('historial_publico_reciente', { p_eq_id: eqId, p_co: co });
          const hist = histRes.data || [];
          _renderFichaPublicaEquipo(cont, eq, compra, asig, hist, sedes, co, empresaNombre, empresaLogo);
      }
@@ -8537,7 +8537,7 @@ async function mostrarFichaPublicaEquipo(eqId, co) {
        let empresaNombre = 'Soporte';
             let empresaLogo = '';
             try {
-                     const { data } = await sb.from('empresas_publico').select('name,logo').eq('id', co).maybeSingle();
+                     const { data } = await sb.rpc('empresa_publica_info', { p_id: co }).maybeSingle();
          if (data?.name) empresaNombre = data.name;
          if (data?.logo) empresaLogo = data.logo;
      } catch(e) {}
