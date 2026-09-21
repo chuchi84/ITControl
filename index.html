@@ -8869,7 +8869,7 @@ const _TABLA = {
 // Columnas válidas por tabla (espejo del schema). Filtra props que no son
 // columnas para que PostgREST no rechace el insert/upsert.
 const _COLS = {
-       empresas:['id','name','rut','prefix','counter','counterCompra','counterCompraAnio','giro','contacto','email','tel','dir','sedes','logo','url_base','clave_soporte'],
+       		empresas:['id','name','rut','prefix','counter','counterCompra','counterCompraAnio','giro','contacto','email','tel','dir','sedes','logo','url_base'],
     equipos:['id','co','local_id','area','compra_id','tipo','marca','modelo','serie','estado','caracteristicas','specs','campos','software','comentarios','garantia','gar_meses','fecha_recepcion','baja_id','baja_fecha','baja_motivo'],
   compras:['id','co','local_id','proveedor','rut_prov','tipo_doc','num_doc','fecha','financiador','quien_pago','forma_pago','monto','estado_pago','metodo_pago','fecha_pago','cobrado_cliente','descripcion','area','equipos_ids','adjunto','adjunto_nombre','tinta_color','tinta_ml'],
   historial:['id','eq_id','co','local_id','tipo','fecha','tecnico','costo','desc','prox'],
@@ -10266,8 +10266,8 @@ function editarEmpresa(id) {
              '<div style="font-size:11px;color:var(--t3);margin-top:4px">Desde aquí se arman el link de soporte y los códigos QR. Déjala vacía para usar la ruta relativa al sitio actual.</div>'+
            '</div>'+
            '<div class="fg" style="grid-column:1/-1"><label>Clave del portal de soporte público</label>'+
-               '<input type="text" id="eeClaveSoporte" value="'+escHtml(emp.clave_soporte||'')+'" placeholder="Clave que pedirá el link de soporte (?soporte=1)">'+
-             '<div style="font-size:11.5px;color:var(--t3);margin-top:4px">La necesita cualquiera que quiera crear o consultar un ticket desde el link público, sin iniciar sesión.</div>'+
+                              '<input type="text" id="eeClaveSoporte" value="" placeholder="'+(emp.clave_soporte?'•••••••• (dejar vacío para no cambiarla)':'Sin configurar — escribe una clave para activar el portal')+'">'+
+	             '<div style="font-size:11.5px;color:var(--t3);margin-top:4px">La necesita cualquiera que quiera crear o consultar un ticket desde el link público, sin iniciar sesión. Por seguridad no se muestra el valor guardado; escribe una clave nueva solo si quieres cambiarla.</div>'+
                  '</div>'+
     '</div>',
     '<button class="btn-secondary" onclick="closeMo()">Cancelar</button>'+
@@ -10277,25 +10277,32 @@ function editarEmpresa(id) {
   );
 }
 
-function guardarEditEmpresa(id) {
-  const emp = DB.companies[id];
-  if (!emp) return;
-  emp.name     = $('eeName')?.value?.trim()||emp.name;
-  emp.rut      = $('eeRut')?.value?.trim()||'';
-  emp.prefix   = ($('eePrefix')?.value||'').trim().toUpperCase()||emp.prefix;
-  emp.giro     = $('eeGiro')?.value?.trim()||'';
-  emp.contacto = $('eeContacto')?.value?.trim()||'';
-  emp.email    = $('eeEmail')?.value?.trim()||'';
-  emp.tel      = $('eeTel')?.value?.trim()||'';
-  emp.dir      = $('eeDir')?.value?.trim()||'';
-     emp.url_base = ($('eeUrlBase')?.value||'').trim();
-     emp.clave_soporte = $('eeClaveSoporte')?.value?.trim()||'';
-  if (typeof syncEmpresa === 'function') syncEmpresa(emp);
-  addLog('Editó empresa','empresas',emp.name);
-  closeMo();
-  toast('Empresa actualizada');
-  go('empresas');
-}
+async function guardarEditEmpresa(id) {
+	  const emp = DB.companies[id];
+											   if (!emp) return;
+	  emp.name     = $('eeName')?.value?.trim()||emp.name;
+		   emp.rut      = $('eeRut')?.value?.trim()||'';
+	  emp.prefix   = ($('eePrefix')?.value||'').trim().toUpperCase()||emp.prefix;
+	  emp.giro     = $('eeGiro')?.value?.trim()||'';
+	  emp.contacto = $('eeContacto')?.value?.trim()||'';
+	  emp.email    = $('eeEmail')?.value?.trim()||'';
+	  emp.tel      = $('eeTel')?.value?.trim()||'';
+	    emp.dir      = $('eeDir')?.value?.trim()||'';
+	  emp.url_base = ($('eeUrlBase')?.value||'').trim();
+	  const nuevaClave = $('eeClaveSoporte')?.value?.trim()||'';
+	  if (typeof syncEmpresa === 'function') syncEmpresa(emp);
+	  addLog('Editó empresa','empresas',emp.name);
+	  closeMo();
+		  toast('Empresa actualizada');
+							    go('empresas');
+			    if (nuevaClave) {
+	    try {
+	      const { error } = await sb.rpc('establecer_clave_soporte', { p_empresa_id: id, p_clave: nuevaClave });
+	      if (error) { toast('No se pudo actualizar la clave del portal: '+error.message, 'err'); }
+	      else { toast('Clave del portal de soporte actualizada'); }
+	    } catch(e) { toast('No se pudo actualizar la clave del portal', 'err'); }
+	  }
+	}
 
 function confirmarEliminarEmpresa(id) {
   // Delegado a eliminarEmpresa: borra en cascada y permite eliminar todas.
