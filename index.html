@@ -7325,7 +7325,7 @@ const LABEL_SIZES = {
   '50x30': {w:50, h:30, nombre:'50×30 mm'},
   '62x29': {w:62, h:29, nombre:'62×29 mm (Brother DK-11209)'},
   '62x100':{w:62, h:100,nombre:'62×100 mm (Brother DK-11202)'},
-  '36x89': {w:36, h:89, nombre:'36×89 mm (Dymo 11356)'},  '20x20': {w:20, h:20, nombre:'20×20 mm'},
+  '36x89': {w:36, h:89, nombre:'36×89 mm (Dymo 11356)'},  '30x30': {w:30, h:30, nombre:'30×30 mm'},
   'custom':{w:50, h:30, nombre:'Personalizado'},
 };
 
@@ -7711,7 +7711,7 @@ function previsualizarEtiquetas(autoprint) {
     return '';
   };
 
-  const qrSzMm = Math.min(20, sz.w-2, sz.h*0.68);
+  const qrSzMm = Math.min(30, sz.w-2, sz.h*0.68);
   const qrSzPx = Math.round(qrSzMm*3.7795);
   const isMono  = k => k==='id'||k==='serie';
   const isBold  = k => k==='id';
