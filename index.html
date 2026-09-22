@@ -9174,12 +9174,12 @@ async function loginProveedor(provider){   // 'google' | 'azure'
 }
 
 // Tras autenticarse, resuelve rol+empresa y carga los datos.
-async function _onSupaSession(session){
+async function _onSupaSession(session, event){
   if(!session) return;
   showLoadingIndicator(true);
   const res = await apiFetchWithToken(session.access_token, 'acceso');
   if(res.ok && res.user){
-    currentUser = { ...res.user, token: session.access_token };
+    currentUser = { ...res.user, token: session.access_token };if(event==='SIGNED_IN'){const _prov=(session.user&&session.user.app_metadata&&session.user.app_metadata.provider)||'';const _det=(_prov?_prov+' · ':'')+(currentUser.email||'');addLog('Inicio de sesión','sistema',_det);cloudWrite('log_add',{entrada:{accion:'Inicio de sesión',modulo:'sistema',detalle:_det}});}
     sessionStorage.setItem('itcUser', JSON.stringify(currentUser));
     aplicarClaseRolBody();
     hideLoginScreen();
@@ -9909,7 +9909,7 @@ async function instalarApp(){
            let _datosCargados = false;
            sb.auth.onAuthStateChange((event, session)=>{
                       if(event==='SIGNED_OUT'){ _sesionResuelta=true; currentUser=null; sessionStorage.removeItem('itcUser'); showLoginScreen(); return; }
-                      if(session && !_datosCargados){ _sesionResuelta=true; _datosCargados=true; _onSupaSession(session); return; }
+                      if(session && !_datosCargados){ _sesionResuelta=true; _datosCargados=true; _onSupaSession(session, event); return; }
                       if(!session && !_sesionResuelta){ _sesionResuelta=true; showLoginScreen(); }
            });
            setTimeout(()=>{ if(!_sesionResuelta && !_datosCargados){ _sesionResuelta=true; showLoginScreen(); } }, 4000);
