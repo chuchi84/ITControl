@@ -12,7 +12,7 @@
 // scope real del Service Worker (self.registration.scope), así el mismo
 // sw.js funciona igual en https://chuchi84.github.io/ITControl/ que en
 // https://itcontrol.kendal.cl/ sin tener que mantener dos versiones.
-const CACHE = 'itcontrol-v59';
+const CACHE = 'itcontrol-v60'; // v60: nuevo icono de la app (PWA)
 const BASE = self.registration.scope; // termina siempre en "/"
 const ASSETS_PRECARGA = [
     BASE,
