@@ -8352,7 +8352,7 @@ function abrirFichaEquipo(eqId, usuario) {
      
 
   // ── TAB HISTORIAL ──
-  let tabHist = '';
+  let tabHist = '';const histMant = hist.filter(h=>h.tipo==='Mantencion Preventiva'||h.tipo==='Mantencion Correctiva'||h.tipo==='Mantención Preventiva'||h.tipo==='Mantención Correctiva');let tabMant = '<button class="btn btn-primary btn-sm" onclick="abrirAgregarMantencion(\''+eqId+'\')">+ Agregar mantención</button>';if (histMant.length) {const costoMantTotal = histMant.reduce((s,h)=>s+(h.costo||0),0);tabMant += '<div style="font-size:12px;color:var(--t2);margin:12px 0">'+histMant.length+' mantencion'+(histMant.length!==1?'es':'')+(isAdmin&&costoMantTotal?' · <span style="color:var(--accent)">'+fCLP(costoMantTotal)+'</span> acumulado':'')+'</div>';tabMant += '<div class="tl">';histMant.forEach(h => {tabMant += '<div class="tl-item">';tabMant += '<div class="tl-date">'+fDate(h.fecha)+(h.tecnico?' — '+escHtml(h.tecnico):'')+'</div>';tabMant += '<div class="tl-title">'+tipoBadge(h.tipo)+'</div>';if (h.desc) tabMant += '<div class="tl-body">'+escHtml(h.desc)+'</div>';if (h.costo>0&&isAdmin) tabMant += '<div style="font-size:11px;color:var(--accent);margin-top:3px">'+fCLP(h.costo)+'</div>';if (h.prox) tabMant += '<div style="font-size:11px;color:var(--yellow,#f59e0b);margin-top:3px">Próx: '+fDate(h.prox)+'</div>';tabMant += '</div>';});tabMant += '</div>';} else {tabMant += '<div class="empty-state" style="margin-top:12px"><div class="ei">&#128295;</div>Sin mantenciones registradas</div>';}
   if (hist.length) {
     const costoTotal = hist.reduce((s,h)=>s+(h.costo||0),0);
     tabHist += '<div style="font-size:12px;color:var(--t2);margin-bottom:12px">'+
@@ -8425,7 +8425,7 @@ function abrirFichaEquipo(eqId, usuario) {
       '<div class="tab on" onclick="swTab(this,\'fq-eq\')">&#128187; Equipo</div>'+
       '<div class="tab" onclick="swTab(this,\'fq-asig\')">&#128205; Asignación</div>'+
       '<div class="tab" onclick="swTab(this,\'fq-comp\')">&#128722; Compra</div>'+
-      '<div class="tab" onclick="swTab(this,\'fq-hist\')">&#128203; Historial</div>'+
+      '<div class="tab" onclick="swTab(this,\'fq-hist\')">&#128203; Historial</div>'+'<div class="tab" onclick="swTab(this,\'fq-mant\')">&#128295; Mantención</div>'+
                     '<div class="tab" onclick="swTab(this,\'fq-cfg\')">&#9881; Config</div>'+
            '<div class="tab" onclick="swTab(this,\'fq-qr\')">&#9646; QR</div>'+
     '</div>'+
@@ -8433,7 +8433,7 @@ function abrirFichaEquipo(eqId, usuario) {
     '<div id="fq-eq">'+tabEq+'</div>'+
     '<div id="fq-asig" class="hide">'+tabAsig+'</div>'+
     '<div id="fq-comp" class="hide">'+tabComp+'</div>'+
-    '<div id="fq-hist" class="hide">'+tabHist+'</div>'+
+    '<div id="fq-hist" class="hide">'+tabHist+'</div>'+'<div id="fq-mant" class="hide">'+tabMant+'</div>'+
          '<div id="fq-cfg" class="hide">'+tabCfg+'</div>'+
          '<div id="fq-qr" class="hide">'+tabQR+'</div>',
 
@@ -8445,7 +8445,7 @@ function abrirFichaEquipo(eqId, usuario) {
          setTimeout(()=>{ const el=$('fqQR'); if (el && typeof QRCode!=='undefined') new QRCode(el,{text:urlEquipoEmpresa(eq.id,eq.co),width:150,height:150,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.H}); },120);
 }
 
-// ── PORTAL PÚBLICO DE SOPORTE (?soporte=1&co=<empresaId>) ──────────────
+function abrirAgregarMantencion(eqId) {openMo('Registrar mantención','<div class="fgrid f2">'+'<div class="fg"><label>Tipo</label><select id="fmTipo">'+['Mantencion Preventiva','Mantencion Correctiva'].map(t=>'<option>'+t+'</option>').join('')+'</select></div>'+'<div class="fg"><label>Fecha</label><input type="date" id="fmFecha" value="'+new Date().toISOString().slice(0,10)+'"></div>'+'<div class="fg" style="grid-column:1/-1"><label>Descripción</label><textarea id="fmDesc" placeholder="Qué se realizó..."></textarea></div>'+'<div class="fg"><label>Técnico</label><input type="text" id="fmTec" value="'+escHtml(currentUser?.nombre||'')+'" placeholder="Nombre del técnico"></div>'+'<div class="fg"><label>Costo (CLP)</label><input type="number" id="fmCosto" placeholder="0"></div>'+'<div class="fg"><label>Próxima mantención</label><input type="date" id="fmProx"></div>'+'</div>','<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button>'+'<button class="btn btn-primary" onclick="guardarMantencionDesdeFicha(\''+eqId+'\')">Registrar</button>','lg');}function guardarMantencionDesdeFicha(eqId) {const eq = DB.equipos.find(e=>e.id===eqId);if (!eq) return;const evento = {id: 'H-'+String(DB.historial.length+1).padStart(3,'0'),eq_id: eqId, co: DB.co,local_id: eq.local_id || null,tipo: $('fmTipo')?.value || 'Mantencion Correctiva',fecha: $('fmFecha')?.value || new Date().toISOString().slice(0,10),tecnico: $('fmTec')?.value || (currentUser?.nombre||'—'),costo: parseInt($('fmCosto')?.value) || 0,desc: $('fmDesc')?.value || '-',prox: $('fmProx')?.value || null};DB.historial.push(evento);if (typeof syncHistorial==='function') syncHistorial(evento);addLog('Registró mantención','mantenimiento', eqId+' · '+evento.tipo);toast('Mantención registrada ✓');closeMo();setTimeout(() => abrirFichaEquipo(eqId, currentUser), 80);}// ── PORTAL PÚBLICO DE SOPORTE (?soporte=1&co=<empresaId>) ──────────────
      // Sin login. La clave se verifica en Supabase (función verificar_clave_soporte);
      // el navegador nunca recibe la clave real, solo un true/false.
 // ── FICHA PÚBLICA DE EQUIPO (?f=<eqId>&co=<empresaId>) ──────────────
