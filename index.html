@@ -4652,7 +4652,7 @@ function quitarLogoEmpresa(){
   const prev=$('empLogoPrev'); if(prev) prev.innerHTML='<span style="color:var(--t3);font-size:22px">&#127970;</span>';
   const file=$('empLogoFile'); if(file) file.value='';
 }
-let _sr=0;
+function onLogoEmpresaChangeEdit(ev){const file=ev.target.files?.[0];if(!file)return;if(file.size>500*1024){toast('El logo excede 500 KB. Comprímelo o usa otro.','err');ev.target.value='';return;}const reader=new FileReader();reader.onload=()=>{const data=String(reader.result||'');const hidden=$('eeLogoData');if(hidden)hidden.value=data;const prev=$('eeLogoPrev');if(prev)prev.innerHTML='<img src="'+data+'" style="max-width:100%;max-height:100%;object-fit:contain">';};reader.onerror=()=>toast('No se pudo leer el archivo','err');reader.readAsDataURL(file);}function quitarLogoEmpresaEdit(){const hidden=$('eeLogoData');if(hidden)hidden.value='';const prev=$('eeLogoPrev');if(prev)prev.innerHTML='<span style="color:var(--t3);font-size:20px">&#127970;</span>';const file=$('eeLogoFile');if(file)file.value='';}let _sr=0;
 function sedeRow(i,s){
   return '<div id="sd'+i+'" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:7px;margin-bottom:7px;align-items:start">'+
     '<input type="text" id="sdN'+i+'" placeholder="Nombre sede" value="'+(s?.nombre||'')+'">'+
@@ -7338,7 +7338,7 @@ let _qr = {
   selCompra:  '',
   selRango:   '',    // nuevo: '', '7', '30', '90', 'anio'
   campos:     ['id','marca','modelo','serie'],
-  labelSize:  '50x30',
+  labelSize:  '50x30',estilo:'clasico',
   customW:    50,
   customH:    30,
   soloConQR:  true,
@@ -7502,7 +7502,7 @@ function renderQR() {
       '<div style="font-size:11px;color:var(--t2);background:var(--s2);padding:8px 10px;border-radius:var(--r);margin-bottom:10px;line-height:1.5">'+
         '&#128736; <b>Impresora térmica:</b> elige el tamaño <b>exacto</b> del rollo autoadhesivo que cargaste. Al imprimir cada etiqueta sale como una "hoja" propia, y la impresora avanza sola a la siguiente. Al abrir el diálogo de impresión verás instrucciones detalladas para Xprinter.'+
       '</div>'+
-      '<div class="fgrid f2" style="gap:8px;margin-bottom:12px">'+
+      '<div class="fgrid f2" style="gap:8px;margin-bottom:12px">'+(_qr.labelSize==='50x30'?('<div class="fg" style="grid-column:1/-1"><label>Estilo de etiqueta</label><select onchange="_qr.estilo=this.value;refreshQRModule()"><option value="clasico"'+(_qr.estilo==='clasico'?' selected':'')+'>Clásico</option><option value="corp_a"'+(_qr.estilo==='corp_a'?' selected':'')+'>Corporativo A — Franja con nombre</option><option value="corp_c"'+(_qr.estilo==='corp_c'?' selected':'')+'>Corporativo C — Logo + QR lateral</option></select><div style="font-size:11px;color:var(--t3);margin-top:4px">Solo para 50×30 mm. Usa el nombre/logo de la empresa activa.</div></div>'):'')+
         '<div class="fg" style="grid-column:1/-1">'+
           '<label>Tamaño predefinido</label>'+
           '<select onchange="cambiarTamanoQR(this.value)">'+
@@ -7660,7 +7660,7 @@ function toggleCampoQR(k, on) {
   refreshQRModule();
 }
 function cambiarTamanoQR(val) {
-  _qr.labelSize = val;
+  _qr.labelSize = val;if(val!=='50x30')_qr.estilo='clasico';
   if (val!=='custom') {
     const s=LABEL_SIZES[val];
     _qr.customW=s.w; _qr.customH=s.h;
@@ -7684,7 +7684,7 @@ function buscarQR() {
   mostrarFichaQR(id);
 }
 
-// ── IMPRIMIR ETIQUETAS TÉRMICAS ───────────────────────────
+// ── function buildEtiquetaHTML(eq,i,estiloActivo,qrSzPx,sz,_qrSt,getCVal,fontSize,isMono,isBold){const emp = DB.companies[eq.co];const vals = _qrSt.campos.map(function(k){return {k:k,v:getCVal(eq,k)};}).filter(function(x){return x.v;});function esc2(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}if (estiloActivo==='corp_a') {var otros = vals.filter(function(x){return x.k!=='id';});var datosOtros = otros.map(function(o){return '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;line-height:1.25;font-size:'+fontSize(o.k,sz.h)+'pt;font-weight:400;font-family:'+(isMono(o.k)?'monospace':'Arial,sans-serif')+'">'+esc2(o.v)+'</div>';}).join('');return '<div class="etq etq-a"><div class="etq-a-bar">'+esc2((emp&&emp.name)||'').toUpperCase()+'</div><div class="etq-a-body"><div id="q'+i+'" class="etq-a-qr" style="width:'+qrSzPx+'px;height:'+qrSzPx+'px"></div><div class="etq-a-id">'+esc2(eq.id)+'</div>'+datosOtros+'</div></div>';}if (estiloActivo==='corp_c') {var otrosC = vals.filter(function(x){return x.k!=='id';});var datosOtrosC = otrosC.map(function(o){return '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;line-height:1.2;font-size:'+fontSize(o.k,sz.h)+'pt;font-weight:400;font-family:'+(isMono(o.k)?'monospace':'Arial,sans-serif')+'">'+esc2(o.v)+'</div>';}).join('');var logoHtml = (emp&&emp.logo) ? '<img class="etq-c-logo" src="'+emp.logo+'">' : '<div class="etq-c-logo etq-c-logo-txt">'+esc2((emp&&emp.name)||'').toUpperCase()+'</div>';return '<div class="etq etq-c"><div class="etq-c-left">'+logoHtml+'<div class="etq-c-idbar">'+esc2(eq.id)+'</div>'+datosOtrosC+'</div><div class="etq-c-divider"></div><div class="etq-c-right"><div id="q'+i+'" class="etq-c-qr" style="width:'+qrSzPx+'px;height:'+qrSzPx+'px"></div></div></div>';}var datos = vals.map(function(o){return '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;line-height:1.3;font-size:'+fontSize(o.k,sz.h)+'pt;font-weight:'+(isBold(o.k)?700:400)+';font-family:'+(isMono(o.k)?'monospace':'Arial,sans-serif')+'">'+esc2(o.v)+'</div>';}).join('');return '<div class="etq"><div id="q'+i+'" style="width:'+qrSzPx+'px;height:'+qrSzPx+'px;flex-shrink:0"></div><div style="width:100%;margin-top:1mm;overflow:hidden">'+datos+'</div></div>';}IMPRIMIR ETIQUETAS TÉRMICAS ───────────────────────────
 function imprimirEtiquetas() { previsualizarEtiquetas(true); }
 
 function previsualizarEtiquetas(autoprint) {
@@ -7712,7 +7712,7 @@ function previsualizarEtiquetas(autoprint) {
   };
 
   const qrSzMm = Math.min(30, sz.w-2, sz.h*0.68);
-  const qrSzPx = Math.round(qrSzMm*3.7795);
+  const estiloActivo = (sz.w===50 && sz.h===30) ? (_qr.estilo||'clasico') : 'clasico';const qrSzMmFinal = estiloActivo==='corp_a'?18:estiloActivo==='corp_c'?24:qrSzMm;const qrSzPx = Math.round(qrSzMmFinal*3.7795);
   const isMono  = k => k==='id'||k==='serie';
   const isBold  = k => k==='id';
   const fontSize= (k,h) => {
@@ -7720,7 +7720,7 @@ function previsualizarEtiquetas(autoprint) {
     return isBold(k)?Math.max(base+1.5, qrSzMm*0.55):base;
   };
 
-  const etiquetas = sel.map((eq,i)=>{
+  const etiquetas = sel.map((eq,i)=>buildEtiquetaHTML(eq,i,estiloActivo,qrSzPx,sz,_qr,getCVal,fontSize,isMono,isBold)).join('');function _etqOldUnused(eq,i){
     const vals = _qr.campos.map(k=>({k,v:getCVal(eq,k)})).filter(x=>x.v);
     const datos = vals.map(({k,v})=>
       '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;line-height:1.3;'+
@@ -7734,7 +7734,7 @@ function previsualizarEtiquetas(autoprint) {
       '<div id="q'+i+'" style="width:'+qrSzPx+'px;height:'+qrSzPx+'px;flex-shrink:0"></div>'+
       '<div style="width:100%;margin-top:1mm;overflow:hidden">'+datos+'</div>'+
     '</div>';
-  }).join('');
+  }
 
   // QR init — codifica solo el ID del equipo (mínima densidad, máxima legibilidad)
   const qrInits = sel.map((eq,i)=>{
@@ -7764,7 +7764,7 @@ function previsualizarEtiquetas(autoprint) {
       // línea de abajo si prefieres borde negro impreso alrededor.
       '.etq{border:none;border-radius:0;page-break-after:always;break-after:page;padding:1mm}',
       '.etq:last-child{page-break-after:auto;break-after:auto}',
-    '}',
+    '}','.etq-a{flex-direction:column;padding:0!important;justify-content:flex-start}','.etq-a-bar{width:100%;height:4.5mm;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:7pt;letter-spacing:0.5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:0 2mm;box-sizing:border-box}','.etq-a-body{flex:1;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.8mm;padding:1mm 2mm;overflow:hidden;box-sizing:border-box}','.etq-a-id{font-family:monospace;font-weight:800;font-size:16pt;letter-spacing:0.5px}','.etq-c{flex-direction:row!important;align-items:stretch;padding:1mm!important;gap:1.2mm}','.etq-c-left{width:17mm;flex-shrink:0;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:1mm;overflow:hidden}','.etq-c-logo{max-width:17mm;max-height:9mm;object-fit:contain;filter:grayscale(1) contrast(1.1)}','.etq-c-logo-txt{font-weight:700;font-size:6.5pt;letter-spacing:0.5px;color:#000;max-width:17mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}','.etq-c-idbar{width:100%;background:#000;color:#fff;font-family:monospace;font-weight:800;font-size:13pt;text-align:center;padding:0.8mm 0;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}','.etq-c-divider{width:0.3mm;align-self:stretch;background:#000;flex-shrink:0}','.etq-c-right{flex:1;display:flex;align-items:center;justify-content:center}',
   ].join('');
 
   const parts = [
@@ -10251,7 +10251,7 @@ function guardarNuevaEmpresa() {
 function editarEmpresa(id) {
   const emp = DB.companies[id];
   if (!emp) return;
-  openMo('Editar — '+emp.name,
+  openMo('Editar — '+emp.name,'<div class="fg" style="margin-bottom:10px"><label>Logo de la empresa</label><div style="display:flex;gap:14px;align-items:center;padding:10px;background:var(--s2);border-radius:var(--r)"><div id="eeLogoPrev" style="width:64px;height:64px;border-radius:var(--r);background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;border:1px solid var(--border)">'+(emp.logo?'<img src="'+emp.logo+'" style="max-width:100%;max-height:100%;object-fit:contain">':'<span style="color:var(--t3);font-size:20px">&#127970;</span>')+'</div><div style="flex:1"><input type="file" id="eeLogoFile" accept="image/png,image/jpeg,image/svg+xml,image/webp" onchange="onLogoEmpresaChangeEdit(event)" style="font-size:12px"><div style="font-size:11px;color:var(--t3);margin-top:6px">PNG, JPG, SVG o WebP · máx. 500 KB</div>'+(emp.logo?'<button class="btn btn-ghost btn-sm" style="margin-top:6px;color:var(--red)" onclick="quitarLogoEmpresaEdit()">Quitar logo</button>':'')+'</div></div><input type="hidden" id="eeLogoData" value="'+escHtml(emp.logo||'')+'"></div>'+
     '<div class="fgrid f2">'+
       '<div class="fg" style="grid-column:1/-1"><label>Nombre</label><input type="text" id="eeName" value="'+emp.name+'"></div>'+
       '<div class="fg"><label>RUT</label><input type="text" id="eeRut" value="'+(emp.rut||'')+'"></div>'+
@@ -10288,7 +10288,7 @@ async function guardarEditEmpresa(id) {
 	  emp.email    = $('eeEmail')?.value?.trim()||'';
 	  emp.tel      = $('eeTel')?.value?.trim()||'';
 	    emp.dir      = $('eeDir')?.value?.trim()||'';
-	  emp.url_base = ($('eeUrlBase')?.value||'').trim();
+	  emp.url_base = ($('eeUrlBase')?.value||'').trim();emp.logo = ($('eeLogoData')?.value ?? emp.logo);
 	  const nuevaClave = $('eeClaveSoporte')?.value?.trim()||'';
 	  if (typeof syncEmpresa === 'function') syncEmpresa(emp);
 	  addLog('Editó empresa','empresas',emp.name);
