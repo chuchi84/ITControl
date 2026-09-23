@@ -2180,7 +2180,7 @@ function renderEquipos() {
     '<button class="btn btn-ghost btn-sm" onclick="verRegistroBajas()">&#128465; Bajas ('+(DB.bajas||[]).filter(b=>b.co===DB.co).length+')</button>'+
            renderEqColsMenu()+
     '<div style="flex:1"></div>'+
-    '<button id="btnImprimirSel" class="btn btn-ghost btn-sm" style="display:none" onclick="imprimirFichaEquipo([..._eqSel])">&#128424; Imprimir seleccionados</button>'+
+    '<button id="btnImprimirSel" class="btn btn-ghost btn-sm" style="display:none" onclick="imprimirFichaEquipo([..._eqSel])">&#128424; Imprimir seleccionados</button>'+ '<button id="btnAccionesMasivasSel" class="btn btn-primary btn-sm" style="display:none" onclick="abrirAccionesMasivas()">&#9881; Acciones masivas</button>'+
   '</div>'+
 
   // Tabla
@@ -7806,10 +7806,10 @@ let _eqSel = new Set();
 
 function toggleSelEq(id, checked) {
   if (checked) _eqSel.add(id); else _eqSel.delete(id);
-  const btn = $('btnImprimirSel');
+  const btn = $('btnImprimirSel'); const btn2 = $('btnAccionesMasivasSel');
   if (btn) {
     const n = _eqSel.size;
-    btn.style.display = n > 0 ? 'inline-flex' : 'none';
+    btn.style.display = n > 0 ? 'inline-flex' : 'none'; if (btn2) btn2.style.display = n > 0 ? 'inline-flex' : 'none';
     btn.innerHTML = '&#128424; Imprimir seleccionados (' + n + ')';
   }
 }
@@ -7821,16 +7821,16 @@ function selTodosEq(checked) {
     const cb = document.querySelector('input[data-eqid="'+e.id+'"]');
     if (cb) cb.checked = checked;
   });
-  const btn = $('btnImprimirSel');
+  const btn = $('btnImprimirSel'); const btn2 = $('btnAccionesMasivasSel');
   if (btn) {
     const n = _eqSel.size;
-    btn.style.display = n > 0 ? 'inline-flex' : 'none';
+    btn.style.display = n > 0 ? 'inline-flex' : 'none'; if (btn2) btn2.style.display = n > 0 ? 'inline-flex' : 'none';
     btn.innerHTML = '&#128424; Imprimir seleccionados (' + n + ')';
   }
 }
 
 // ── IMPRESIÓN FICHA EQUIPO ────────────────────────────────
-function imprimirFichaEquipo(ids) {
+function abrirAccionesMasivas(){if(_eqSel.size===0)return;openMo('Acciones masivas ('+_eqSel.size+' equipos)','<div style="display:flex;flex-direction:column;gap:8px">'+'<button class="btn btn-secondary" style="justify-content:flex-start" onclick="abrirCambioEstadoMasivo()">&#128257; Cambiar estado</button>'+'<button class="btn btn-secondary" style="justify-content:flex-start" onclick="abrirMoverSedeAreaMasivo()">&#128205; Mover a sede / área</button>'+'</div>','<button class="btn btn-secondary" onclick="closeMo()">Cerrar</button>');} function abrirCambioEstadoMasivo(){const n=_eqSel.size;openMo('Cambiar estado ('+n+' equipos)','<div class="fg"><label>Nuevo estado</label><select id="amEstado">'+ESTADOS_EQUIPO.map(s=>'<option value="'+escHtml(s)+'">'+escHtml(s)+'</option>').join('')+'</select></div>'+'<p style="font-size:12px;color:var(--t3);margin-top:8px">Los equipos con asignación activa no se pueden marcar como "Disponible"; se omitirán automáticamente.</p>','<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button><button class="btn btn-primary" onclick="confirmarCambioEstadoMasivo()">Aplicar</button>');} function confirmarCambioEstadoMasivo(){const nuevoEstado=$('amEstado')?.value;if(!nuevoEstado)return;let ok=0,omitidos=0;[..._eqSel].forEach(id=>{const e=DB.equipos.find(x=>x.id===id);if(!e)return;if(nuevoEstado==='Disponible'&&getAsigActiva(id)){omitidos++;return;}const estadoAntes=e.estado;if(estadoAntes===nuevoEstado)return;e.estado=nuevoEstado;if(typeof syncEquipo==='function')syncEquipo(e,false);const h={id:'H-'+String(DB.historial.length+1).padStart(3,'0'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Estado: '+estadoAntes+' → '+nuevoEstado+' (masivo)',prox:null};DB.historial.push(h);if(typeof syncHistorial==='function')syncHistorial(h);ok++;});addLog('Cambio de estado masivo','equipos',ok+' equipos a "'+nuevoEstado+'"'+(omitidos?', '+omitidos+' omitidos (asignados)':''));closeMo();_eqSel.clear();toast(ok+' equipo'+(ok!==1?'s':'')+' actualizado'+(ok!==1?'s':'')+(omitidos?', '+omitidos+' omitido'+(omitidos!==1?'s':'')+' por tener asignación activa':''));go('equipos');} function abrirMoverSedeAreaMasivo(){const n=_eqSel.size;const locs=coLocales();openMo('Mover a sede / área ('+n+' equipos)','<div class="fgrid f2"><div class="fg"><label>Sede</label><select id="amSede" onchange="$(\'amArea\').innerHTML=areaOptsForSede(this.value)"><option value="">Sin sede</option>'+locs.map(l=>'<option value="'+escHtml(l.id)+'">'+escHtml(l.nombre)+'</option>').join('')+'</select></div>'+'<div class="fg"><label>Área</label><select id="amArea">'+areaOptsForSede('')+'</select></div></div>'+'<p style="font-size:12px;color:var(--t3);margin-top:8px">Se cerrará la asignación activa actual de cada equipo (si tiene) y, si se elige una sede, se abrirá una nueva conservando la persona/cargo asignados.</p>','<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button><button class="btn btn-primary" onclick="confirmarMoverSedeAreaMasivo()">Aplicar</button>');} function confirmarMoverSedeAreaMasivo(){const nuevaSede=$('amSede')?.value||'';const nuevaArea=$('amArea')?.value||'';let movidos=0,sinCambio=0;[..._eqSel].forEach(id=>{const e=DB.equipos.find(x=>x.id===id);if(!e)return;const sedeAntes=e.local_id||'';const areaAntes=e.area||'';if(sedeAntes===nuevaSede&&areaAntes===nuevaArea){sinCambio++;return;}const asigActual=getAsigActiva(id);if(asigActual){asigActual.estado='Devuelta';asigActual.fecha_dev=new Date().toISOString().slice(0,10);if(cloudMode)cloudWrite('asignacion_edit',{asignacion:asigActual});}let destino='sin ubicación';let sedeNombre='';if(nuevaSede){const nomPersona=asigActual?.persona||'';sedeNombre=getSede(nuevaSede)?.nombre||'';const nuevaAsig={id:'A-'+String(DB.asignaciones.length+1).padStart(3,'0'),eq_id:id,co:DB.co,sede_id:nuevaSede,ubicacion:nuevaArea,persona:nomPersona,persona_id:asigActual?.persona_id||null,cargo:asigActual?.cargo||'',fecha:new Date().toISOString().slice(0,10),fecha_dev:null,estado:'Activa',obs:''};DB.asignaciones.push(nuevaAsig);if(cloudMode)cloudWrite('asignacion_add',{asignacion:nuevaAsig});destino=nomPersona||nuevaArea||'ubicación';}e.local_id=nuevaSede||null;e.area=nuevaArea;if(typeof syncEquipo==='function')syncEquipo(e,false);const hMov={id:'H-'+String(DB.historial.length+1).padStart(3,'0'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Movido (masivo): '+destino+(sedeNombre?' en '+sedeNombre+(nuevaArea?' / '+nuevaArea:''):''),prox:null};DB.historial.push(hMov);if(typeof syncHistorial==='function')syncHistorial(hMov);const asigActivaFinal=!!nuevaSede;if(asigActivaFinal&&e.estado==='Disponible'){const estPrev=e.estado;e.estado='En uso';if(typeof syncEquipo==='function')syncEquipo(e,false);const hc={id:'H-'+String(DB.historial.length+1).padStart(3,'0'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Estado corregido: un equipo asignado no puede estar Disponible ('+estPrev+' → En uso)',prox:null};DB.historial.push(hc);if(typeof syncHistorial==='function')syncHistorial(hc);}if(!asigActivaFinal&&(e.estado==='En uso'||e.estado==='Asignado')){const estPrev2=e.estado;e.estado='Disponible';if(typeof syncEquipo==='function')syncEquipo(e,false);const hc2={id:'H-'+String(DB.historial.length+1).padStart(3,'0'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Estado corregido: sin asignación activa ('+estPrev2+' → Disponible)',prox:null};DB.historial.push(hc2);if(typeof syncHistorial==='function')syncHistorial(hc2);}movidos++;});addLog('Mover sede/área masivo','equipos',movidos+' equipos movidos'+(sinCambio?', '+sinCambio+' sin cambios':''));closeMo();_eqSel.clear();toast(movidos+' equipo'+(movidos!==1?'s':'')+' movido'+(movidos!==1?'s':'')+(sinCambio?' ('+sinCambio+' ya estaban ahí)':''));go('equipos');} function imprimirFichaEquipo(ids) {
   if (!ids || !ids.length) return;
   const allSedes = Object.values(DB.companies).flatMap(e=>e.sedes||[]);
 
@@ -8021,8 +8021,8 @@ function imprimirFichaEquipo(ids) {
   iDoc.close();
 
   _eqSel = new Set();
-  const btn = $('btnImprimirSel');
-  if (btn) btn.style.display='none';
+  const btn = $('btnImprimirSel'); const btn2 = $('btnAccionesMasivasSel');
+  if (btn) btn.style.display='none'; if (btn2) btn2.style.display='none';
 }
 
 
