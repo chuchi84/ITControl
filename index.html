@@ -7338,7 +7338,7 @@ let _qr = {
   selCompra:  '',
   selRango:   '',    // nuevo: '', '7', '30', '90', 'anio'
   campos:     ['id','marca','modelo','serie'],
-  labelSize:  '50x40',estilo:'clasico',
+  labelSize:  '50x40',estilo:'corp_a',
   customW:    50,
   customH:    30,
   soloConQR:  true,
@@ -7712,7 +7712,7 @@ function previsualizarEtiquetas(autoprint) {
   };
 
   const qrSzMm = Math.min(30, sz.w-2, sz.h*0.68);
-  const estiloActivo = (sz.w===50 && sz.h===30) ? (_qr.estilo||'clasico') : 'clasico';const qrSzMmFinal = estiloActivo==='corp_a'?18:estiloActivo==='corp_c'?24:qrSzMm;const qrSzPx = Math.round(qrSzMmFinal*3.7795);
+  const estiloActivo = ((sz.w===50 && sz.h===30) || (sz.w===50 && sz.h===40)) ? (_qr.estilo||'clasico') : 'clasico';const qrSzMmFinal = estiloActivo==='corp_a'?18:estiloActivo==='corp_c'?24:qrSzMm;const qrSzPx = Math.round(qrSzMmFinal*3.7795);
   const isMono  = k => k==='id'||k==='serie';
   const isBold  = k => k==='id';
   const fontSize= (k,h) => {
