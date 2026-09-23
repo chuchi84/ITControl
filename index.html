@@ -4868,7 +4868,7 @@ async function delUsuario(id){
 // ============================================================
 // AUDITORIA
 // ============================================================
-function renderAuditoria(){
+function renderAuditoria(){return renderAuditoriaV2();}function renderAuditoriaOld(){
   const badgeMod = {crear:'bg', editar:'bb', eliminar:'bgr'};
   const fmt = (f)=>{ try{ const d=new Date(f); return isNaN(d)?escHtml(f||''):d.toLocaleString('es-CL'); }catch(e){ return escHtml(f||''); } };
   const rows = (DB.log||[]);
@@ -4887,7 +4887,7 @@ function renderAuditoria(){
   '</tbody></table></div></div>';
 }
 
-function renderTodo(){return '<div class="card cp" style="text-align:center;padding:48px;color:var(--text2)"><div style="font-size:40px;margin-bottom:12px">&#128679;</div>Modulo en construccion</div>';}
+function renderTodo(){return '<div class="card cp" style="text-align:center;padding:48px;color:var(--text2)"><div style="font-size:40px;margin-bottom:12px">&#128679;</div>Modulo en construccion</div>';}let _audit = { pagina: 1, accion: '', usuario: '' };function refreshAuditoria(){ const mc=$('mc'); if(mc) mc.innerHTML=renderAuditoria(); }function renderAuditoriaV2(){const POR_PAGINA=150;const badgeMod={crear:'bg',editar:'bb',eliminar:'bgr'};const fmt=(f)=>{try{const d=new Date(f);return isNaN(d)?escHtml(f||''):d.toLocaleString('es-CL');}catch(e){return escHtml(f||'');}};const todas=(DB.log||[]);const accionesUnicas=Array.from(new Set(todas.map(l=>l.accion).filter(Boolean))).sort();const usuariosUnicos=Array.from(new Set(todas.map(l=>l.usuario).filter(Boolean))).sort();let rows=todas;if(_audit.accion) rows=rows.filter(l=>l.accion===_audit.accion);if(_audit.usuario) rows=rows.filter(l=>l.usuario===_audit.usuario);const totalPaginas=Math.max(1,Math.ceil(rows.length/POR_PAGINA));if(_audit.pagina>totalPaginas) _audit.pagina=totalPaginas;if(_audit.pagina<1) _audit.pagina=1;const inicio=(_audit.pagina-1)*POR_PAGINA;const paginaRows=rows.slice(inicio, inicio+POR_PAGINA);const body=paginaRows.length?paginaRows.map(l=>'<tr>'+'<td class="mono" style="font-size:11px;color:var(--text2)">'+fmt(l.fecha)+'</td>'+'<td style="font-weight:500">'+escHtml(l.usuario||'')+'</td>'+'<td><span class="badge bb">'+escHtml(l.modulo||'')+'</span></td>'+'<td><span class="badge '+(badgeMod[l.accion]||'bb')+'">'+escHtml(l.accion||'')+'</span></td>'+'<td class="td-muted">'+escHtml(l.detalle||'')+'</td>'+'</tr>').join(''):'<tr><td colspan="5" style="text-align:center;padding:28px;color:var(--t2)">Sin actividad registrada</td></tr>';const optsAccion=accionesUnicas.map(a=>'<option value="'+escHtml(a)+'"'+(a===_audit.accion?' selected':'')+'>'+escHtml(a)+'</option>').join('');const optsUsuario=usuariosUnicos.map(u=>'<option value="'+escHtml(u)+'"'+(u===_audit.usuario?' selected':'')+'>'+escHtml(u)+'</option>').join('');return '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">'+'<select style="width:auto" onchange="_audit.accion=this.value;_audit.pagina=1;refreshAuditoria()"><option value="">Todas las acciones</option>'+optsAccion+'</select>'+'<select style="width:auto" onchange="_audit.usuario=this.value;_audit.pagina=1;refreshAuditoria()"><option value="">Todos los usuarios</option>'+optsUsuario+'</select>'+((_audit.accion||_audit.usuario)?'<button class="btn btn-ghost btn-sm" onclick="_audit.accion=\'\';_audit.usuario=\'\';_audit.pagina=1;refreshAuditoria()">&#10005; Limpiar filtros</button>':'')+'</div>'+'<div class="srch"><div class="srch-wrap"><span class="si">&#9906;</span><input type="text" placeholder="Buscar en esta pagina..." oninput="filterRows(\'tLog\',this.value)"></div></div>'+'<div class="card"><div class="tw"><table><thead><tr><th>Fecha</th><th>Usuario</th><th>Modulo</th><th>Accion</th><th>Detalle</th></tr></thead><tbody id="tLog">'+body+'</tbody></table></div></div>'+'<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:14px">'+'<button class="btn btn-ghost btn-sm" '+(_audit.pagina<=1?'disabled style="opacity:.5;cursor:not-allowed"':'onclick="_audit.pagina--;refreshAuditoria()"')+'>&#8592; Anterior</button>'+'<span style="font-size:12px;color:var(--t2)">Pagina '+_audit.pagina+' de '+totalPaginas+' &middot; '+rows.length+' registro'+(rows.length!==1?'s':'')+'</span>'+'<button class="btn btn-ghost btn-sm" '+(_audit.pagina>=totalPaginas?'disabled style="opacity:.5;cursor:not-allowed"':'onclick="_audit.pagina++;refreshAuditoria()"')+'>Siguiente &#8594;</button>'+'</div>';}
 
 
 // ============================================================
@@ -8935,7 +8935,7 @@ async function _supaLoad(){
   const empresas = {}; byT.empresas.forEach(e=> empresas[e.id]=e);
   let logRows = [];
   try {
-    const { data } = await sb.from('log_auditoria').select('*').order('fecha',{ascending:false}).limit(300);
+    const { data } = await sb.from('log_auditoria').select('*').order('fecha',{ascending:false}).limit(1500);
     logRows = (data||[]).map(l=>({ id:l.id, co:l.co, usuario:l.usuario, accion:l.accion,
       modulo:l.tabla, detalle:(l.detalle&&l.detalle.txt)||l.registro||'', fecha:l.fecha }));
   } catch(e){}
