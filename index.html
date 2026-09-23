@@ -7712,7 +7712,7 @@ function previsualizarEtiquetas(autoprint) {
   };
 
   const qrSzMm = Math.min(30, sz.w-2, sz.h*0.68);
-  const estiloActivo = ((sz.w===50 && sz.h===30) || (sz.w===50 && sz.h===40)) ? (_qr.estilo||'clasico') : 'clasico';const qrSzMmFinal = estiloActivo==='corp_a'?18:estiloActivo==='corp_c'?24:qrSzMm;const qrSzPx = Math.round(qrSzMmFinal*3.7795);
+  const estiloActivo = ((sz.w===50 && sz.h===30) || (sz.w===50 && sz.h===40)) ? (_qr.estilo||'clasico') : 'clasico';const qrSzMmFinal = estiloActivo==='corp_a'?22:estiloActivo==='corp_c'?24:qrSzMm;const qrSzPx = Math.round(qrSzMmFinal*3.7795);
   const isMono  = k => k==='id'||k==='serie';
   const isBold  = k => k==='id';
   const fontSize= (k,h) => {
@@ -7740,7 +7740,7 @@ function previsualizarEtiquetas(autoprint) {
   const qrInits = sel.map((eq,i)=>{
     const text = genQRText(eq);
     return 'new QRCode(document.getElementById("q'+i+'"),{text:'+JSON.stringify(text)+
-      ',width:'+qrSzPx+',height:'+qrSzPx+',colorDark:"#000",colorLight:"#fff",correctLevel:QRCode.CorrectLevel.L});';
+      ',width:'+qrSzPx+',height:'+qrSzPx+',colorDark:"#000",colorLight:"#fff",correctLevel:QRCode.CorrectLevel.M});';
   }).join('\n');
 
   const css = [
