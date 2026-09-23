@@ -8347,7 +8347,7 @@ function abrirFichaEquipo(eqId, usuario) {
            '</select></div>'+
                    '<div class="fg" style="grid-column:1/-1"><label>Comentario</label><input type="text" id="ecDesc" placeholder="Ej: comprado para Juan (secretario)" value="'+escHtml(comp?.descripcion||'')+'"></div>'+
          '</div>'+
-         '<button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="guardarCompraDesdeFicha(\''+eqId+'\')">'+(comp?'Guardar cambios de compra':'Crear y vincular compra')+'</button>'+
+         
          (comp?'':'<div style="font-size:11px;color:var(--t3);margin-top:8px">Este equipo no tiene compra asociada todavia. Completa los datos y guarda para crear una.</div>');
      
 
