@@ -7322,7 +7322,7 @@ const TIPOS_SIN_QR = new Set([
 // Tamaños de etiqueta en mm
 const LABEL_SIZES = {
   '38x25': {w:38, h:25, nombre:'38×25 mm'},
-  '50x30': {w:50, h:30, nombre:'50×30 mm'},
+  '50x30': {w:50, h:30, nombre:'50×30 mm'}, '50x40': {w:50, h:40, nombre:'50×40 mm'},
   '62x29': {w:62, h:29, nombre:'62×29 mm (Brother DK-11209)'},
   '62x100':{w:62, h:100,nombre:'62×100 mm (Brother DK-11202)'},
   '36x89': {w:36, h:89, nombre:'36×89 mm (Dymo 11356)'},  '30x30': {w:30, h:30, nombre:'30×30 mm'},
@@ -7338,7 +7338,7 @@ let _qr = {
   selCompra:  '',
   selRango:   '',    // nuevo: '', '7', '30', '90', 'anio'
   campos:     ['id','marca','modelo','serie'],
-  labelSize:  '50x30',estilo:'clasico',
+  labelSize:  '50x40',estilo:'clasico',
   customW:    50,
   customH:    30,
   soloConQR:  true,
@@ -7502,7 +7502,7 @@ function renderQR() {
       '<div style="font-size:11px;color:var(--t2);background:var(--s2);padding:8px 10px;border-radius:var(--r);margin-bottom:10px;line-height:1.5">'+
         '&#128736; <b>Impresora térmica:</b> elige el tamaño <b>exacto</b> del rollo autoadhesivo que cargaste. Al imprimir cada etiqueta sale como una "hoja" propia, y la impresora avanza sola a la siguiente. Al abrir el diálogo de impresión verás instrucciones detalladas para Xprinter.'+
       '</div>'+
-      '<div class="fgrid f2" style="gap:8px;margin-bottom:12px">'+(_qr.labelSize==='50x30'?('<div class="fg" style="grid-column:1/-1"><label>Estilo de etiqueta</label><select onchange="_qr.estilo=this.value;refreshQRModule()"><option value="clasico"'+(_qr.estilo==='clasico'?' selected':'')+'>Clásico</option><option value="corp_a"'+(_qr.estilo==='corp_a'?' selected':'')+'>Corporativo A — Franja con nombre</option><option value="corp_c"'+(_qr.estilo==='corp_c'?' selected':'')+'>Corporativo C — Logo + QR lateral</option></select><div style="font-size:11px;color:var(--t3);margin-top:4px">Solo para 50×30 mm. Usa el nombre/logo de la empresa activa.</div></div>'):'')+
+      '<div class="fgrid f2" style="gap:8px;margin-bottom:12px">'+((_qr.labelSize==='50x30'||_qr.labelSize==='50x40')?('<div class="fg" style="grid-column:1/-1"><label>Estilo de etiqueta</label><select onchange="_qr.estilo=this.value;refreshQRModule()"><option value="clasico"'+(_qr.estilo==='clasico'?' selected':'')+'>Clásico</option><option value="corp_a"'+(_qr.estilo==='corp_a'?' selected':'')+'>Corporativo A — Franja con nombre</option><option value="corp_c"'+(_qr.estilo==='corp_c'?' selected':'')+'>Corporativo C — Logo + QR lateral</option></select><div style="font-size:11px;color:var(--t3);margin-top:4px">Solo para 50×30 o 50×40 mm. Usa el nombre/logo de la empresa activa.</div></div>'):'')+
         '<div class="fg" style="grid-column:1/-1">'+
           '<label>Tamaño predefinido</label>'+
           '<select onchange="cambiarTamanoQR(this.value)">'+
@@ -7660,7 +7660,7 @@ function toggleCampoQR(k, on) {
   refreshQRModule();
 }
 function cambiarTamanoQR(val) {
-  _qr.labelSize = val;if(val!=='50x30')_qr.estilo='clasico';
+  _qr.labelSize = val;if(val!=='50x30'&&val!=='50x40')_qr.estilo='clasico';
   if (val!=='custom') {
     const s=LABEL_SIZES[val];
     _qr.customW=s.w; _qr.customH=s.h;
@@ -7754,7 +7754,7 @@ function previsualizarEtiquetas(autoprint) {
       'padding:1mm;display:flex;flex-direction:column;align-items:center;',
       'overflow:hidden;background:white}',
     '@media print{',
-      '.no-print{display:none!important}',
+      '.no-print{display:none!important}','*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}',
       // Cada etiqueta = una página del tamaño EXACTO. Márgenes 0 porque en
       // térmica no hay bordes de página.
       '@page{size:'+sz.w+'mm '+sz.h+'mm;margin:0}',
@@ -7762,7 +7762,7 @@ function previsualizarEtiquetas(autoprint) {
       '.grid{display:block;padding:0;gap:0}',
       // Sin borde impreso (la etiqueta ya tiene su forma física). Comentar la
       // línea de abajo si prefieres borde negro impreso alrededor.
-      '.etq{border:none;border-radius:0;page-break-after:always;break-after:page;padding:1mm}',
+      '.etq{border:none;border-radius:0;page-break-after:always;break-after:page;padding:1mm}','.etq.etq-a,.etq.etq-c{border:0.35mm solid #000!important;border-radius:0.5mm!important}',
       '.etq:last-child{page-break-after:auto;break-after:auto}',
     '}','.etq-a{flex-direction:column;padding:0!important;justify-content:flex-start}','.etq-a-bar{width:100%;height:4.5mm;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:7pt;letter-spacing:0.5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:0 2mm;box-sizing:border-box}','.etq-a-body{flex:1;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.8mm;padding:1mm 2mm;overflow:hidden;box-sizing:border-box}','.etq-a-id{font-family:monospace;font-weight:800;font-size:16pt;letter-spacing:0.5px}','.etq-c{flex-direction:row!important;align-items:stretch;padding:1mm!important;gap:1.2mm}','.etq-c-left{width:17mm;flex-shrink:0;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:1mm;overflow:hidden}','.etq-c-logo{max-width:17mm;max-height:9mm;object-fit:contain;filter:grayscale(1) contrast(1.1)}','.etq-c-logo-txt{font-weight:700;font-size:6.5pt;letter-spacing:0.5px;color:#000;max-width:17mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}','.etq-c-idbar{width:100%;background:#000;color:#fff;font-family:monospace;font-weight:800;font-size:13pt;text-align:center;padding:0.8mm 0;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}','.etq-c-divider{width:0.3mm;align-self:stretch;background:#000;flex-shrink:0}','.etq-c-right{flex:1;display:flex;align-items:center;justify-content:center}',
   ].join('');
