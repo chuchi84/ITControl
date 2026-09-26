@@ -839,12 +839,18 @@ const getAsigActiva = eqId => DB.asignaciones.find(a=>a.eq_id===eqId&&a.estado==
 const getSede = id => { for(const c of Object.values(DB.companies)){const s=c.sedes?.find(x=>x.id===id);if(s)return s;} return null; };
 const daysUntil = d => { if(!d) return null; return Math.ceil((new Date(d+'T12:00')-new Date())/864e5); };
 const newId = (arr,field='id') => arr.length+1;
+// ID único (no depende de cuántos registros hay cargados → no choca ni sobrescribe).
+let _uidSeq = 0;
+const uid = (pref) => pref+'-'+Date.now().toString(36).toUpperCase()+(_uidSeq=(_uidSeq+1)%1296).toString(36).toUpperCase().padStart(2,'0')+Math.random().toString(36).slice(2,6).toUpperCase();
+// Siguiente correlativo de equipo: máximo número existente con ese prefijo + 1
+// (antes era cantidad+1: al borrar un equipo, el siguiente repetía un código y lo sobrescribía).
+function _maxEqNum(prefix){ let m=0; const pre=(prefix||'')+'-'; (DB.equipos||[]).forEach(e=>{ const id=String(e.id||''); if(id.startsWith(pre)){ const n=parseInt(id.slice(pre.length),10); if(!isNaN(n)&&n>m) m=n; } }); return m; }
 // ID de EQUIPO — usa `c.counter` (contador de equipos).
 // Formato: {prefijo_empresa}-{correlativo_3_digitos}, ej: EMP-001
-const genEqId = () => { const c=co(); return c.prefix+'-'+String(DB.equipos.filter(e=>e.co===DB.co).length+1).padStart(3,'0'); };
+const genEqId = () => { const c=co(); return c.prefix+'-'+String(_maxEqNum(c.prefix)+1).padStart(3,'0'); };
 function genEqId_new(offset) {
   const co_ = co();
-  const base = DB.equipos.filter(e=>e.co===DB.co).length + (offset||0) + 1;
+  const base = _maxEqNum(co_.prefix) + (offset||0) + 1;
   return co_.prefix + '-' + String(base).padStart(3,'0');
 }
 
@@ -1880,7 +1886,7 @@ function delEqRow(i){const r=$('eqr'+i);if(r)r.remove();const tb=$('eqRows');if(
 
 function genEqId_seq(offset){
        const c=co();
-       const base=DB.equipos.filter(e=>e.co===DB.co).length+offset+1;
+       const base=_maxEqNum(c.prefix)+(offset||0)+1;
        // Verifica contra los equipos ya cargados para evitar colisiones si el
        // conteo quedo desincronizado (ej: equipos dados de baja o borrados).
        let candidato, n=base, intentos=0;
@@ -2212,9 +2218,9 @@ function renderEquipos() {
       return '<tr onclick="viewEquipo(\''+e.id+'\')" style="'+((e.estado==='De baja'||e.estado==='Dado de baja')?'opacity:0.5;':'')+'">'+
         '<td class="td-id">'+(TICONS[e.tipo]||'&#128230;')+' '+e.id+'</td>'+
         (eqColOn('tipo')?'<td class="td-muted">'+e.tipo+'</td>':'')+
-    (eqColOn('marca')?'<td><strong>'+e.marca+'</strong></td>':'')+
-    (eqColOn('modelo')?'<td class="td-muted">'+e.modelo+'</td>':'')+
-    (eqColOn('serie')?'<td class="td-muted mono">'+e.serie+'</td>':'')+
+    (eqColOn('marca')?'<td><strong>'+escHtml(e.marca)+'</strong></td>':'')+
+    (eqColOn('modelo')?'<td class="td-muted">'+escHtml(e.modelo)+'</td>':'')+
+    (eqColOn('serie')?'<td class="td-muted mono">'+escHtml(e.serie)+'</td>':'')+
     (eqColOn('estado')?'<td><div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">'+estadoBadge(e.estado)+asigBadge(e)+'</div></td>':'')+
     (eqColOn('garantia')?'<td>'+garantiaBadge(e)+'</td>':'')+
     (eqColOn('sede')?'<td class="td-muted">'+(sede?escHtml(sede.nombre):'<span style="color:var(--t3)">—</span>')+'</td>':'')+
@@ -2791,7 +2797,7 @@ const estadoAntes = e.estado;const sedeAntes = e.local_id;const areaAntes = e.ar
   e.campos      = (window._eqEditCampos||[]).filter(f=>f.k);
   e.software    = (window._eqEditSw||[]).filter(s=>s.nombre); const _ecProv=$('ecProv')?.value?.trim();if(_ecProv){let comp=DB.compras.find(c=>c.id===e.compra_id);const esNuevaComp=!comp;if(esNuevaComp){comp={id:genCompraId(),co:DB.co,equipos_ids:[id],gar_meses:0};DB.compras.push(comp);}comp.local_id=$('ecLocal')?.value||null;comp.area=$('ecArea')?.value||'';comp.proveedor=_ecProv;comp.rut_prov=$('ecRut')?.value||'';comp.tipo_doc=$('ecTDoc')?.value;comp.num_doc=$('ecNDoc')?.value||'';comp.fecha=$('ecFecha')?.value||'';comp.monto=parseInt($('ecMonto')?.value)||0;comp.financiador=$('ecQuien')?.value||'yo';comp.quien_pago=$('ecQuien')?.value;comp.forma_pago=$('ecForma')?.value;comp.estado_pago=$('ecEstado')?.value;comp.cobrado_cliente=$('ecCobrado')?.value==='true';comp.descripcion=$('ecDesc')?.value||'';if(esNuevaComp)e.compra_id=comp.id;if(typeof syncCompra==='function')syncCompra(comp,esNuevaComp);}
   if (typeof syncEquipo==='function') syncEquipo(e, false);
-  addLog('Editó equipo','equipos', id);if (e.estado !== estadoAntes) {const histEstado = {id:'H-'+String(DB.historial.length+1).padStart(3,'0'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Estado: '+estadoAntes+' → '+e.estado,prox:null};DB.historial.push(histEstado);if (typeof syncHistorial==='function') syncHistorial(histEstado);}const personaSelId = $('eeAsigPersona')?.value || '';const huboCambioAsig = (e.local_id !== sedeAntes) || (e.area !== areaAntes) || (personaSelId !== personaAntesId);if (huboCambioAsig) {if (asigActual) {asigActual.estado = 'Devuelta';asigActual.fecha_dev = new Date().toISOString().slice(0,10);if (cloudMode) cloudWrite('asignacion_edit', { asignacion: asigActual });}let destino = 'sin ubicación';let sedeNombre = '';if (e.local_id) {const persona = personaSelId ? getPersona(personaSelId) : null;const nomPersona = persona ? nombrePersona(persona) : '';sedeNombre = getSede(e.local_id)?.nombre || '';const nuevaAsig = {id:'A-'+String(DB.asignaciones.length+1).padStart(3,'0'),eq_id:id,co:DB.co,sede_id:e.local_id,ubicacion:e.area||'',persona:nomPersona,persona_id:personaSelId||null,cargo:(asigActual?.cargo)||'',fecha:new Date().toISOString().slice(0,10),fecha_dev:null,estado:'Activa',obs:''};DB.asignaciones.push(nuevaAsig);if (cloudMode) cloudWrite('asignacion_add', { asignacion: nuevaAsig });destino = nomPersona || e.area || 'ubicación';}const histAsig = {id:'H-'+String(DB.historial.length+1).padStart(3,'0'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Asignación actualizada: '+destino+(sedeNombre?' en '+sedeNombre+' / '+(e.area||''):''),prox:null};DB.historial.push(histAsig);if (typeof syncHistorial==='function') syncHistorial(histAsig);}const _asigActivaFinal = huboCambioAsig ? !!e.local_id : !!asigActual;if (_asigActivaFinal && e.estado==='Disponible') {const _estPrev=e.estado;e.estado='En uso';if (typeof syncEquipo==='function') syncEquipo(e, false);const _hCorr={id:'H-'+String(DB.historial.length+1).padStart(3,'0'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Estado corregido: un equipo asignado no puede estar Disponible ('+_estPrev+' → En uso)',prox:null};DB.historial.push(_hCorr);if (typeof syncHistorial==='function') syncHistorial(_hCorr);}if (!_asigActivaFinal && (e.estado==='En uso'||e.estado==='Asignado')) {const _estPrev2=e.estado;e.estado='Disponible';if (typeof syncEquipo==='function') syncEquipo(e, false);const _hCorr2={id:'H-'+String(DB.historial.length+1).padStart(3,'0'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Estado corregido: sin asignación activa ('+_estPrev2+' → Disponible)',prox:null};DB.historial.push(_hCorr2);if (typeof syncHistorial==='function') syncHistorial(_hCorr2);}
+  addLog('Editó equipo','equipos', id);if (e.estado !== estadoAntes) {const histEstado = {id:uid('H'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Estado: '+estadoAntes+' → '+e.estado,prox:null};DB.historial.push(histEstado);if (typeof syncHistorial==='function') syncHistorial(histEstado);}const personaSelId = $('eeAsigPersona')?.value || '';const huboCambioAsig = (e.local_id !== sedeAntes) || (e.area !== areaAntes) || (personaSelId !== personaAntesId);if (huboCambioAsig) {if (asigActual) {asigActual.estado = 'Devuelta';asigActual.fecha_dev = new Date().toISOString().slice(0,10);if (cloudMode) cloudWrite('asignacion_edit', { asignacion: asigActual });}let destino = 'sin ubicación';let sedeNombre = '';if (e.local_id) {const persona = personaSelId ? getPersona(personaSelId) : null;const nomPersona = persona ? nombrePersona(persona) : '';sedeNombre = getSede(e.local_id)?.nombre || '';const nuevaAsig = {id:uid('A'),eq_id:id,co:DB.co,sede_id:e.local_id,ubicacion:e.area||'',persona:nomPersona,persona_id:personaSelId||null,cargo:(asigActual?.cargo)||'',fecha:new Date().toISOString().slice(0,10),fecha_dev:null,estado:'Activa',obs:''};DB.asignaciones.push(nuevaAsig);if (cloudMode) cloudWrite('asignacion_add', { asignacion: nuevaAsig });destino = nomPersona || e.area || 'ubicación';}const histAsig = {id:uid('H'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Asignación actualizada: '+destino+(sedeNombre?' en '+sedeNombre+' / '+(e.area||''):''),prox:null};DB.historial.push(histAsig);if (typeof syncHistorial==='function') syncHistorial(histAsig);}const _asigActivaFinal = huboCambioAsig ? !!e.local_id : !!asigActual;if (_asigActivaFinal && e.estado==='Disponible') {const _estPrev=e.estado;e.estado='En uso';if (typeof syncEquipo==='function') syncEquipo(e, false);const _hCorr={id:uid('H'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Estado corregido: un equipo asignado no puede estar Disponible ('+_estPrev+' → En uso)',prox:null};DB.historial.push(_hCorr);if (typeof syncHistorial==='function') syncHistorial(_hCorr);}if (!_asigActivaFinal && (e.estado==='En uso'||e.estado==='Asignado')) {const _estPrev2=e.estado;e.estado='Disponible';if (typeof syncEquipo==='function') syncEquipo(e, false);const _hCorr2={id:uid('H'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Estado corregido: sin asignación activa ('+_estPrev2+' → Disponible)',prox:null};DB.historial.push(_hCorr2);if (typeof syncHistorial==='function') syncHistorial(_hCorr2);}
   closeMo();
   toast('Equipo actualizado');
   go('equipos');
@@ -3362,7 +3368,7 @@ function saveCambioEstado(eqId){
   const anterior=e.estado;
   e.estado=nuevo;
   if(typeof syncEquipo==='function') syncEquipo(e,false);
-  const hist={id:'H-'+String(DB.historial.length+1).padStart(3,'0'),eq_id:eqId,co:DB.co,
+  const hist={id:uid('H'),eq_id:eqId,co:DB.co,
     tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),
     costo:0,desc:'Estado: '+anterior+' → '+nuevo+(nota?' · '+nota:''),prox:null};
   DB.historial.push(hist);
@@ -3411,7 +3417,7 @@ function confirmarRecepcion(eqId){
   }
   if(typeof syncEquipo==='function') syncEquipo(e,false);
 
-  const hist={id:'H-'+String(DB.historial.length+1).padStart(3,'0'),eq_id:eqId,co:DB.co,
+  const hist={id:uid('H'),eq_id:eqId,co:DB.co,
     tipo:'Recepción',fecha,tecnico:(currentUser?.nombre||'—'),
     costo:0,desc:'Equipo recibido — disponible para asignar'+(nota?' · '+nota:''),prox:null};
   DB.historial.push(hist);
@@ -3580,7 +3586,7 @@ function saveAsig(eqId){
       }
     }
   }
-  const id='A-'+String(DB.asignaciones.length+1).padStart(3,'0');
+  const id=uid('A');
   const asignacion={id,eq_id:eqId,co:DB.co,sede_id:sedeId,ubicacion:ub,persona:nomPersona,persona_id:personaId||null,cargo:$('asCa')?.value||'',fecha:$('asF')?.value,fecha_dev:null,estado:'Activa',obs:$('asO')?.value||''};
   DB.asignaciones.push(asignacion);
   if(cloudMode) cloudWrite('asignacion_add',{ asignacion });
@@ -3597,7 +3603,7 @@ function saveAsig(eqId){
   }
   // Auto log en historial
   const destino=nomPersona||ub||'ubicación';
-  const hist={id:'H-'+String(DB.historial.length+1).padStart(3,'0'),eq_id:eqId,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Equipo asignado a '+destino+' en '+(getSede(sedeId)?.nombre||'')+' / '+ub,prox:null};
+  const hist={id:uid('H'),eq_id:eqId,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Equipo asignado a '+destino+' en '+(getSede(sedeId)?.nombre||'')+' / '+ub,prox:null};
   DB.historial.push(hist);
   if(typeof syncHistorial==='function') syncHistorial(hist);
   addLog('Asigno equipo','asignaciones',eqId+' a '+destino);
@@ -3610,7 +3616,7 @@ function devolverEquipo(eqId){
   });
   const eq=DB.equipos.find(e=>e.id===eqId);
   if(eq){eq.estado='Disponible';if(typeof syncEquipo==='function')syncEquipo(eq,false);}
-  const hist={id:'H-'+String(DB.historial.length+1).padStart(3,'0'),eq_id:eqId,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Equipo devuelto - disponible',prox:null};
+  const hist={id:uid('H'),eq_id:eqId,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Equipo devuelto - disponible',prox:null};
   DB.historial.push(hist);
   if(typeof syncHistorial==='function') syncHistorial(hist);
   closeMo();toast('Equipo devuelto, ahora disponible');go('equipos');
@@ -3920,7 +3926,7 @@ function addLicencia(){
   );
 }
 function saveLicencia(){
-  const id='LIC-'+String(DB.licencias.length+1).padStart(3,'0');
+  const id=uid('LIC');
   const licencia={id,co:DB.co,soft:$('lN')?.value||'Sin nombre',tipo:$('lT')?.value,prov:$('lP')?.value||'-',n:parseInt($('lN2')?.value)||1,costo:parseInt($('lC')?.value)||0,vence:$('lV')?.value||'',auto:false,eqs:[]};
   DB.licencias.push(licencia);
   if(cloudMode) cloudWrite('licencia_add',{ licencia });
@@ -4499,7 +4505,7 @@ function addTarea(){
   );
 }
 function saveTarea(){
-  const id='T-'+String(DB.tareas.length+1).padStart(3,'0');
+  const id=uid('T');
   const tarea = {
     id, co: DB.co,
     titulo: $('tT')?.value || 'Sin titulo',
@@ -4529,7 +4535,7 @@ function renderAlertas(){
   const gr={red:[],orange:[],yellow:[],blue:[]};al.forEach(a=>{if(gr[a.nivel])gr[a.nivel].push(a);});
   const sec=(label,items,col)=>items.length?
     '<div style="font-size:10px;font-weight:600;color:var(--text3);letter-spacing:1.2px;margin:16px 0 8px">'+label+'</div>'+
-    items.map(a=>'<div style="display:flex;align-items:center;gap:14px;padding:12px 14px;background:var(--s2);border-radius:var(--r2);border-left:3px solid var(--'+col+');margin-bottom:6px;cursor:pointer" onclick="go(\''+a.link+'\')"><div class="dot dot-'+(col==='accent'?'b':col[0])+'"></div><div style="flex:1"><div style="font-weight:500">'+a.titulo+'</div><div style="font-size:11.5px;color:var(--text2)">'+a.det+'</div></div><button class="btn btn-ghost btn-sm">&#8594;</button></div>').join(''):'';
+    items.map(a=>'<div style="display:flex;align-items:center;gap:14px;padding:12px 14px;background:var(--s2);border-radius:var(--r2);border-left:3px solid var(--'+col+');margin-bottom:6px;cursor:pointer" onclick="go(\''+a.link+'\')"><div class="dot dot-'+(col==='accent'?'b':col[0])+'"></div><div style="flex:1"><div style="font-weight:500">'+escHtml(a.titulo)+'</div><div style="font-size:11.5px;color:var(--text2)">'+escHtml(a.det)+'</div></div><button class="btn btn-ghost btn-sm">&#8594;</button></div>').join(''):'';
   return '<div class="card cp">'+sec('CRITICAS',gr.red,'red')+sec('ADVERTENCIAS',gr.orange,'orange')+sec('ATENCION',gr.yellow,'yellow')+sec('INFORMATIVAS',gr.blue,'accent')+'</div>';
 }
 
@@ -4802,7 +4808,7 @@ async function saveUsuario(){
   } else {
     // Asegurar que DB.usuarios existe antes de usar length/push
     if (!DB.usuarios) DB.usuarios = [];
-    u.id = 'U-' + String(DB.usuarios.length + 1).padStart(3, '0');
+    u.id = uid('U');
   }
   if (!DB.usuarios) DB.usuarios = [];
   DB.usuarios.push(u);
@@ -5019,7 +5025,7 @@ function renderRendicion() {
       '</td>'+
       '<td style="padding:8px 10px;font-size:12px">'+fDate(c.fecha)+'</td>'+
       '<td style="padding:8px 10px;font-size:12px;color:var(--t2)">'+(co?.name||c.co)+'</td>'+
-      '<td style="padding:8px 10px;font-size:12.5px;font-weight:500">'+c.proveedor+'</td>'+
+      '<td style="padding:8px 10px;font-size:12.5px;font-weight:500">'+escHtml(c.proveedor)+'</td>'+
       '<td style="padding:8px 10px;font-family:var(--mono);font-size:11.5px;color:var(--accent)">'+c.num_doc+'</td>'+
       '<td style="padding:8px 10px;font-size:12px;color:var(--t2);max-width:160px">'+
         (c.descripcion||'—')+
@@ -5418,7 +5424,7 @@ function estadoPagoSelect(compra) {
 
 
 // Helper for viewCompra add equipment button
-function _addEqLocal() { closeMo(); if(_currentLocal) addEquipoALocal(_currentLocal); }
+
 // Ver detalle de compra
 
 
@@ -5513,7 +5519,7 @@ function renderHistRow(h) {
   return '<tr onclick="verHistorialEquipo(\''+(h.eq_id||'')+'\')">'+
     '<td>'+
       '<div class="td-id">'+(h.eq_id||'General')+'</div>'+
-      (eq?'<div style="font-size:11.5px;color:var(--t2)">'+eq.marca+' '+eq.modelo+'</div>':'')+
+      (eq?'<div style="font-size:11.5px;color:var(--t2)">'+escHtml(eq.marca)+' '+escHtml(eq.modelo)+'</div>':'')+
     '</td>'+
     '<td style="font-size:12px;color:var(--t2)">'+(loc?loc.nombre:'-')+'</td>'+
     '<td>'+tipoBadge(h.tipo)+'</td>'+
@@ -5567,13 +5573,13 @@ function verHistorialEquipo(eqId) {
   const hist = DB.historial.filter(h=>h.eq_id===eqId).sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
   const loc  = getLocal(eq.local_id);
 
-  openMo(eq.marca+' '+eq.modelo+' — Historial',
+  openMo(escHtml(eq.marca)+' '+escHtml(eq.modelo)+' — Historial',
     // Header equipo
     '<div style="background:var(--s2);border-radius:var(--r);padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:14px">'+
       '<div style="font-size:26px">'+(TIPO_ICON[eq.tipo]||'&#128230;')+'</div>'+
       '<div style="flex:1">'+
-        '<div style="font-weight:600;font-size:13.5px">'+eq.marca+' '+eq.modelo+'</div>'+
-        '<div style="font-size:11.5px;color:var(--t2)">'+eq.id+' — Serie: '+eq.serie+'</div>'+
+        '<div style="font-weight:600;font-size:13.5px">'+escHtml(eq.marca)+' '+escHtml(eq.modelo)+'</div>'+
+        '<div style="font-size:11.5px;color:var(--t2)">'+eq.id+' — Serie: '+escHtml(eq.serie)+'</div>'+
         '<div style="font-size:11.5px;color:var(--t2)">&#128205; '+(loc?loc.nombre:'Sin local')+'</div>'+
       '</div>'+
       estadoBadge(eq.estado)+
@@ -5615,7 +5621,7 @@ function exportHistorialPDF(eqId) {
     histItems = DB.historial
       .filter(h => h.eq_id === eqId)
       .sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
-    titulo = 'Historial de Vida — '+eq.marca+' '+eq.modelo;
+    titulo = 'Historial de Vida — '+escHtml(eq.marca)+' '+escHtml(eq.modelo);
     equipoInfo = { eq, loc };
   } else {
     histItems = coHist().sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
@@ -5984,7 +5990,7 @@ function renderComprasTable() {
           (isPend?'<input type="checkbox" style="accent-color:var(--accent);width:auto" onchange="toggleSelPago(\''+c.id+'\',this.checked)">':'')+'</td>'+
         '<td class="td-id">'+c.id+'</td>'+
         '<td style="font-size:12px;color:var(--t2)">'+(loc?loc.nombre:'<span style="color:var(--t3)">Sin sede</span>')+'</td>'+
-        '<td style="font-weight:500">'+c.proveedor+'</td>'+
+        '<td style="font-weight:500">'+escHtml(c.proveedor)+'</td>'+
         '<td class="td-m mono">'+c.tipo_doc+' '+c.num_doc+'</td>'+
         '<td class="td-m">'+fDate(c.fecha)+'</td>'+
         '<td>'+quienBadge(c.financiador||c.quien_pago)+'</td>'+
@@ -6115,7 +6121,7 @@ function renderCompras() {
           (isPend?'<input type="checkbox" style="accent-color:var(--accent);width:auto" onchange="toggleSelPago(\''+c.id+'\',this.checked)">':'')+'</td>'+
         '<td class="td-id">'+c.id+'</td>'+
         '<td style="font-size:12px;color:var(--t2)">'+(loc?loc.nombre:'<span style="color:var(--t3)">Sin sede</span>')+'</td>'+
-        '<td style="font-weight:500">'+c.proveedor+'</td>'+
+        '<td style="font-weight:500">'+escHtml(c.proveedor)+'</td>'+
         '<td class="td-m mono">'+c.tipo_doc+' '+c.num_doc+'</td>'+
         '<td class="td-m">'+fDate(c.fecha)+'</td>'+
         '<td>'+quienBadge(c.financiador||c.quien_pago)+'</td>'+
@@ -6209,8 +6215,8 @@ function verCompra(id) {
           '<div class="cl-item" onclick="closeMo();verEquipoDetalle(\''+e.id+'\')">'+
             '<span style="font-size:15px">'+(TIPO_ICON[e.tipo]||'📦')+'</span>'+
             '<span class="cl-id">'+e.id+'</span>'+
-            '<span class="cl-main">'+e.marca+' '+e.modelo+'</span>'+
-            '<span class="cl-meta mono">'+e.serie+'</span>'+
+            '<span class="cl-main">'+escHtml(e.marca)+' '+escHtml(e.modelo)+'</span>'+
+            '<span class="cl-meta mono">'+escHtml(e.serie)+'</span>'+
             estadoBadge(e.estado)+
             '<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();imprimirQREquipo(\''+e.id+'\')" title="Imprimir QR">&#9646;</button>'+
           '</div>'
@@ -6970,8 +6976,8 @@ function renderStep3Confirmacion(ocId, eqIds) {
       return '<div class="cl-item" style="cursor:default">'+
         '<span style="font-size:15px">'+(TIPO_ICON[eq.tipo]||'📦')+'</span>'+
         '<span class="cl-id">'+eq.id+'</span>'+
-        '<span class="cl-main">'+eq.marca+' '+eq.modelo+'</span>'+
-        '<span class="cl-meta mono">'+eq.serie+'</span>'+
+        '<span class="cl-main">'+escHtml(eq.marca)+' '+escHtml(eq.modelo)+'</span>'+
+        '<span class="cl-meta mono">'+escHtml(eq.serie)+'</span>'+
         estadoBadge(eq.estado)+
         '<button class="btn btn-ghost btn-xs" onclick="imprimirQREquipo(\''+id+'\')" title="QR">&#9646;</button>'+
       '</div>';
@@ -7269,7 +7275,7 @@ function addHistorialLocal(localIdOrSede) {
 }
 
 function guardarHistorialLocal() {
-  const id = 'H-'+String(DB.historial.length+1).padStart(3,'0');
+  const id = uid('H');
   const eqId = $('hEq')?.value||null;
   const eq = eqId ? getEq(eqId) : null;
   const evento={
@@ -7468,7 +7474,7 @@ function renderQR() {
             '<input type="checkbox" '+(  _qr.selEquipos.has(e.id)?'checked':'')+' onclick="event.stopPropagation();toggleQREq(\''+e.id+'\')" style="width:auto;cursor:pointer;accent-color:var(--accent)">'+
             '<span style="font-size:14px">'+(TIPO_ICON[e.tipo]||'&#128230;')+'</span>'+
             '<div style="flex:1;min-width:0">'+
-              '<div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e.marca+' '+e.modelo+'</div>'+
+              '<div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(e.marca)+' '+escHtml(e.modelo)+'</div>'+
               '<div style="font-size:10.5px;color:var(--t2);font-family:var(--mono)">'+e.id+(loc?' · '+loc.nombre:'')+'</div>'+
             '</div>'+
           '</div>';
@@ -7830,7 +7836,7 @@ function selTodosEq(checked) {
 }
 
 // ── IMPRESIÓN FICHA EQUIPO ────────────────────────────────
-function abrirAccionesMasivas(){if(_eqSel.size===0)return;openMo('Acciones masivas ('+_eqSel.size+' equipos)','<div style="display:flex;flex-direction:column;gap:8px">'+'<button class="btn btn-secondary" style="justify-content:flex-start" onclick="abrirCambioEstadoMasivo()">&#128257; Cambiar estado</button>'+'<button class="btn btn-secondary" style="justify-content:flex-start" onclick="abrirMoverSedeAreaMasivo()">&#128205; Mover a sede / área</button>'+'</div>','<button class="btn btn-secondary" onclick="closeMo()">Cerrar</button>');} function abrirCambioEstadoMasivo(){const n=_eqSel.size;openMo('Cambiar estado ('+n+' equipos)','<div class="fg"><label>Nuevo estado</label><select id="amEstado">'+ESTADOS_EQUIPO.map(s=>'<option value="'+escHtml(s)+'">'+escHtml(s)+'</option>').join('')+'</select></div>'+'<p style="font-size:12px;color:var(--t3);margin-top:8px">Los equipos con asignación activa no se pueden marcar como "Disponible"; se omitirán automáticamente.</p>','<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button><button class="btn btn-primary" onclick="confirmarCambioEstadoMasivo()">Aplicar</button>');} function confirmarCambioEstadoMasivo(){const nuevoEstado=$('amEstado')?.value;if(!nuevoEstado)return;let ok=0,omitidos=0;[..._eqSel].forEach(id=>{const e=DB.equipos.find(x=>x.id===id);if(!e)return;if(nuevoEstado==='Disponible'&&getAsigActiva(id)){omitidos++;return;}const estadoAntes=e.estado;if(estadoAntes===nuevoEstado)return;e.estado=nuevoEstado;if(typeof syncEquipo==='function')syncEquipo(e,false);const h={id:'H-'+String(DB.historial.length+1).padStart(3,'0'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Estado: '+estadoAntes+' → '+nuevoEstado+' (masivo)',prox:null};DB.historial.push(h);if(typeof syncHistorial==='function')syncHistorial(h);ok++;});addLog('Cambio de estado masivo','equipos',ok+' equipos a "'+nuevoEstado+'"'+(omitidos?', '+omitidos+' omitidos (asignados)':''));closeMo();_eqSel.clear();toast(ok+' equipo'+(ok!==1?'s':'')+' actualizado'+(ok!==1?'s':'')+(omitidos?', '+omitidos+' omitido'+(omitidos!==1?'s':'')+' por tener asignación activa':''));go('equipos');} function abrirMoverSedeAreaMasivo(){const n=_eqSel.size;const locs=coLocales();openMo('Mover a sede / área ('+n+' equipos)','<div class="fgrid f2"><div class="fg"><label>Sede</label><select id="amSede" onchange="$(\'amArea\').innerHTML=areaOptsForSede(this.value)"><option value="">Sin sede</option>'+locs.map(l=>'<option value="'+escHtml(l.id)+'">'+escHtml(l.nombre)+'</option>').join('')+'</select></div>'+'<div class="fg"><label>Área</label><select id="amArea">'+areaOptsForSede('')+'</select></div></div>'+'<p style="font-size:12px;color:var(--t3);margin-top:8px">Se cerrará la asignación activa actual de cada equipo (si tiene) y, si se elige una sede, se abrirá una nueva conservando la persona/cargo asignados.</p>','<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button><button class="btn btn-primary" onclick="confirmarMoverSedeAreaMasivo()">Aplicar</button>');} function confirmarMoverSedeAreaMasivo(){const nuevaSede=$('amSede')?.value||'';const nuevaArea=$('amArea')?.value||'';let movidos=0,sinCambio=0;[..._eqSel].forEach(id=>{const e=DB.equipos.find(x=>x.id===id);if(!e)return;const sedeAntes=e.local_id||'';const areaAntes=e.area||'';if(sedeAntes===nuevaSede&&areaAntes===nuevaArea){sinCambio++;return;}const asigActual=getAsigActiva(id);if(asigActual){asigActual.estado='Devuelta';asigActual.fecha_dev=new Date().toISOString().slice(0,10);if(cloudMode)cloudWrite('asignacion_edit',{asignacion:asigActual});}let destino='sin ubicación';let sedeNombre='';if(nuevaSede){const nomPersona=asigActual?.persona||'';sedeNombre=getSede(nuevaSede)?.nombre||'';const nuevaAsig={id:'A-'+String(DB.asignaciones.length+1).padStart(3,'0'),eq_id:id,co:DB.co,sede_id:nuevaSede,ubicacion:nuevaArea,persona:nomPersona,persona_id:asigActual?.persona_id||null,cargo:asigActual?.cargo||'',fecha:new Date().toISOString().slice(0,10),fecha_dev:null,estado:'Activa',obs:''};DB.asignaciones.push(nuevaAsig);if(cloudMode)cloudWrite('asignacion_add',{asignacion:nuevaAsig});destino=nomPersona||nuevaArea||'ubicación';}e.local_id=nuevaSede||null;e.area=nuevaArea;if(typeof syncEquipo==='function')syncEquipo(e,false);const hMov={id:'H-'+String(DB.historial.length+1).padStart(3,'0'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Movido (masivo): '+destino+(sedeNombre?' en '+sedeNombre+(nuevaArea?' / '+nuevaArea:''):''),prox:null};DB.historial.push(hMov);if(typeof syncHistorial==='function')syncHistorial(hMov);const asigActivaFinal=!!nuevaSede;if(asigActivaFinal&&e.estado==='Disponible'){const estPrev=e.estado;e.estado='En uso';if(typeof syncEquipo==='function')syncEquipo(e,false);const hc={id:'H-'+String(DB.historial.length+1).padStart(3,'0'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Estado corregido: un equipo asignado no puede estar Disponible ('+estPrev+' → En uso)',prox:null};DB.historial.push(hc);if(typeof syncHistorial==='function')syncHistorial(hc);}if(!asigActivaFinal&&(e.estado==='En uso'||e.estado==='Asignado')){const estPrev2=e.estado;e.estado='Disponible';if(typeof syncEquipo==='function')syncEquipo(e,false);const hc2={id:'H-'+String(DB.historial.length+1).padStart(3,'0'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Estado corregido: sin asignación activa ('+estPrev2+' → Disponible)',prox:null};DB.historial.push(hc2);if(typeof syncHistorial==='function')syncHistorial(hc2);}movidos++;});addLog('Mover sede/área masivo','equipos',movidos+' equipos movidos'+(sinCambio?', '+sinCambio+' sin cambios':''));closeMo();_eqSel.clear();toast(movidos+' equipo'+(movidos!==1?'s':'')+' movido'+(movidos!==1?'s':'')+(sinCambio?' ('+sinCambio+' ya estaban ahí)':''));go('equipos');} function imprimirFichaEquipo(ids) {
+function abrirAccionesMasivas(){if(_eqSel.size===0)return;openMo('Acciones masivas ('+_eqSel.size+' equipos)','<div style="display:flex;flex-direction:column;gap:8px">'+'<button class="btn btn-secondary" style="justify-content:flex-start" onclick="abrirCambioEstadoMasivo()">&#128257; Cambiar estado</button>'+'<button class="btn btn-secondary" style="justify-content:flex-start" onclick="abrirMoverSedeAreaMasivo()">&#128205; Mover a sede / área</button>'+'</div>','<button class="btn btn-secondary" onclick="closeMo()">Cerrar</button>');} function abrirCambioEstadoMasivo(){const n=_eqSel.size;openMo('Cambiar estado ('+n+' equipos)','<div class="fg"><label>Nuevo estado</label><select id="amEstado">'+ESTADOS_EQUIPO.map(s=>'<option value="'+escHtml(s)+'">'+escHtml(s)+'</option>').join('')+'</select></div>'+'<p style="font-size:12px;color:var(--t3);margin-top:8px">Los equipos con asignación activa no se pueden marcar como "Disponible"; se omitirán automáticamente.</p>','<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button><button class="btn btn-primary" onclick="confirmarCambioEstadoMasivo()">Aplicar</button>');} function confirmarCambioEstadoMasivo(){const nuevoEstado=$('amEstado')?.value;if(!nuevoEstado)return;let ok=0,omitidos=0;[..._eqSel].forEach(id=>{const e=DB.equipos.find(x=>x.id===id);if(!e)return;if(nuevoEstado==='Disponible'&&getAsigActiva(id)){omitidos++;return;}const estadoAntes=e.estado;if(estadoAntes===nuevoEstado)return;e.estado=nuevoEstado;if(typeof syncEquipo==='function')syncEquipo(e,false);const h={id:uid('H'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Estado: '+estadoAntes+' → '+nuevoEstado+' (masivo)',prox:null};DB.historial.push(h);if(typeof syncHistorial==='function')syncHistorial(h);ok++;});addLog('Cambio de estado masivo','equipos',ok+' equipos a "'+nuevoEstado+'"'+(omitidos?', '+omitidos+' omitidos (asignados)':''));closeMo();_eqSel.clear();toast(ok+' equipo'+(ok!==1?'s':'')+' actualizado'+(ok!==1?'s':'')+(omitidos?', '+omitidos+' omitido'+(omitidos!==1?'s':'')+' por tener asignación activa':''));go('equipos');} function abrirMoverSedeAreaMasivo(){const n=_eqSel.size;const locs=coLocales();openMo('Mover a sede / área ('+n+' equipos)','<div class="fgrid f2"><div class="fg"><label>Sede</label><select id="amSede" onchange="$(\'amArea\').innerHTML=areaOptsForSede(this.value)"><option value="">Sin sede</option>'+locs.map(l=>'<option value="'+escHtml(l.id)+'">'+escHtml(l.nombre)+'</option>').join('')+'</select></div>'+'<div class="fg"><label>Área</label><select id="amArea">'+areaOptsForSede('')+'</select></div></div>'+'<p style="font-size:12px;color:var(--t3);margin-top:8px">Se cerrará la asignación activa actual de cada equipo (si tiene) y, si se elige una sede, se abrirá una nueva conservando la persona/cargo asignados.</p>','<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button><button class="btn btn-primary" onclick="confirmarMoverSedeAreaMasivo()">Aplicar</button>');} function confirmarMoverSedeAreaMasivo(){const nuevaSede=$('amSede')?.value||'';const nuevaArea=$('amArea')?.value||'';let movidos=0,sinCambio=0;[..._eqSel].forEach(id=>{const e=DB.equipos.find(x=>x.id===id);if(!e)return;const sedeAntes=e.local_id||'';const areaAntes=e.area||'';if(sedeAntes===nuevaSede&&areaAntes===nuevaArea){sinCambio++;return;}const asigActual=getAsigActiva(id);if(asigActual){asigActual.estado='Devuelta';asigActual.fecha_dev=new Date().toISOString().slice(0,10);if(cloudMode)cloudWrite('asignacion_edit',{asignacion:asigActual});}let destino='sin ubicación';let sedeNombre='';if(nuevaSede){const nomPersona=asigActual?.persona||'';sedeNombre=getSede(nuevaSede)?.nombre||'';const nuevaAsig={id:uid('A'),eq_id:id,co:DB.co,sede_id:nuevaSede,ubicacion:nuevaArea,persona:nomPersona,persona_id:asigActual?.persona_id||null,cargo:asigActual?.cargo||'',fecha:new Date().toISOString().slice(0,10),fecha_dev:null,estado:'Activa',obs:''};DB.asignaciones.push(nuevaAsig);if(cloudMode)cloudWrite('asignacion_add',{asignacion:nuevaAsig});destino=nomPersona||nuevaArea||'ubicación';}e.local_id=nuevaSede||null;e.area=nuevaArea;if(typeof syncEquipo==='function')syncEquipo(e,false);const hMov={id:uid('H'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Movido (masivo): '+destino+(sedeNombre?' en '+sedeNombre+(nuevaArea?' / '+nuevaArea:''):''),prox:null};DB.historial.push(hMov);if(typeof syncHistorial==='function')syncHistorial(hMov);const asigActivaFinal=!!nuevaSede;if(asigActivaFinal&&e.estado==='Disponible'){const estPrev=e.estado;e.estado='En uso';if(typeof syncEquipo==='function')syncEquipo(e,false);const hc={id:uid('H'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Estado corregido: un equipo asignado no puede estar Disponible ('+estPrev+' → En uso)',prox:null};DB.historial.push(hc);if(typeof syncHistorial==='function')syncHistorial(hc);}if(!asigActivaFinal&&(e.estado==='En uso'||e.estado==='Asignado')){const estPrev2=e.estado;e.estado='Disponible';if(typeof syncEquipo==='function')syncEquipo(e,false);const hc2={id:uid('H'),eq_id:id,co:DB.co,tipo:'Cambio de Estado',fecha:new Date().toISOString().slice(0,10),tecnico:(currentUser?.nombre||'—'),costo:0,desc:'Estado corregido: sin asignación activa ('+estPrev2+' → Disponible)',prox:null};DB.historial.push(hc2);if(typeof syncHistorial==='function')syncHistorial(hc2);}movidos++;});addLog('Mover sede/área masivo','equipos',movidos+' equipos movidos'+(sinCambio?', '+sinCambio+' sin cambios':''));closeMo();_eqSel.clear();toast(movidos+' equipo'+(movidos!==1?'s':'')+' movido'+(movidos!==1?'s':'')+(sinCambio?' ('+sinCambio+' ya estaban ahí)':''));go('equipos');} function imprimirFichaEquipo(ids) {
   if (!ids || !ids.length) return;
   const allSedes = Object.values(DB.companies).flatMap(e=>e.sedes||[]);
 
@@ -7863,7 +7869,7 @@ function abrirAccionesMasivas(){if(_eqSel.size===0)return;openMo('Acciones masiv
     // Header
     html += '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid #1a1a2e">';
     html += '<div>';
-    html += '<div style="font-size:18px;font-weight:700;color:#1a1a2e">'+(TICONS[eq.tipo]||'📦')+' '+eq.marca+' '+eq.modelo+'</div>';
+    html += '<div style="font-size:18px;font-weight:700;color:#1a1a2e">'+(TICONS[eq.tipo]||'📦')+' '+escHtml(eq.marca)+' '+escHtml(eq.modelo)+'</div>';
     html += '<div style="font-size:11px;color:#555;margin-top:2px">'+(emp?emp.name:'')+(sede?' · '+sede.nombre:'')+(eq.area?' · '+eq.area:'')+'</div>';
     html += '<div style="margin-top:6px;display:flex;gap:8px;align-items:center">';
     html += '<span style="font-size:12px;font-weight:700;color:#1a1a2e;font-family:monospace">'+eq.id+'</span>';
@@ -7935,7 +7941,7 @@ function abrirAccionesMasivas(){if(_eqSel.size===0)return;openMo('Acciones masiv
       html += '<table style="width:100%;border-collapse:collapse;font-size:10px">';
       html += '<tr style="background:#f0f0f0"><th style="text-align:left;padding:3px 6px">Programa</th><th style="text-align:left;padding:3px 6px">Versión</th><th style="text-align:left;padding:3px 6px">Notas</th></tr>';
       software.forEach(sw=>{
-        html += '<tr><td style="padding:3px 6px;border-bottom:1px solid #eee">'+sw.nombre+'</td>'+
+        html += '<tr><td style="padding:3px 6px;border-bottom:1px solid #eee">'+escHtml(sw.nombre)+'</td>'+
           '<td style="padding:3px 6px;border-bottom:1px solid #eee">'+( sw.version||'—')+'</td>'+
           '<td style="padding:3px 6px;border-bottom:1px solid #eee">'+( sw.notas||'—')+'</td></tr>';
       });
@@ -8403,7 +8409,7 @@ function abrirFichaEquipo(eqId, usuario) {
              '<div id="fqQR"></div>'+
            '</div>'+
            '<div style="font-family:monospace;font-size:11px;color:#111;margin-top:6px;font-weight:700">'+eq.id+'</div>'+
-               '<div style="font-family:monospace;font-size:9px;color:#555">'+eq.marca+' '+eq.modelo+'</div>'+
+               '<div style="font-family:monospace;font-size:9px;color:#555">'+escHtml(eq.marca)+' '+escHtml(eq.modelo)+'</div>'+
            '<div style="font-size:11px;color:var(--t2);margin-top:10px">Al escanear este código, se pide iniciar sesión y solo lo pueden ver cuentas autorizadas de esta empresa.</div>'+
            '<button class="btn btn-secondary btn-sm" style="margin-top:12px" onclick="imprimirQREquipo(\''+eqId+'\')">&#128424; Imprimir ficha</button>'+
          '</div>';
@@ -8413,9 +8419,9 @@ function abrirFichaEquipo(eqId, usuario) {
     '<div style="background:var(--s2);border-radius:var(--r);padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px">'+
       '<div style="font-size:36px;line-height:1">'+(TIPO_ICON[eq.tipo]||'&#128230;')+'</div>'+
       '<div style="flex:1;min-width:0">'+
-        '<div style="font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+eq.marca+' '+eq.modelo+'</div>'+
+        '<div style="font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(eq.marca)+' '+escHtml(eq.modelo)+'</div>'+
         '<div class="mono" style="font-size:12px;color:var(--accent);margin-top:2px">'+eq.id+'</div>'+
-        '<div style="font-size:12px;color:var(--t2);margin-top:2px">Serie: <span class="mono">'+eq.serie+'</span></div>'+
+        '<div style="font-size:12px;color:var(--t2);margin-top:2px">Serie: <span class="mono">'+escHtml(eq.serie)+'</span></div>'+
       '</div>'+
       estadoBadge(eq.estado)+
     '</div>'+
@@ -8445,7 +8451,7 @@ function abrirFichaEquipo(eqId, usuario) {
          setTimeout(()=>{ const el=$('fqQR'); if (el && typeof QRCode!=='undefined') new QRCode(el,{text:urlEquipoEmpresa(eq.id,eq.co),width:150,height:150,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.H}); },120);
 }
 
-function abrirAgregarMantencion(eqId) {openMo('Registrar mantención','<div class="fgrid f2">'+'<div class="fg"><label>Tipo</label><select id="fmTipo">'+['Mantencion Preventiva','Mantencion Correctiva'].map(t=>'<option>'+t+'</option>').join('')+'</select></div>'+'<div class="fg"><label>Fecha</label><input type="date" id="fmFecha" value="'+new Date().toISOString().slice(0,10)+'"></div>'+'<div class="fg" style="grid-column:1/-1"><label>Descripción</label><textarea id="fmDesc" placeholder="Qué se realizó..."></textarea></div>'+'<div class="fg"><label>Técnico</label><input type="text" id="fmTec" value="'+escHtml(currentUser?.nombre||'')+'" placeholder="Nombre del técnico"></div>'+'<div class="fg"><label>Costo (CLP)</label><input type="number" id="fmCosto" placeholder="0"></div>'+'<div class="fg"><label>Próxima mantención</label><input type="date" id="fmProx"></div>'+'</div>','<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button>'+'<button class="btn btn-primary" onclick="guardarMantencionDesdeFicha(\''+eqId+'\')">Registrar</button>','lg');}function guardarMantencionDesdeFicha(eqId) {const eq = DB.equipos.find(e=>e.id===eqId);if (!eq) return;const evento = {id: 'H-'+String(DB.historial.length+1).padStart(3,'0'),eq_id: eqId, co: DB.co,local_id: eq.local_id || null,tipo: $('fmTipo')?.value || 'Mantencion Correctiva',fecha: $('fmFecha')?.value || new Date().toISOString().slice(0,10),tecnico: $('fmTec')?.value || (currentUser?.nombre||'—'),costo: parseInt($('fmCosto')?.value) || 0,desc: $('fmDesc')?.value || '-',prox: $('fmProx')?.value || null};DB.historial.push(evento);if (typeof syncHistorial==='function') syncHistorial(evento);addLog('Registró mantención','mantenimiento', eqId+' · '+evento.tipo);toast('Mantención registrada ✓');closeMo();setTimeout(() => abrirFichaEquipo(eqId, currentUser), 80);}// ── PORTAL PÚBLICO DE SOPORTE (?soporte=1&co=<empresaId>) ──────────────
+function abrirAgregarMantencion(eqId) {openMo('Registrar mantención','<div class="fgrid f2">'+'<div class="fg"><label>Tipo</label><select id="fmTipo">'+['Mantencion Preventiva','Mantencion Correctiva'].map(t=>'<option>'+t+'</option>').join('')+'</select></div>'+'<div class="fg"><label>Fecha</label><input type="date" id="fmFecha" value="'+new Date().toISOString().slice(0,10)+'"></div>'+'<div class="fg" style="grid-column:1/-1"><label>Descripción</label><textarea id="fmDesc" placeholder="Qué se realizó..."></textarea></div>'+'<div class="fg"><label>Técnico</label><input type="text" id="fmTec" value="'+escHtml(currentUser?.nombre||'')+'" placeholder="Nombre del técnico"></div>'+'<div class="fg"><label>Costo (CLP)</label><input type="number" id="fmCosto" placeholder="0"></div>'+'<div class="fg"><label>Próxima mantención</label><input type="date" id="fmProx"></div>'+'</div>','<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button>'+'<button class="btn btn-primary" onclick="guardarMantencionDesdeFicha(\''+eqId+'\')">Registrar</button>','lg');}function guardarMantencionDesdeFicha(eqId) {const eq = DB.equipos.find(e=>e.id===eqId);if (!eq) return;const evento = {id: uid('H'),eq_id: eqId, co: DB.co,local_id: eq.local_id || null,tipo: $('fmTipo')?.value || 'Mantencion Correctiva',fecha: $('fmFecha')?.value || new Date().toISOString().slice(0,10),tecnico: $('fmTec')?.value || (currentUser?.nombre||'—'),costo: parseInt($('fmCosto')?.value) || 0,desc: $('fmDesc')?.value || '-',prox: $('fmProx')?.value || null};DB.historial.push(evento);if (typeof syncHistorial==='function') syncHistorial(evento);addLog('Registró mantención','mantenimiento', eqId+' · '+evento.tipo);toast('Mantención registrada ✓');closeMo();setTimeout(() => abrirFichaEquipo(eqId, currentUser), 80);}// ── PORTAL PÚBLICO DE SOPORTE (?soporte=1&co=<empresaId>) ──────────────
      // Sin login. La clave se verifica en Supabase (función verificar_clave_soporte);
      // el navegador nunca recibe la clave real, solo un true/false.
 // ── FICHA PÚBLICA DE EQUIPO (?f=<eqId>&co=<empresaId>) ──────────────
@@ -8568,7 +8574,7 @@ async function mostrarFichaPublicaEquipo(eqId, co) {
              const { data, error } = await sb.rpc('verificar_clave_soporte', { p_empresa_id: co, p_clave: clave });
                if (error || !data?.ok) throw new Error();
            $('gate-box').style.display = 'none';
-         renderFormularioSoporte(co);
+         renderFormularioSoporte(co, clave);
          } catch(e) {
                  $('gErr').style.display = 'block';
          btn.disabled = false; btn.textContent = 'Ingresar';
@@ -8578,7 +8584,7 @@ async function mostrarFichaPublicaEquipo(eqId, co) {
        $('gClave').addEventListener('keydown', e => { if (e.key === 'Enter') intentarIngreso(); });
        }
       
-     function renderFormularioSoporte(co) {
+     function renderFormularioSoporte(co, clave) {
        const box = $('form-box');
        box.style.display = 'block';
        box.innerHTML =
@@ -8602,11 +8608,11 @@ async function mostrarFichaPublicaEquipo(eqId, co) {
          $('tabConsulta').className = 'btn btn-primary';
                                };
      
-         renderPanelNuevoTicket(co);
+         renderPanelNuevoTicket(co, clave);
        renderPanelConsultaTicket(co);
        }
      
-     function renderPanelNuevoTicket(co) {
+     function renderPanelNuevoTicket(co, clave) {
              const p = $('panelNuevo');
        p.innerHTML =
          '<label style="font-size:12px;color:var(--t2)">Nombre</label>'+
@@ -8634,30 +8640,24 @@ async function mostrarFichaPublicaEquipo(eqId, co) {
          }
                 const btn = $('pEnviar');
                 btn.disabled = true; btn.textContent = 'Enviando…';
-                const { data: numTicket, error: errNum } = await sb.rpc('siguiente_numero_ticket', { p_co: co });
-            const ticketId = numTicket || ('T-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,6).toUpperCase());
-         const solic = {
-             id: ticketId, co,
-                                                        nombre, email,
-           equipo_id: '',
-                         titulo,
-           prioridad: $('pPrio').value,
-           desc: $('pDesc').value.trim(),
-           estado: 'pendiente',
-           fecha: new Date().toISOString(),
-     };
+                let ticketId = '';
          try {
-           const { error } = await sb.from('solicitudes_soporte').insert(solic);
-           if (error) throw error;
+           // El servidor valida la clave del portal, limita el envío masivo y asigna el número.
+           const { data, error } = await sb.rpc('crear_ticket_publico', {
+             p_co: co, p_clave: clave, p_nombre: nombre, p_email: email, p_titulo: titulo,
+             p_prioridad: $('pPrio').value, p_desc: $('pDesc').value.trim()
+           });
+           if (error || !data || !data.ok) throw new Error((data && data.error) || (error && error.message) || 'Error');
+           ticketId = data.id;
            $('panelNuevo').innerHTML =
              '<div style="text-align:center;padding:20px 0">'+
                  '<div style="font-size:28px">✅</div>'+
                    '<div style="margin:10px 0 4px;font-weight:600">Solicitud enviada</div>'+
                '<div style="font-size:13px;color:var(--t2)">Guarda este número por si necesitas hacer seguimiento:</div>'+
-               '<div style="font-size:20px;font-weight:700;margin-top:8px;letter-spacing:1px">'+ticketId+'</div>'+
+               '<div style="font-size:20px;font-weight:700;margin-top:8px;letter-spacing:1px">'+escHtml(ticketId)+'</div>'+
                '</div>';
 } catch(e) {
-              $('pMsg').innerHTML = '<span style="color:#e55">No se pudo enviar. Intenta de nuevo.</span>';
+              $('pMsg').innerHTML = '<span style="color:#e55">No se pudo enviar'+(e && e.message && e.message!=='Error' ? ': '+escHtml(e.message) : '. Intenta de nuevo.')+'</span>';
      btn.disabled = false; btn.textContent = 'Enviar solicitud';
      }
      };
@@ -8915,6 +8915,18 @@ async function apiFetchWithToken(_token, action, body={}) {
     // add / edit / save → upsert por clave primaria (id)
     const row = _pick(cfg.t, body[cfg.k]);
     if(!row || Object.keys(row).length===0) return { ok:false, error:'Sin datos' };
+    if(cfg.t==='equipos' && m[2]==='add'){
+      // Alta de equipo: INSERT puro. Si el código ya existe NO se sobrescribe el otro equipo.
+      const ins = await sb.from('equipos').insert(row).select('id').maybeSingle();
+      if(!ins.error) return { ok:true, id: ins.data?.id || row.id };
+      if(ins.error.code==='23505'){
+        // ¿Es un reintento de este mismo alta (la 1ª vez sí se guardó)? → ok
+        const ex = await sb.from('equipos').select('co,serie,modelo').eq('id', row.id).maybeSingle();
+        if(ex.data && ex.data.co===row.co && (ex.data.serie||'')===(row.serie||'') && (ex.data.modelo||'')===(row.modelo||'')) return { ok:true, id:row.id };
+        return { ok:false, error:'Ya existe otro equipo con el código '+row.id+' (no se sobrescribió). Recarga la app e ingrésalo de nuevo.' };
+      }
+      return { ok:false, error:ins.error.message };
+    }
     const { data, error } = await sb.from(cfg.t).upsert(row).select('id').maybeSingle();
     if(error) return { ok:false, error:error.message };
     return { ok:true, id: data?.id || body[cfg.k]?.id };
@@ -8928,7 +8940,20 @@ async function apiFetchWithToken(_token, action, body={}) {
 async function _supaLoad(){
   const tablas = ['empresas','equipos','compras','historial','asignaciones','licencias',
         'tareas','usuarios','bajas','programas_mant','solicitudes_soporte','sesiones_inventario','accesorios','personas','tinta_recargas'];
-  const results = await Promise.all(tablas.map(t=> sb.from(t).select('*')));
+  // Paginado: Supabase entrega como máximo 1000 filas por consulta; sin esto
+  // las tablas grandes (historial, equipos) quedaban truncadas sin aviso.
+  const _selAll = async (t) => {
+    const N = 1000; let all = [], from = 0;
+    for(;;){
+      const r = await sb.from(t).select('*').order('id').range(from, from+N-1);
+      if(r.error) return r;
+      all = all.concat(r.data||[]);
+      if(!r.data || r.data.length < N) break;
+      from += N;
+    }
+    return { data: all, error: null };
+  };
+  const results = await Promise.all(tablas.map(t=> _selAll(t)));
   const conError = results.find(r=>r.error);
   if(conError) return { ok:false, error:conError.error.message };
   const byT = {}; tablas.forEach((t,i)=> byT[t]=results[i].data||[]);
@@ -8956,7 +8981,7 @@ async function _supaAcceso(){
   const { data:{ user } } = await sb.auth.getUser();
   const email = (user && user.email || '').toLowerCase();
   if(!email) return { ok:false, error:'Sin sesión' };
-  const { data, error } = await sb.from('usuarios').select('*').ilike('email', email).maybeSingle();
+  const { data, error } = await sb.from('usuarios').select('*').ilike('email', email.replace(/[\\%_]/g, m=>'\\'+m)).maybeSingle();
   if(error) return { ok:false, error:error.message };
   if(!data || data.activo===false) return { ok:false, error:'Email no autorizado: '+email };
   const rol = (data.rol||'').toLowerCase();
@@ -9427,8 +9452,18 @@ const QUEUE_KEY = 'itc_write_queue';
 let _syncState = 'idle';   // idle | saving | pending | error
 let _flushing = false;
 
-function _loadQueue(){ try { return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]'); } catch(e){ return []; } }
-function _saveQueue(q){ try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); } catch(e){} }
+// La cola es POR USUARIO: si otra persona inicia sesión en el mismo equipo,
+// no envía con su cuenta los cambios pendientes de la anterior.
+function _queueKey(){
+  const em=(currentUser&&currentUser.email||'').toLowerCase();
+  if(!em) return QUEUE_KEY;
+  const k=QUEUE_KEY+':'+em;
+  // Migra una sola vez la cola antigua (compartida) a la del usuario actual.
+  try { const old=localStorage.getItem(QUEUE_KEY); if(old && old!=='[]' && !localStorage.getItem(k)){ localStorage.setItem(k, old); localStorage.removeItem(QUEUE_KEY); } } catch(e){}
+  return k;
+}
+function _loadQueue(){ try { return JSON.parse(localStorage.getItem(_queueKey())||'[]'); } catch(e){ return []; } }
+function _saveQueue(q){ try { localStorage.setItem(_queueKey(), JSON.stringify(q)); } catch(e){} }
 
 function cloudWrite(action, body){
   if(!cloudMode) return;
@@ -10638,7 +10673,7 @@ function renderMapaEditor() {
     '<span style="font-size:12px;color:var(--t2);font-weight:600">PISO:</span>'+
     pisos.map(p=>
       '<button class="btn-sm '+(p.id===_map.pisoId?'btn-primary':'btn-ghost')+'" '+
-      'onclick="cambiarPisoEditor(\''+p.id+'\')">'+p.nombre+'</button>'
+      'onclick="cambiarPisoEditor(\''+p.id+'\')">'+escHtml(p.nombre)+'</button>'
     ).join('')+
     '<button class="btn-ghost btn-sm" onclick="agregarPiso()">+ Piso</button>'+
     (pisos.length>1?'<button class="btn-ghost btn-sm" style="color:var(--red,#ef4444)" onclick="eliminarPiso()">&#128465; Este piso</button>':'')+
@@ -10794,7 +10829,7 @@ function abrirModalBaja(eqId) {
     '<div style="background:var(--s2);border-radius:var(--r);padding:12px 14px;margin-bottom:16px;display:flex;gap:12px;align-items:center">'+
       '<span style="font-size:28px">&#128465;</span>'+
       '<div>'+
-        '<div style="font-size:13.5px;font-weight:600">'+eq.marca+' '+eq.modelo+'</div>'+
+        '<div style="font-size:13.5px;font-weight:600">'+escHtml(eq.marca)+' '+escHtml(eq.modelo)+'</div>'+
         '<div style="font-size:12px;color:var(--t2)">'+eq.id+' · '+eq.tipo+(eq.serie?' · '+eq.serie:'')+'</div>'+
       '</div>'+
     '</div>'+
@@ -10897,7 +10932,7 @@ function verRegistroBajas() {
     bajas.map(b=>
       '<tr onclick="abrirFichaEquipo(\''+b.eq_id+'\',currentUser||{})" style="cursor:pointer">'+
         '<td class="td-id">'+b.eq_id+'</td>'+
-        '<td><strong>'+b.marca+' '+b.modelo+'</strong><br><span style="font-size:11px;color:var(--t2)">'+b.tipo+'</span></td>'+
+        '<td><strong>'+escHtml(b.marca)+' '+escHtml(b.modelo)+'</strong><br><span style="font-size:11px;color:var(--t2)">'+escHtml(b.tipo)+'</span></td>'+
         '<td>'+escHtml(b.motivo)+'</td>'+
         '<td class="td-muted">'+fDate(b.fecha)+'</td>'+
         '<td class="td-muted">'+(b.destino||'—')+'</td>'+
@@ -11038,7 +11073,7 @@ function renderMapaViewer() {
       '<span style="font-size:12px;color:var(--t2);font-weight:600">PISO:</span>'+
       pisos.map(p=>
         '<button class="btn-sm '+(p.id===_map.pisoId?'btn-primary':'btn-ghost')+'" '+
-        'onclick="_map.pisoId=\''+p.id+'\';_map.areaViendo=null;go(\'mapas\')">'+p.nombre+'</button>'
+        'onclick="_map.pisoId=\''+p.id+'\';_map.areaViendo=null;go(\'mapas\')">'+escHtml(p.nombre)+'</button>'
       ).join('')+
     '</div>';
   }
@@ -11128,7 +11163,7 @@ function renderMapaViewer() {
             '<span style="font-size:11px;font-weight:600;font-family:var(--mono);color:var(--accent)">'+eq.id+'</span>'+
             '<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:'+sc+'22;color:'+sc+'">'+eq.estado+'</span>'+
           '</div>'+
-          '<div style="font-size:12px;font-weight:500">'+eq.marca+' '+eq.modelo+'</div>'+
+          '<div style="font-size:12px;font-weight:500">'+escHtml(eq.marca)+' '+escHtml(eq.modelo)+'</div>'+
           '<div style="font-size:11px;color:var(--t2);margin-bottom:5px">'+eq.tipo+(eq.serie?' · '+eq.serie:'')+'</div>'+
           '<button class="btn-ghost btn-xs" style="width:100%" onclick="editEquipo(\''+eq.id+'\')">&#9998; Editar</button>'+
         '</div>';
@@ -12619,13 +12654,6 @@ function convertirATarea(id) {
   go('soporte');
 }
 
-function filtrarSoporte(estado) {
-  const lista = document.getElementById('listaSolicitudes');
-  if (!lista) return;
-  const solic = (DB.solicitudes_soporte||[]).filter(s=>s.co===DB.co);
-  const filtradas = estado==='todas' ? solic : solic.filter(s=>s.estado===estado);
-  lista.innerHTML = filtradas.map(s=>renderTarjetaSolicitud(s)).join('');
-}
 
 // ── PORTAL PÚBLICO ────────────────────────────────────────
 function copiarLinkPortal() {
@@ -13801,7 +13829,7 @@ function renderAccesorios(eqId) {
           '<span style="font-size:14px">'+(ICONS_ACC[a.tipo]||'📦')+'</span>'+
           '<div style="flex:1;min-width:0">'+
             '<div style="font-size:12.5px;font-weight:500">'+a.tipo+(a.marca?' — '+a.marca:'')+'</div>'+
-            (a.serie?'<div style="font-size:11px;color:var(--t3);font-family:var(--mono)">'+a.serie+'</div>':'')+
+            (a.serie?'<div style="font-size:11px;color:var(--t3);font-family:var(--mono)">'+escHtml(a.serie)+'</div>':'')+
           '</div>'+
           '<span class="badge" style="font-size:10px;background:'+(a.estado==='Activo'?'#10b98122':'#ef444422')+';color:'+(a.estado==='Activo'?'#10b981':'#ef4444')+'">'+a.estado+'</span>'+
           '<button class="btn-ghost btn-xs" onclick="eliminarAccesorio(\''+a.id+'\')">&#10005;</button>'+
