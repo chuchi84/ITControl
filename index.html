@@ -4661,15 +4661,15 @@ function quitarLogoEmpresa(){
 }
 function onLogoEmpresaChangeEdit(ev){const file=ev.target.files?.[0];if(!file)return;if(file.size>500*1024){toast('El logo excede 500 KB. Comprímelo o usa otro.','err');ev.target.value='';return;}const reader=new FileReader();reader.onload=()=>{const data=String(reader.result||'');const hidden=$('eeLogoData');if(hidden)hidden.value=data;const prev=$('eeLogoPrev');if(prev)prev.innerHTML='<img src="'+data+'" style="max-width:100%;max-height:100%;object-fit:contain">';};reader.onerror=()=>toast('No se pudo leer el archivo','err');reader.readAsDataURL(file);}function quitarLogoEmpresaEdit(){const hidden=$('eeLogoData');if(hidden)hidden.value='';const prev=$('eeLogoPrev');if(prev)prev.innerHTML='<span style="color:var(--t3);font-size:20px">&#127970;</span>';const file=$('eeLogoFile');if(file)file.value='';}let _sr=0;
 function sedeRow(i,s){
-  return '<div id="sd'+i+'" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:7px;margin-bottom:7px;align-items:start">'+
-    '<input type="text" id="sdN'+i+'" placeholder="Nombre sede" value="'+(s?.nombre||'')+'">'+
+  return '<div id="sd'+i+'" data-sid="'+escHtml(s?.id||'')+'" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:7px;margin-bottom:7px;align-items:start">'+
+    '<input type="text" id="sdN'+i+'" placeholder="Nombre sede" value="'+escHtml(s?.nombre||'')+'">'+
     '<input type="text" id="sdD'+i+'" placeholder="Direccion" value="'+(s?.dir||'')+'">'+
     '<input type="text" id="sdU'+i+'" placeholder="Ubicaciones (separadas por coma)" value="'+(s?.ubicaciones?.join(',')||'')+'">'+
     '<button class="btn btn-danger btn-sm btn-icon" onclick="document.getElementById(\'sd'+i+'\').remove()">&#10005;</button>'+
   '</div>';
 }
 function addSedeRow(){const em=$('sedeEmpty');if(em)em.remove();const i=_sr++;const d=document.createElement('div');d.innerHTML=sedeRow(i,null);$('sedeRows')?.appendChild(d.firstElementChild);}
-function collectSedes(){return Array.from(document.querySelectorAll('[id^="sd"]')).filter(r=>r.id.match(/^sd\d+$/)).map(r=>{const i=r.id.replace('sd','');return{id:'s-'+Date.now()+i,nombre:$('sdN'+i)?.value||'',dir:$('sdD'+i)?.value||'',ubicaciones:($('sdU'+i)?.value||'').split(',').map(u=>u.trim()).filter(Boolean)};}).filter(s=>s.nombre);}
+function collectSedes(){return Array.from(document.querySelectorAll('[id^="sd"]')).filter(r=>r.id.match(/^sd\d+$/)).map(r=>{const i=r.id.replace('sd','');return{id:(r.dataset&&r.dataset.sid)||('s-'+Date.now()+i),nombre:$('sdN'+i)?.value||'',dir:$('sdD'+i)?.value||'',ubicaciones:($('sdU'+i)?.value||'').split(',').map(u=>u.trim()).filter(Boolean)};}).filter(s=>s.nombre);}
 function saveEmpresa(){
   const urlChk = _validarUrlBase(($('eUrl')?.value||'').trim());
   if (!urlChk.ok) { toast('URL base: '+urlChk.error,'err'); return; }
@@ -4679,6 +4679,9 @@ function saveEmpresa(){
   const sel=$('coSel');if(sel){const o=document.createElement('option');o.value=id;o.textContent=DB.companies[id].name;sel.appendChild(o);}
   // Si es la primera empresa, la dejamos activa (así se puede empezar a trabajar de inmediato)
   if (esPrimera) DB.co = id;
+  // Guardar en Supabase (antes solo quedaba en memoria y se perdía al recargar)
+  if (typeof syncEmpresa==='function') syncEmpresa(DB.companies[id]);
+  if (typeof aplicarAlcanceEmpresa==='function') aplicarAlcanceEmpresa();
   closeMo();toast('Empresa creada');go('dashboard');
 }
 function editEmpresa(id){
@@ -4695,10 +4698,12 @@ function saveEditEmp(id){
   const urlChk = _validarUrlBase(($('eUrl')?.value||'').trim());
   if (!urlChk.ok) { toast('URL base: '+urlChk.error,'err'); return; }
   c.name=$('eN')?.value||c.name;c.razon_social=($('eRS')?.value||'').trim();c.rut=$('eR')?.value||c.rut;c.prefix=($('eP')?.value||c.prefix).toUpperCase();
-  c.giro=$('eG')?.value;c.tel=$('eTel')?.value;c.dir=$('eD')?.value;c.contacto=$('eCn')?.value;c.email=$('eE')?.value;c.sedes=collectSedes();
+  c.giro=$('eG')?.value;c.tel=$('eTel')?.value;c.dir=$('eD')?.value;c.contacto=$('eCn')?.value;c.email=$('eE')?.value;{const _prev=c.sedes||[];c.sedes=collectSedes().map(ns=>Object.assign({},_prev.find(o=>o.id===ns.id)||{},ns));}
   c.logo=$('empLogoData')?.value||'';
   c.url_base=urlChk.value;
   const sel=$('coSel');if(sel)Array.from(sel.options).forEach(o=>{if(o.value===id)o.textContent=c.name;});
+  if (typeof syncEmpresa==='function') syncEmpresa(c);
+  if (typeof aplicarAlcanceEmpresa==='function') aplicarAlcanceEmpresa();
   closeMo();toast('Empresa actualizada');go('empresas');
 }
 
