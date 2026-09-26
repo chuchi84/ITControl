@@ -629,7 +629,7 @@ const fDate = d => d ? new Date(d+'T12:00').toLocaleDateString('es-CL') : '-';
 // Empresa de respaldo: evita que toda la interfaz reviente cuando todavía no hay
 // empresa cargada (hoja Empresas vacía, usuario sin empresa asignada, o carga fallida).
 // Sin esto, cualquier co().name / co().counter lanzaba TypeError y el módulo no abría.
-const _CO_VACIA = { id:'', name:'(sin empresa)', prefix:'EQ', counter:0, sedes:[], contacto:'', tel:'', email:'', rut:'', giro:'', dir:'' };
+const _CO_VACIA = { id:'', name:'(sin empresa)', razon_social:'', prefix:'EQ', counter:0, sedes:[], contacto:'', tel:'', email:'', rut:'', giro:'', dir:'' };
 const co = () => DB.companies[DB.co] || _CO_VACIA;
 // ¿Hay una empresa real seleccionada?
 const hayEmpresa = () => !!DB.companies[DB.co];
@@ -4600,7 +4600,8 @@ function empresaForm(e){
       '</div>'+
       '<input type="hidden" id="empLogoData" value="'+escHtml(logoActual)+'">'+
     '</div>'+
-    '<div class="fg" style="grid-column:1/-1"><label>Nombre <span class="req">*</span></label><input type="text" id="eN" value="'+(e?.name||'')+'"></div>'+
+    '<div class="fg" style="grid-column:1/-1"><label>Nombre (de fantasía) <span class="req">*</span></label><input type="text" id="eN" value="'+escHtml(e?.name||'')+'"></div>'+
+    '<div class="fg" style="grid-column:1/-1"><label>Razón social</label><input type="text" id="eRS" value="'+escHtml(e?.razon_social||'')+'" placeholder="Nombre legal de la empresa"></div>'+
     '<div class="fg"><label>RUT <span class="req">*</span></label><input type="text" id="eR" value="'+(e?.rut||'')+'" placeholder="76.123.456-7"></div>'+
     '<div class="fg"><label>Prefijo ID (ej: KEN)</label><input type="text" id="eP" value="'+(e?.prefix||'')+'" placeholder="KEN" maxlength="5" style="text-transform:uppercase"></div>'+
     '<div class="fg"><label>Giro</label><input type="text" id="eG" value="'+(e?.giro||'')+'"></div>'+
@@ -4674,7 +4675,7 @@ function saveEmpresa(){
   if (!urlChk.ok) { toast('URL base: '+urlChk.error,'err'); return; }
   const esPrimera = Object.keys(DB.companies).length === 0;
   const id='co'+Date.now();
-  DB.companies[id]={id,name:$('eN')?.value||'Nueva Empresa',rut:$('eR')?.value||'',prefix:($('eP')?.value||'EMP').toUpperCase(),counter:0,giro:$('eG')?.value||'',tel:$('eTel')?.value||'',dir:$('eD')?.value||'',contacto:$('eCn')?.value||'',email:$('eE')?.value||'',sedes:collectSedes(),logo:$('empLogoData')?.value||'',url_base:urlChk.value};
+  DB.companies[id]={id,name:$('eN')?.value||'Nueva Empresa',razon_social:($('eRS')?.value||'').trim(),rut:$('eR')?.value||'',prefix:($('eP')?.value||'EMP').toUpperCase(),counter:0,giro:$('eG')?.value||'',tel:$('eTel')?.value||'',dir:$('eD')?.value||'',contacto:$('eCn')?.value||'',email:$('eE')?.value||'',sedes:collectSedes(),logo:$('empLogoData')?.value||'',url_base:urlChk.value};
   const sel=$('coSel');if(sel){const o=document.createElement('option');o.value=id;o.textContent=DB.companies[id].name;sel.appendChild(o);}
   // Si es la primera empresa, la dejamos activa (así se puede empezar a trabajar de inmediato)
   if (esPrimera) DB.co = id;
@@ -4693,7 +4694,7 @@ function saveEditEmp(id){
   const c=DB.companies[id];
   const urlChk = _validarUrlBase(($('eUrl')?.value||'').trim());
   if (!urlChk.ok) { toast('URL base: '+urlChk.error,'err'); return; }
-  c.name=$('eN')?.value||c.name;c.rut=$('eR')?.value||c.rut;c.prefix=($('eP')?.value||c.prefix).toUpperCase();
+  c.name=$('eN')?.value||c.name;c.razon_social=($('eRS')?.value||'').trim();c.rut=$('eR')?.value||c.rut;c.prefix=($('eP')?.value||c.prefix).toUpperCase();
   c.giro=$('eG')?.value;c.tel=$('eTel')?.value;c.dir=$('eD')?.value;c.contacto=$('eCn')?.value;c.email=$('eE')?.value;c.sedes=collectSedes();
   c.logo=$('empLogoData')?.value||'';
   c.url_base=urlChk.value;
@@ -8869,7 +8870,7 @@ const _TABLA = {
 // Columnas válidas por tabla (espejo del schema). Filtra props que no son
 // columnas para que PostgREST no rechace el insert/upsert.
 const _COLS = {
-       		empresas:['id','name','rut','prefix','counter','counterCompra','counterCompraAnio','giro','contacto','email','tel','dir','sedes','logo','url_base'],
+       		empresas:['id','name','razon_social','rut','prefix','counter','counterCompra','counterCompraAnio','giro','contacto','email','tel','dir','sedes','logo','url_base'],
     equipos:['id','co','local_id','area','compra_id','tipo','marca','modelo','serie','estado','caracteristicas','specs','campos','software','comentarios','garantia','gar_meses','fecha_recepcion','baja_id','baja_fecha','baja_motivo'],
   compras:['id','co','local_id','proveedor','rut_prov','tipo_doc','num_doc','fecha','financiador','quien_pago','forma_pago','monto','estado_pago','metodo_pago','fecha_pago','cobrado_cliente','descripcion','area','equipos_ids','adjunto','adjunto_nombre','tinta_color','tinta_ml'],
   historial:['id','eq_id','co','local_id','tipo','fecha','tecnico','costo','desc','prox'],
@@ -10203,7 +10204,8 @@ function renderEmpresaDetalle(id) {
         '<div class="card-title" style="margin:0">Datos de la empresa</div>'+
         '<button class="btn-ghost btn-xs" onclick="editarEmpresa(\''+id+'\')">&#9998; Editar</button>'+
       '</div>'+
-      row('Nombre','<strong>'+emp.name+'</strong>')+
+      row('Nombre','<strong>'+escHtml(emp.name)+'</strong>')+
+      row('Razón social',escHtml(emp.razon_social||'—'))+
       row('RUT',emp.rut||'—','mono')+
       row('Giro',emp.giro||'—')+
       row('Contacto',emp.contacto||'—')+
@@ -10238,7 +10240,8 @@ function toggleSedeArea(sedeId) {
 function abrirNuevaEmpresa() {
   openMo('Nueva empresa',
     '<div class="fgrid f2">'+
-      '<div class="fg" style="grid-column:1/-1"><label>Nombre</label><input type="text" id="neName" placeholder="Razón social"></div>'+
+      '<div class="fg" style="grid-column:1/-1"><label>Nombre (de fantasía)</label><input type="text" id="neName" placeholder="Como se conoce la empresa"></div>'+
+      '<div class="fg" style="grid-column:1/-1"><label>Razón social</label><input type="text" id="neRazon" placeholder="Nombre legal de la empresa"></div>'+
       '<div class="fg"><label>RUT</label><input type="text" id="neRut" placeholder="76.111.222-3"></div>'+
       '<div class="fg"><label>Prefijo equipos (3 letras)</label><input type="text" id="nePrefix" placeholder="KEN" maxlength="4" style="text-transform:uppercase"></div>'+
       '<div class="fg"><label>Giro</label><input type="text" id="neGiro" placeholder="Educación, Retail, Salud..."></div>'+
@@ -10265,6 +10268,7 @@ function guardarNuevaEmpresa() {
 
   const empresa = {
     id, name,
+    razon_social: $('neRazon')?.value?.trim()||'',
     rut: $('neRut')?.value?.trim()||'',
     prefix, counter: 0,
     giro: $('neGiro')?.value?.trim()||'',
@@ -10288,7 +10292,8 @@ function editarEmpresa(id) {
   if (!emp) return;
   openMo('Editar — '+emp.name,'<div class="fg" style="margin-bottom:10px"><label>Logo de la empresa</label><div style="display:flex;gap:14px;align-items:center;padding:10px;background:var(--s2);border-radius:var(--r)"><div id="eeLogoPrev" style="width:64px;height:64px;border-radius:var(--r);background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;border:1px solid var(--border)">'+(emp.logo?'<img src="'+emp.logo+'" style="max-width:100%;max-height:100%;object-fit:contain">':'<span style="color:var(--t3);font-size:20px">&#127970;</span>')+'</div><div style="flex:1"><input type="file" id="eeLogoFile" accept="image/png,image/jpeg,image/svg+xml,image/webp" onchange="onLogoEmpresaChangeEdit(event)" style="font-size:12px"><div style="font-size:11px;color:var(--t3);margin-top:6px">PNG, JPG, SVG o WebP · máx. 500 KB</div>'+(emp.logo?'<button class="btn btn-ghost btn-sm" style="margin-top:6px;color:var(--red)" onclick="quitarLogoEmpresaEdit()">Quitar logo</button>':'')+'</div></div><input type="hidden" id="eeLogoData" value="'+escHtml(emp.logo||'')+'"></div>'+
     '<div class="fgrid f2">'+
-      '<div class="fg" style="grid-column:1/-1"><label>Nombre</label><input type="text" id="eeName" value="'+emp.name+'"></div>'+
+      '<div class="fg" style="grid-column:1/-1"><label>Nombre (de fantasía)</label><input type="text" id="eeName" value="'+escHtml(emp.name)+'"></div>'+
+      '<div class="fg" style="grid-column:1/-1"><label>Razón social</label><input type="text" id="eeRazon" value="'+escHtml(emp.razon_social||'')+'" placeholder="Nombre legal de la empresa"></div>'+
       '<div class="fg"><label>RUT</label><input type="text" id="eeRut" value="'+(emp.rut||'')+'"></div>'+
       '<div class="fg"><label>Prefijo equipos</label><input type="text" id="eePrefix" value="'+(emp.prefix||'')+'" maxlength="4" style="text-transform:uppercase"></div>'+
       '<div class="fg"><label>Giro</label><input type="text" id="eeGiro" value="'+(emp.giro||'')+'"></div>'+
@@ -10316,6 +10321,7 @@ async function guardarEditEmpresa(id) {
 	  const emp = DB.companies[id];
 											   if (!emp) return;
 	  emp.name     = $('eeName')?.value?.trim()||emp.name;
+	  emp.razon_social = $('eeRazon')?.value?.trim()||'';
 		   emp.rut      = $('eeRut')?.value?.trim()||'';
 	  emp.prefix   = ($('eePrefix')?.value||'').trim().toUpperCase()||emp.prefix;
 	  emp.giro     = $('eeGiro')?.value?.trim()||'';
