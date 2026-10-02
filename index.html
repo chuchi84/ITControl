@@ -637,7 +637,7 @@ const hayEmpresa = () => !!DB.companies[DB.co];
 // Tipos de equipo. Los predefinidos son la "base"; se combinan con los tipos
 // que el usuario ya haya usado en la empresa activa. Al elegir "Otro (escribir)"
 // aparece un input libre. Este helper devuelve la lista consolidada de tipos.
-const TIPOS_EQUIPO_BASE = ['Notebook','Desktop','Monitor','All-in-One','Servidor','Impresora','Red','Tablet','Camara','Proyector','Otro'];
+const TIPOS_EQUIPO_BASE = ['Notebook','Desktop','Monitor','All-in-One','Servidor','Impresora','Red','Access Point','Tablet','Camara','Proyector','Otro'];
 function tiposDisponibles() {
   const usados = new Set(coEq().map(e => e.tipo).filter(Boolean));
   const set = new Set([...TIPOS_EQUIPO_BASE, ...usados]);
@@ -737,7 +737,7 @@ const getLocal = id => {
   }
   return null;
 };
-const TIPO_ICON = {PC:'&#128421;',Notebook:'&#128187;',Impresora:'&#128424;',Camara:'&#128247;',Router:'&#128225;',Switch:'&#127856;',BAM:'&#128242;',Server:'&#128220;',NVR:'&#127902;',Monitor:'&#128447;',UPS:'&#9889;',Tinta:'&#128167;',Otro:'&#128230;'};
+const TIPO_ICON = {PC:'&#128421;',Notebook:'&#128187;',Impresora:'&#128424;',Camara:'&#128247;',Router:'&#128225;','Access Point':'&#128246;',Switch:'&#127856;',BAM:'&#128242;',Server:'&#128220;',NVR:'&#127902;',Monitor:'&#128447;',UPS:'&#9889;',Tinta:'&#128167;',Otro:'&#128230;'};
      // Campos técnicos según el tipo de equipo (para el tab Hardware del editor).
      // Cada entrada: {k: clave en specs, l: etiqueta, p: placeholder de ejemplo}.
      // Los tipos que no aparecen aquí (o "Otro"/personalizados) no muestran
@@ -782,6 +782,11 @@ const TIPO_ICON = {PC:'&#128421;',Notebook:'&#128187;',Impresora:'&#128424;',Cam
                  {k:'ip_admin', l:'IP Admin', p:'192.168.1.1'},
                  {k:'ssid', l:'SSID', p:''},
                  {k:'proveedor_internet', l:'Proveedor Internet', p:''},
+                   ],
+            'Access Point': [
+                 {k:'ip_admin', l:'IP Admin', p:'192.168.1.10'},
+                 {k:'ssid', l:'SSID', p:''},
+                 {k:'ubicacion', l:'Ubicación', p:'Ej: Pasillo 2do piso'},
                    ],
             'Switch': [
                  {k:'puertos', l:'Puertos', p:'24'},
@@ -6597,18 +6602,20 @@ function renderStep2() {
       '<div style="font-size:11px;font-weight:600;color:var(--t3);letter-spacing:.8px;margin-bottom:8px">PLANTILLAS</div>'+
       '<div style="display:flex;flex-direction:column;gap:5px">'+
         [
-          ['Notebook','RAM,Disco,Pantalla,Procesador'],
-          ['PC / Desktop','RAM,Disco,Procesador'],
-          ['Monitor','Pulgadas,Resolución,Conexiones'],
-          ['Impresora','IP,Puerto,Cola'],
-          ['Router','IP Admin,SSID,Proveedor Internet'],
-          ['Cámara','IP,Resolución,Ubicación'],
-          ['Switch','Puertos,Velocidad'],
-          ['BAM','Compañía,N° Línea,Plan'],
-                       ['Tinta',''],
-        ].map(([tipo,specs])=>
+          // [etiqueta mostrada, tipo real (debe existir en TIPOS_FILA_COMPRA_BASE / CAMPOS_POR_TIPO), specs de ejemplo]
+          ['Notebook','Notebook','RAM,Disco,Pantalla,Procesador'],
+          ['PC / Desktop','PC','RAM,Disco,Procesador'],
+          ['Monitor','Monitor','Pulgadas,Resolución,Conexiones'],
+          ['Impresora','Impresora','IP,Puerto,Cola'],
+          ['Router','Router','IP Admin,SSID,Proveedor Internet'],
+          ['Access Point','Access Point','IP Admin,SSID,Ubicación'],
+          ['Cámara','Camara','IP,Resolución,Ubicación'],
+          ['Switch','Switch','Puertos,Velocidad'],
+          ['BAM','BAM','Compañía,N° Línea,Plan'],
+          ['Tinta','Tinta',''],
+        ].map(([label,tipo,specs])=>
           '<button class="btn btn-ghost btn-xs" style="text-align:left;justify-content:flex-start" onclick="agregarFilaEquipo(\''+tipo+'\',\''+specs+'\')">'+
-            '+ '+(TIPO_ICON[tipo]||'📦')+' '+tipo+
+            '+ '+(TIPO_ICON[tipo]||'📦')+' '+label+
           '</button>'
         ).join('')+
       '</div>'+
@@ -6652,12 +6659,36 @@ function agregarFilaEquipo(tipo, specsTemplate) {
   setTimeout(()=>{ (tipo==='Tinta' ? $('ewTintaColor'+i) : $('ewMa'+i))?.focus(); }, 50);
 }
 
+// Lista de tipos para la fila de la compra: la base propia de este asistente
+// (coincide con CAMPOS_POR_TIPO para que las plantillas de specs sigan
+// funcionando) + cualquier tipo que ya se haya usado en la empresa — incluye
+// los que alguien escribió a mano aquí o en el editor de equipos — para que,
+// una vez agregado una vez, quede disponible para elegir después sin tocar
+// código. "Tinta" y "Otro" quedan siempre al final.
+const TIPOS_FILA_COMPRA_BASE = ['PC','Notebook','Monitor','Impresora','Camara','Router','Access Point','Switch','BAM','Server','Tablet','UPS','Teclado','Mouse','Accesorio'];
+function tiposFilaCompra() {
+  const usados = (typeof coEq==='function'?coEq():[]).map(e=>e.tipo).filter(t=>t && t!=='Tinta' && t!=='Otro');
+  const set = new Set([...TIPOS_FILA_COMPRA_BASE, ...usados]);
+  const arr = Array.from(set).sort((a,b)=>a.localeCompare(b));
+  arr.push('Tinta','Otro');
+  return arr;
+}
+// Handler del select de Tipo en una fila de la compra: reconstruye la fila
+// (igual que antes) y, si se eligió "+ Agregar tipo nuevo...", deja el foco
+// listo en el campo de texto libre para escribirlo.
+function onTipoFilaChange(i) {
+  actualizarTipoFila(i);
+  const sel = $('ewT'+i);
+  if (sel && sel.value === '__custom__') setTimeout(()=>$('ewTCustom'+i)?.focus(), 30);
+}
 // Construye las celdas de una fila del paso "Equipos". La tinta no es un
 // equipo (no tiene marca/modelo/serie), así que su fila muestra Color y
 // Cantidad (ml) en una celda combinada en vez de los campos habituales.
 function _filaEquipoCells(i, tipo, specsTemplate, numero) {
   const esTinta = tipo === 'Tinta';
+  const esCustom = tipo === '__custom__';
   const suggestedId = esTinta ? '' : genEqId_new(numero-1);
+  const listaTipos = tiposFilaCompra();
   return (
     '<td style="padding:5px 8px;color:var(--t3);font-size:11px;font-weight:600;width:24px">'+numero+'</td>'+
     '<td style="padding:4px 5px">'+
@@ -6665,11 +6696,14 @@ function _filaEquipoCells(i, tipo, specsTemplate, numero) {
         'style="font-size:11px;padding:5px 7px;width:90px;font-family:var(--mono)" '+
         (esTinta ? 'disabled' : 'oninput="checkDuplicateId('+i+')"')+'>'+
     '</td>'+
-    '<td style="padding:4px 5px;width:100px">'+
-      '<select id="ewT'+i+'" onchange="actualizarTipoFila('+i+')" style="font-size:12px;padding:5px 6px">'+
-        ['PC','Notebook','Monitor','Impresora','Camara','Router','Switch','BAM','Server','Tablet','UPS','Teclado','Mouse','Accesorio','Tinta','Otro']
-          .map(t=>'<option'+(t===tipo?' selected':'')+'>'+t+'</option>').join('')+
+    '<td style="padding:4px 5px;width:110px">'+
+      '<select id="ewT'+i+'" onchange="onTipoFilaChange('+i+')" style="font-size:12px;padding:5px 6px">'+
+        listaTipos.map(t=>'<option'+(t===tipo?' selected':'')+'>'+escHtml(t)+'</option>').join('')+
+        (tipo && !esCustom && !listaTipos.includes(tipo) ? '<option selected>'+escHtml(tipo)+'</option>' : '')+
+        '<option value="__custom__"'+(esCustom?' selected':'')+'>+ Agregar tipo nuevo...</option>'+
       '</select>'+
+      '<input type="text" id="ewTCustom'+i+'" placeholder="Escribe el tipo (ej: Access Point)" '+
+        'style="font-size:11px;padding:5px 7px;margin-top:4px;width:100%;display:'+(esCustom?'block':'none')+'">'+
     '</td>'+
     (esTinta ?
       '<td colspan="4" style="padding:4px 5px">'+
@@ -6811,7 +6845,13 @@ function guardarTodo() {
   while (rowIdx < _wizRowCount) {
     const t = $('ewT'+rowIdx);
     if (!t) { rowIdx++; continue; }
-    if (t.value === 'Tinta') {
+    // Si eligió "+ Agregar tipo nuevo...", el tipo real es lo que escribió
+    // en el campo de texto libre (ewTCustom). Sin texto, cae a "Otro" para
+    // no perder la fila.
+    const tipoFila = t.value === '__custom__'
+      ? (($('ewTCustom'+rowIdx)?.value || '').trim() || 'Otro')
+      : t.value;
+    if (tipoFila === 'Tinta') {
       const ml = parseInt($('ewTintaMl'+rowIdx)?.value) || 0;
       if (ml > 0) tintaData.push({ color: $('ewTintaColor'+rowIdx)?.value || 'negro', ml });
       rowIdx++;
@@ -6821,7 +6861,11 @@ function guardarTodo() {
           sn=$('ewSn'+rowIdx), sp=$('ewSp'+rowIdx),
           eid=$('ewId'+rowIdx);
     if (ma && ma.value.trim()) {
-      // Parsear specs rápidas (coma separadas)
+      // Parsear specs rápidas (coma separadas) — alimenta los campos técnicos
+      // predefinidos del tipo (ej. ram:16GB) cuando el texto viene en ese
+      // formato; además el texto completo se guarda tal cual en
+      // "caracteristicas" más abajo, así nunca se pierde lo escrito aunque
+      // el tipo no tenga campos técnicos predefinidos (ver CAMPOS_POR_TIPO).
       const specs={};
       if(sp?.value) sp.value.split(',').forEach(s=>{
         const [k,...v]=s.trim().split(':');
@@ -6829,7 +6873,7 @@ function guardarTodo() {
       });
       equiposData.push({
         custom_id:(eid?.value||'').trim()||null,
-        tipo:t.value, marca:ma.value.trim(),
+        tipo:tipoFila, marca:ma.value.trim(),
         modelo:mo?.value?.trim()||'Sin modelo',
         serie:sn?.value?.trim()||'Sin serie',
         _specs_raw:sp?.value||'',
@@ -6901,6 +6945,11 @@ function guardarTodo() {
       estado:'Pedido',
       garantia:garantiaFecha,
       gar_meses:garMeses||null,
+      // El texto completo de "Specs rápidas" se guarda tal cual aquí (es lo
+      // que se ve y se puede editar en la ficha del equipo); specs además
+      // guarda lo que haya calzado con el formato clave:valor para los
+      // campos técnicos predefinidos del tipo (ver CAMPOS_POR_TIPO).
+      caracteristicas:eq._specs_raw||'',
       specs:eq.specs, campos:[],
       software:[], comentarios:'',
     });
