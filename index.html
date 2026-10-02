@@ -10905,7 +10905,7 @@ function abrirModalBaja(eqId) {
       '<div class="fg" style="grid-column:1/-1"><label>Destino / Observación</label>'+
         '<input type="text" id="bajaDestino" placeholder="Ej: Donado a institución X, Vendido en $Y, Destruido...">'+
       '</div>'+
-      '<div class="fg" style="grid-column:1/-1"><label>Autorizado por</label>'+
+      '<div class="fg" style="grid-column:1/-1"><label>Autorizado por *</label>'+
         '<input type="text" id="bajaAutoriza" placeholder="Nombre del responsable que autoriza la baja">'+
       '</div>'+
     '</div>'+
@@ -10927,6 +10927,8 @@ function confirmarBaja(eqId) {
   const autoriza= $('bajaAutoriza')?.value|| '';
 
   if (!motivo) { toast('Selecciona un motivo','err'); return; }
+  if (!fecha) { toast('Indica la fecha de baja','err'); return; }
+  if (!autoriza.trim()) { toast('Indica quién autoriza la baja','err'); return; }
 
   // Registrar baja
   const baja = {
