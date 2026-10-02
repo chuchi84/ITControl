@@ -2764,6 +2764,19 @@ function saveEditEq(id) {
   const e = DB.equipos.find(x=>x.id===id);
   if (!e) return;
 const estadoAntes = e.estado;const sedeAntes = e.local_id;const areaAntes = e.area;const asigActual = DB.asignaciones.find(a=>a.eq_id===id && a.estado==='Activa');const personaAntesId = (asigActual && asigActual.persona_id) || '';       // Tipo, marca, modelo, serie: datos básicos que antes no se podían editar.
+  // El Estado "De baja" NO se guarda desde aquí: ese cambio tiene que pasar
+  // siempre por abrirModalBaja/confirmarBaja, que exige motivo, fecha y
+  // quién autoriza. Si el usuario lo elige en este selector genérico, en
+  // vez de guardarlo sin preguntar nada, se redirige al formulario correcto
+  // (y el Estado vuelve a mostrar el valor anterior, sin aplicar el cambio).
+  const estadoSeleccionado = $('eeE')?.value;
+  const yaEstabaDeBaja = estadoAntes==='De baja'||estadoAntes==='Dado de baja';
+  if ((estadoSeleccionado==='De baja'||estadoSeleccionado==='Dado de baja') && !yaEstabaDeBaja) {
+    closeMo();
+    toast('Para dar de baja un equipo usa el formulario dedicado (pide motivo, fecha y autorización).','info');
+    abrirModalBaja(id);
+    return;
+  }
        const nuevoTipo = leerTipoFromSelect('eeT','eeTCustom');
        if (nuevoTipo) e.tipo = nuevoTipo;
        e.marca = $('eeMa')?.value?.trim() || e.marca;
