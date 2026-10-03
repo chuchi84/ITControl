@@ -1,5 +1,17 @@
 // ═══════════════════════════════════════════════════════════════════════
-//  ITControl Pro — Google Apps Script Backend v2.0
+//  ⚠️  DEPRECADO — NO ES EL BACKEND EN USO.
+//  ITControl Pro corre 100% sobre Supabase (ver index.html, SUPABASE_URL /
+//  SUPABASE_ANON_KEY y las políticas RLS en supabase/migrations/). Este
+//  archivo de Google Apps Script se conserva solo como referencia histórica
+//  del diseño original de roles/permisos (ACTION_MIN_ROLE, canAccessCo, etc.),
+//  que fue la base para las políticas RLS actuales.
+//
+//  Si por algún motivo este Web App todavía está desplegado en Google Apps
+//  Script, deberías despublicarlo (Implementar → Administrar
+//  implementaciones → Archivar) para no mantener una segunda superficie de
+//  ataque sin uso real.
+// ═══════════════════════════════════════════════════════════════════════
+//  ITControl Pro — Google Apps Script Backend v2.0 (histórico)
 //  Sheet: 1MXWlVfOETOXvaqxI7evb3_ic0v3w0d4s0udogUhJdkU
 //  Cambios v2.0: agrega Bajas, Mantenimiento, Soporte, Inventario, Accesorios
 // ═══════════════════════════════════════════════════════════════════════
