@@ -8959,8 +8959,44 @@ function _pick(tabla, row){
        }
 function _b64ToBytes(b64){ const bin=atob(b64); const a=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) a[i]=bin.charCodeAt(i); return a; }async function _supaResetTotal(){const myEmail=(currentUser?.email||'').toLowerCase();if(!myEmail) return { ok:false, error:'Sin sesión' };const { error } = await sb.rpc('reset_total');if(error) return { ok:false, error:error.message };return { ok:true };}function resetDatosPruebaV2(){if(!_esTitularOSuper()){ toast('Solo un titular o super admin puede borrar la información','err'); return; }const _msgReset = cloudMode ? 'Esta acción <b style="color:var(--red)">borra TODO</b> de TODAS las empresas: la empresa, equipos con sus fichas, compras y rendiciones, asignaciones, personas, licencias, tareas, mantenciones, control de tinta, tickets de soporte, historial, inventarios, contadores y logs. También borra todos los usuarios, excepto el tuyo (super admin), para que no pierdas el acceso.' : 'Esta acción <b style="color:var(--red)">vacía por completo</b> la base de datos: equipos, compras, asignaciones, personas, licencias, tareas, tickets de soporte, historial, inventarios y logs. Los contadores vuelven a cero.';openMo('⚠️ Borrar toda la información','<div style="font-size:13px;line-height:1.6;color:var(--t2)">'+'<p style="margin:0 0 10px">'+_msgReset+'</p>'+'<p style="margin:0 0 14px"><b style="color:var(--red)">No se puede deshacer.</b> Si quieres conservar una copia, cancela y usa primero <b>&#128190; Respaldar</b>.</p>'+'<label style="display:block;font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px">Para confirmar, escribe <b>BORRAR</b>:</label>'+'<input id="resetConfirmInput" type="text" autocomplete="off" oninput="_resetChkInput()" onkeydown="if(event.key===\'Enter\'&&this.value.trim().toUpperCase()===\'BORRAR\')_ejecutarResetTotal()" placeholder="BORRAR" style="width:100%;padding:10px;font-size:14px;border:1px solid var(--border);border-radius:var(--r);background:var(--s2);color:var(--text);text-transform:uppercase">'+'</div>','<button class="btn btn-secondary" onclick="closeMo()">Cancelar</button>'+'<button id="resetConfirmBtn" class="btn btn-danger" disabled onclick="_ejecutarResetTotal()" style="opacity:.5;pointer-events:none">&#128465; Borrar todo</button>','sm');setTimeout(()=>{ const i=$('resetConfirmInput'); if(i) i.focus(); }, 60);}async function _ejecutarResetTotalV2(){if(!_esTitularOSuper()){ toast('Solo un titular o super admin puede borrar la información','err'); return; }const i=$('resetConfirmInput');if(!i || i.value.trim().toUpperCase()!=='BORRAR'){ toast('Escribe BORRAR para confirmar','err'); return; }if(cloudMode){const btn=$('resetConfirmBtn'); if(btn){ btn.disabled=true; btn.textContent='Borrando...'; }try{const res = await apiFetch('reset_total', {});if(!res.ok){ toast('Error: '+(res.error||'No se pudo borrar'),'err'); return; }closeMo();toast('Datos borrados - app en blanco OK');setTimeout(()=> location.reload(), 800);}catch(err){ toast('Error: '+err.message,'err'); }return;}DB.equipos=[]; DB.compras=[]; DB.historial=[]; DB.asignaciones=[];DB.licencias=[]; DB.tareas=[]; DB.usuarios=[]; DB.bajas=[];DB.programas_mant=[]; DB.solicitudes_soporte=[]; DB.sesiones_inventario=[];DB.accesorios=[]; DB.personas=[]; DB.log=[];Object.values(DB.companies).forEach(e=>{ e.counter=0; });closeMo();toast('Datos borrados - app en blanco OK');go('dashboard');}
 
+// ── CONTROL DE ROLES Y EMPRESA EN EL CLIENTE (defensa en profundidad) ───
+// IMPORTANTE: esto NO es la barrera de seguridad real. La única barrera real
+// contra un usuario malicioso son las políticas RLS en Supabase (ver
+// supabase/migrations/). Un atacante que abra la consola del navegador puede
+// editar o saltarse este archivo JS por completo, así que estos chequeos
+// solo evitan errores accidentales de la UI y hacen el abuso casual más
+// difícil — nunca asumas que esto alcanza para proteger los datos.
+// Mismo mapeo de roles que tenía el backend de Apps Script (Code.gs).
+const _ROLE_LEVEL = {
+  titular:100, super_admin:100,
+  admin:60, admin_empresa:60,
+  tecnico:40,
+  lector:20, lectura:20, lectura_empresa:20,
+};
+function _roleLevel(r){ return _ROLE_LEVEL[(r||'').toLowerCase().trim()] || 0; }
+const _DEFAULT_MIN_ROLE = 'tecnico';
+const _ACTION_MIN_ROLE = {
+  load:'lector', acceso:'lector', ia_scan:'lector', email_notify:'lector',
+  adjunto_download:'tecnico', log_add:'tecnico',
+  empresa_save:'admin_empresa', empresa_del:'titular',
+  equipo_del:'admin_empresa', compra_del:'admin_empresa', asignacion_del:'admin_empresa',
+  tarea_del:'admin_empresa', licencia_del:'admin_empresa', historial_del:'admin_empresa',
+  programa_mant_del:'admin_empresa', accesorio_del:'admin_empresa', persona_del:'admin_empresa',
+  usuario_add:'admin_empresa', usuario_edit:'admin_empresa', usuario_del:'admin_empresa',
+  reset_total:'titular',
+};
+function _minRoleOk(action){
+  const min = _ACTION_MIN_ROLE[action] || _DEFAULT_MIN_ROLE;
+  return _roleLevel(currentUser?.rol) >= _roleLevel(min);
+}
+// Roles que un admin_empresa (no-superadmin) NUNCA puede asignar/crear.
+const _ROLES_SOLO_SUPER = ['super_admin', 'titular'];
+
 async function apiFetchWithToken(_token, action, body={}) {
   if(!sb) return { ok:false, error:'Supabase no configurado (falta pegar las llaves)' };
+  if(action!=='ping' && action!=='solicitud_publica' && !_minRoleOk(action)){
+    return { ok:false, error:'Permiso insuficiente para "'+action+'" (tu rol: '+(currentUser?.rol||'ninguno')+')' };
+  }
   try {
     if(action==='load')           return await _supaLoad();
     if(action==='acceso')         return await _supaAcceso();
@@ -8976,13 +9012,52 @@ async function apiFetchWithToken(_token, action, body={}) {
     const cfg = _TABLA[m[1]];
     if(!cfg) return { ok:false, error:'Tabla desconocida: '+m[1] };
 
+    const scopeAll = !!currentUser?.scopeAll;
+    const myCo = currentUser?.co;
+
     if(m[2]==='del'){
+      // Defensa en profundidad: no dejar borrar un registro de otra empresa,
+      // ni que un usuario se borre a sí mismo de 'usuarios'.
+      if(cfg.t==='usuarios' && String(body.id)===String(currentUser?.usuario_id||'')){
+        return { ok:false, error:'No puedes eliminar tu propio usuario' };
+      }
+      if(!scopeAll){
+        const { data: existente } = await sb.from(cfg.t).select('co').eq('id', body.id).maybeSingle();
+        if(existente && String(existente.co||'')!==String(myCo||'')){
+          return { ok:false, error:'Sin acceso a este registro' };
+        }
+      }
       const { error } = await sb.from(cfg.t).delete().eq('id', body.id);
       return error ? { ok:false, error:error.message } : { ok:true };
     }
     // add / edit / save → upsert por clave primaria (id)
     const row = _pick(cfg.t, body[cfg.k]);
     if(!row || Object.keys(row).length===0) return { ok:false, error:'Sin datos' };
+
+    // Forzar la empresa del usuario (igual que addRow/editRow en Code.gs):
+    // un admin de empresa no puede escribir en otra empresa ni mover un
+    // registro fuera de la suya, aunque el body venga manipulado.
+    if('co' in row && !scopeAll){
+      row.co = myCo;
+    }
+    // Anti-escalada de privilegios en la tabla usuarios.
+    if(cfg.t==='usuarios'){
+      const rolPedido = (row.rol||'').toLowerCase().trim();
+      if(!scopeAll && _ROLES_SOLO_SUPER.includes(rolPedido)){
+        return { ok:false, error:'No puedes asignar el rol super admin' };
+      }
+      if(!scopeAll && String(row.co||'').toLowerCase().trim()==='todas'){
+        return { ok:false, error:'No puedes asignar la empresa "todas"' };
+      }
+    }
+    // Verificar que, en una edición, el registro ya pertenezca a una empresa accesible.
+    if(m[2]==='edit' && !scopeAll && row.id){
+      const { data: existente } = await sb.from(cfg.t).select('co').eq('id', row.id).maybeSingle();
+      if(existente && String(existente.co||'')!==String(myCo||'')){
+        return { ok:false, error:'Sin acceso a este registro' };
+      }
+    }
+
     if(cfg.t==='equipos' && m[2]==='add'){
       // Alta de equipo: INSERT puro. Si el código ya existe NO se sobrescribe el otro equipo.
       const ins = await sb.from('equipos').insert(row).select('id').maybeSingle();
