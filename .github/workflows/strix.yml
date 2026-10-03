@@ -1,0 +1,40 @@
+name: Strix - prueba de seguridad
+
+# Se ejecuta en cada Pull Request y a mano desde la pestaña Actions
+# (Actions > Strix - prueba de seguridad > Run workflow).
+# No corre en cada push a main para no gastar créditos del modelo.
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  strix:
+    # Los PR de forks no tienen acceso a los secrets: se omiten.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Instalar Strix
+        run: curl -sSL https://strix.ai/install | bash
+
+      - name: Ejecutar Strix (modo rápido, sin interfaz)
+        env:
+          STRIX_LLM: ${{ secrets.STRIX_LLM }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: strix -n -t ./ --scan-mode quick
+
+      - name: Guardar el informe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strix-informe
+          path: strix_runs/
+          if-no-files-found: ignore
